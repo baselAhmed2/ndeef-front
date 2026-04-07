@@ -2,7 +2,18 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 
-const GOOGLE_CLIENT_ID = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
+const RAW_GOOGLE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
+const GOOGLE_CLIENT_PLACEHOLDERS = new Set([
+  "",
+  "your-google-client-id.apps.googleusercontent.com",
+]);
+
+function getGoogleClientId() {
+  return GOOGLE_CLIENT_PLACEHOLDERS.has(RAW_GOOGLE_CLIENT_ID)
+    ? ""
+    : RAW_GOOGLE_CLIENT_ID;
+}
 
 declare global {
   interface Window {
@@ -76,6 +87,7 @@ export function GoogleSignInButton({
   disabled = false,
   text = "continue_with",
 }: GoogleSignInButtonProps) {
+  const googleClientId = getGoogleClientId();
   const elementId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [error, setError] = useState("");
@@ -86,12 +98,14 @@ export function GoogleSignInButton({
     const setupGoogleButton = async () => {
       if (disabled || !containerRef.current) return;
 
-      if (!GOOGLE_CLIENT_ID) {
+      if (!googleClientId) {
         if (!active) return;
         const origin =
           typeof window !== "undefined" ? window.location.origin : "this app";
+        const localhostOrigin = "http://localhost:3000";
+        const loopbackOrigin = "http://127.0.0.1:3000";
         setError(
-          `Google sign-in is not configured yet. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID and register ${origin} in Google Cloud Console.`,
+          `Google sign-in is not configured yet. Add NEXT_PUBLIC_GOOGLE_CLIENT_ID to .env.local, then register ${localhostOrigin}, ${loopbackOrigin}, and ${origin} in Google Cloud Console.`,
         );
         containerRef.current.innerHTML = "";
         return;
@@ -107,7 +121,7 @@ export function GoogleSignInButton({
         containerRef.current.innerHTML = "";
 
         window.google.accounts.id.initialize({
-          client_id: GOOGLE_CLIENT_ID,
+          client_id: googleClientId,
           callback: async (response) => {
             const credential = response.credential;
             if (!credential) {
@@ -147,7 +161,7 @@ export function GoogleSignInButton({
     return () => {
       active = false;
     };
-  }, [disabled, onCredential, text]);
+  }, [disabled, googleClientId, onCredential, text]);
 
   return (
     <div className="space-y-2">

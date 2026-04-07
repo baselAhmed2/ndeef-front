@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "motion/react";
 import clsx from "clsx";
+import { useEffect, useState } from "react";
 import {
   LayoutDashboard,
   Store,
@@ -18,19 +19,44 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
+import { apiRequest } from "../../lib/admin-api";
+import { BASE_URL, getAuthHeaders } from "../../services/api";
+import type { LaundryRecord } from "../../types/admin";
 
-const mainNav = [
+type NavItemConfig = {
+  icon: typeof LayoutDashboard;
+  label: string;
+  path: string;
+  badgeKey?: "verifications" | "fraud" | "notifications";
+};
+
+type SidebarBadgeCounts = {
+  verifications: number;
+  fraud: number;
+  notifications: number;
+};
+
+type NotificationDto = {
+  id: number;
+  isRead: boolean;
+};
+
+type FraudAlertDto = {
+  id: number;
+};
+
+const mainNav: NavItemConfig[] = [
   { icon: LayoutDashboard, label: "Dashboard", path: "/admin" },
   { icon: Store, label: "Laundries", path: "/admin/laundries" },
-  { icon: ShieldAlert, label: "Verifications", path: "/admin/verifications", badge: 4 },
+  { icon: ShieldAlert, label: "Verifications", path: "/admin/verifications", badgeKey: "verifications" },
   { icon: Users, label: "Users", path: "/admin/users" },
-  { icon: ShieldAlert, label: "Fraud Monitor", path: "/admin/fraud", badge: 3 },
+  { icon: ShieldAlert, label: "Fraud Monitor", path: "/admin/fraud", badgeKey: "fraud" },
   { icon: Wallet, label: "Commissions", path: "/admin/commissions" },
   { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
-  { icon: Bell, label: "Notifications", path: "/admin/notifications", badge: 5 },
+  { icon: Bell, label: "Notifications", path: "/admin/notifications", badgeKey: "notifications" },
 ];
 
-const bottomNav = [
+const bottomNav: NavItemConfig[] = [
   { icon: Settings, label: "Settings", path: "/admin/settings" },
   { icon: HelpCircle, label: "Help Center", path: "/admin/help" },
 ];
@@ -38,14 +64,63 @@ const bottomNav = [
 export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boolean) => void }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
+  const [badges, setBadges] = useState<SidebarBadgeCounts>({
+    verifications: 0,
+    fraud: 0,
+    notifications: 0,
+  });
 
   const isActive = (path: string) => {
     if (path === "/admin") return pathname === "/admin";
     return pathname.startsWith(path);
   };
 
-  const NavItem = ({ item }: { item: (typeof mainNav)[0] }) => {
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadSidebarCounts() {
+      try {
+        const [laundriesResponse, notificationsResponse, fraudResponse] = await Promise.all([
+          apiRequest<LaundryRecord[]>("/admin/laundries"),
+          apiRequest<{ data?: NotificationDto[] } | NotificationDto[]>("/notifications?pageSize=50"),
+          fetch(`${BASE_URL}/fraud/alerts`, {
+            headers: getAuthHeaders(),
+            cache: "no-store",
+          }),
+        ]);
+
+        const notifications = Array.isArray(notificationsResponse)
+          ? notificationsResponse
+          : notificationsResponse.data || [];
+
+        let fraudAlerts: FraudAlertDto[] = [];
+        if (fraudResponse.ok) {
+          fraudAlerts = (await fraudResponse.json()) as FraudAlertDto[];
+        }
+
+        if (!isMounted) return;
+
+        setBadges({
+          verifications: laundriesResponse.filter((laundry) => laundry.status === "Inactive").length,
+          notifications: notifications.filter((notification) => !notification.isRead).length,
+          fraud: fraudAlerts.length,
+        });
+      } catch (error) {
+        console.error("Failed to load sidebar badges", error);
+      }
+    }
+
+    loadSidebarCounts();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const NavItem = ({ item }: { item: NavItemConfig }) => {
     const active = isActive(item.path);
+    const badgeValue = item.badgeKey ? badges[item.badgeKey] : 0;
+
     return (
       <Link
         href={item.path}
@@ -73,14 +148,14 @@ export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boole
           )}
         />
         <span className="relative z-10 flex-1">{item.label}</span>
-        {item.badge && (
+        {badgeValue > 0 && (
           <span
             className={clsx(
               "relative z-10 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] font-bold px-1.5",
               active ? "bg-white/20 text-white" : "bg-red-100 text-red-600"
             )}
           >
-            {item.badge}
+            {badgeValue}
           </span>
         )}
       </Link>

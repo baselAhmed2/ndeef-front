@@ -14,10 +14,17 @@ export class ApiError extends Error {
 }
 
 function resolveApiBaseUrl() {
-  const storedValue =
-    typeof window !== "undefined" ? window.localStorage.getItem(API_BASE_STORAGE_KEY) : null;
+  // In the browser we always prefer the local Next.js proxy so requests
+  // share the app's origin/session and avoid cross-origin fetch failures.
+  if (typeof window !== "undefined") {
+    const storedValue = window.localStorage.getItem(API_BASE_STORAGE_KEY)?.trim();
+    const clientBase =
+      storedValue && storedValue.startsWith("/") ? storedValue : FALLBACK_API_BASE_URL;
+    return clientBase.replace(/\/+$/, "");
+  }
+
   const envValue = process.env.NEXT_PUBLIC_API_BASE_URL;
-  return (storedValue?.trim() || envValue?.trim() || FALLBACK_API_BASE_URL).replace(/\/+$/, "");
+  return (envValue?.trim() || FALLBACK_API_BASE_URL).replace(/\/+$/, "");
 }
 
 function getToken() {
@@ -37,10 +44,20 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
     headers.set("Authorization", `Bearer ${token}`);
   }
 
-  const response = await fetch(`${resolveApiBaseUrl()}${path}`, {
-    ...init,
-    headers,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${resolveApiBaseUrl()}${path}`, {
+      ...init,
+      cache: init.cache ?? "no-store",
+      headers,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? `Network error while calling ${path}: ${error.message}`
+        : `Network error while calling ${path}.`;
+    throw new ApiError(message, 0);
+  }
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;

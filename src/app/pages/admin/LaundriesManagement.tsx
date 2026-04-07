@@ -1,18 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import {
   CheckCircle,
   Clock3,
   Download,
+  LocateFixed,
   LoaderCircle,
   MapPin,
+  Plus,
   Search,
   Store,
   XCircle,
 } from "lucide-react";
 import clsx from "clsx";
 import { apiRequest, ApiError } from "../../lib/admin-api";
-import type { LaundryRecord } from "../../types/admin";
+import type {
+  CreateLaundryRequest,
+  CreateLaundryResponse,
+  LaundryRecord,
+} from "../../types/admin";
 
 const statusConfig = {
   Active: {
@@ -49,9 +55,17 @@ export function LaundriesManagement() {
   const [laundries, setLaundries] = useState<LaundryRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingId, setIsUpdatingId] = useState<number | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [filter, setFilter] = useState<"All" | "Active" | "Inactive">("All");
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [createForm, setCreateForm] = useState({
+    name: "",
+    address: "",
+    latitude: "",
+    longitude: "",
+  });
 
   useEffect(() => {
     let isMounted = true;
@@ -144,6 +158,64 @@ export function LaundriesManagement() {
     }
   }
 
+  async function handleCreateLaundry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const payload: CreateLaundryRequest = {
+      name: createForm.name.trim(),
+      address: createForm.address.trim(),
+      latitude: Number(createForm.latitude),
+      longitude: Number(createForm.longitude),
+    };
+
+    if (!payload.name || !payload.address) {
+      setSuccessMessage(null);
+      setError("Laundry name and address are required.");
+      return;
+    }
+
+    if (Number.isNaN(payload.latitude) || Number.isNaN(payload.longitude)) {
+      setSuccessMessage(null);
+      setError("Latitude and longitude must be valid numbers.");
+      return;
+    }
+
+    setIsCreating(true);
+    setError(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await apiRequest<CreateLaundryResponse>("/admin/laundries", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+
+      const createdLaundry: LaundryRecord = {
+        id: response.laundryId,
+        name: payload.name,
+        address: payload.address,
+        status: "Active",
+        availability: "Open",
+        averageRating: 0,
+        createdAt: new Date().toISOString(),
+        imageUrl: null,
+      };
+
+      setLaundries((current) => [createdLaundry, ...current]);
+      setCreateForm({
+        name: "",
+        address: "",
+        latitude: "",
+        longitude: "",
+      });
+      setSuccessMessage(`${response.message} ID: #${response.laundryId}`);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Unable to create laundry.");
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
   function exportLaundries() {
     const header = ["Id", "Name", "Address", "Status", "Availability", "AverageRating", "CreatedAt"];
     const rows = filtered.map((laundry) => [
@@ -171,13 +243,108 @@ export function LaundriesManagement() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Laundries Management</h1>
-          <p className="text-sm text-slate-500 mt-1">Connected to `GET /api/admin/laundries` and `PUT /api/admin/laundries/:id/status`.</p>
+          <p className="text-sm text-slate-500 mt-1">Connected to `GET /api/admin/laundries`, `POST /api/admin/laundries`, and `PUT /api/admin/laundries/:id/status`.</p>
         </div>
       </div>
 
       {error ? (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
       ) : null}
+
+      {successMessage ? (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {successMessage}
+        </div>
+      ) : null}
+
+      <form onSubmit={handleCreateLaundry} className="rounded-2xl border border-slate-100 bg-white p-5">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Add Laundry Directly</h2>
+            <p className="text-sm text-slate-500">
+              This creates a laundry instantly for the logged-in super admin with Active status and Open availability.
+            </p>
+          </div>
+          <div className="inline-flex items-center gap-2 rounded-full bg-[#1D6076]/10 px-3 py-1 text-xs font-semibold text-[#1D6076]">
+            <Plus size={14} />
+            Super Admin Direct Create
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Laundry name</span>
+            <input
+              value={createForm.name}
+              onChange={(event) =>
+                setCreateForm((current) => ({ ...current, name: event.target.value }))
+              }
+              placeholder="Fresh Hub Laundry"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#1D6076]/40 focus:bg-white focus:ring-2 focus:ring-[#1D6076]/10"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Address</span>
+            <input
+              value={createForm.address}
+              onChange={(event) =>
+                setCreateForm((current) => ({ ...current, address: event.target.value }))
+              }
+              placeholder="12 Abbas El Akkad, Nasr City"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-700 outline-none transition focus:border-[#1D6076]/40 focus:bg-white focus:ring-2 focus:ring-[#1D6076]/10"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Latitude</span>
+            <div className="relative">
+              <LocateFixed size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="number"
+                step="any"
+                value={createForm.latitude}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, latitude: event.target.value }))
+                }
+                placeholder="30.0444"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#1D6076]/40 focus:bg-white focus:ring-2 focus:ring-[#1D6076]/10"
+              />
+            </div>
+          </label>
+
+          <label className="block">
+            <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">Longitude</span>
+            <div className="relative">
+              <LocateFixed size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+              <input
+                type="number"
+                step="any"
+                value={createForm.longitude}
+                onChange={(event) =>
+                  setCreateForm((current) => ({ ...current, longitude: event.target.value }))
+                }
+                placeholder="31.2357"
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-700 outline-none transition focus:border-[#1D6076]/40 focus:bg-white focus:ring-2 focus:ring-[#1D6076]/10"
+              />
+            </div>
+          </label>
+        </div>
+
+        <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-slate-400">
+            Required backend payload: <span className="font-mono">name, address, latitude, longitude</span>
+          </p>
+          <button
+            type="submit"
+            disabled={isCreating}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#1D6076] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#174e60] disabled:cursor-not-allowed disabled:opacity-70"
+          >
+            {isCreating ? <LoaderCircle size={16} className="animate-spin" /> : <Plus size={16} />}
+            {isCreating ? "Creating Laundry..." : "Create Laundry"}
+          </button>
+        </div>
+      </form>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {summaryStats.map((stat) => (

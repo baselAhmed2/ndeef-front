@@ -1,84 +1,139 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Wallet, ArrowUpRight, ArrowDownRight, Search, Activity } from "lucide-react";
-import { BASE_URL, getAuthHeaders } from "@/app/services/api";
+import {
+  Activity,
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  LoaderCircle,
+  RefreshCw,
+  Search,
+  Wallet,
+} from "lucide-react";
+import clsx from "clsx";
+import { apiRequest, ApiError } from "@/app/lib/admin-api";
+import type {
+  LaundryDebtRecord,
+  SystemCommissionsRecord,
+} from "@/app/types/admin";
 
-interface CommissionTransactionDto {
-  id: number;
-  laundryName: string;
-  orderId: number | null;
-  orderAmount: number;
-  commissionPercentage: number;
-  commissionAmount: number;
-  createdAt: string;
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-EG", {
+    style: "currency",
+    currency: "EGP",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
-interface LaundryDebtDto {
-  laundryId: number;
-  laundryName: string;
-  totalEarnings: number;
-  pendingCommission: number;
-  debtCeiling: number;
-  status: string;
-}
-
-interface SystemCommissionsDto {
-  totalPlatformCommissions: number;
-  totalPendingDebts: number;
-  recentTransactions: CommissionTransactionDto[];
-  laundryDebts: LaundryDebtDto[];
+function formatDateTime(value: string) {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(new Date(value));
 }
 
 export default function CommissionsPage() {
-  const [data, setData] = useState<SystemCommissionsDto | null>(null);
+  const [data, setData] = useState<SystemCommissionsRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"debts" | "transactions">("debts");
   const [searchQuery, setSearchQuery] = useState("");
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   useEffect(() => {
-    fetchCommissions();
+    void fetchCommissions();
   }, []);
 
   const fetchCommissions = async () => {
     try {
-      const res = await fetch(`${BASE_URL}/admin/commissions`, {
-        headers: getAuthHeaders()
-      });
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
-      }
-    } catch (err) {
-      console.error(err);
+      setError(null);
+      setIsRefreshing(true);
+      const response = await apiRequest<SystemCommissionsRecord>("/admin/commissions");
+      setData(response);
+    } catch (error) {
+      setError(error instanceof ApiError ? error.message : "Failed to load commissions overview.");
     } finally {
       setLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  if (loading || !data) {
+  if (loading) {
     return (
       <div className="flex h-[60vh] justify-center items-center">
-        <Activity size={32} className="animate-pulse text-[#2A5C66]" />
+        <LoaderCircle size={32} className="animate-spin text-[#2A5C66]" />
       </div>
     );
   }
 
-  const filteredDebts = data.laundryDebts.filter(d => 
-    d.laundryName.toLowerCase().includes(searchQuery.toLowerCase())
+  if (!data) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 font-medium text-red-600">
+          <AlertTriangle />
+          {error || "No commissions data returned from the backend."}
+        </div>
+        <button
+          onClick={() => void fetchCommissions()}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50"
+        >
+          <RefreshCw size={16} />
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  const filteredDebts = data.laundryDebts.filter((debt) =>
+    debt.laundryName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  const highestDebt = data.laundryDebts.reduce<LaundryDebtRecord | null>(
+    (current, debt) => (!current || debt.pendingCommission > current.pendingCommission ? debt : current),
+    null,
+  );
+
+  const averageCommissionRate =
+    data.recentTransactions.length > 0
+      ? data.recentTransactions.reduce(
+          (sum, transaction) => sum + Number(transaction.commissionPercentage || 0),
+          0,
+        ) / data.recentTransactions.length
+      : 0;
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-end">
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
             <Wallet size={32} className="text-[#2A5C66]" />
             Commissions & Debts
           </h1>
-          <p className="text-slate-500 mt-2">Manage platform profits and monitor laundry debts.</p>
+          <p className="text-slate-500 mt-2">
+            Connected to <code className="rounded bg-slate-100 px-1">GET /api/admin/commissions</code>.
+          </p>
         </div>
+        <button
+          onClick={() => void fetchCommissions()}
+          disabled={isRefreshing}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-600 transition-colors hover:bg-slate-50 disabled:opacity-70"
+        >
+          {isRefreshing ? <LoaderCircle size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+          Refresh
+        </button>
       </div>
+
+      {error ? (
+        <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 font-medium text-red-600">
+          <AlertTriangle />
+          {error}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gradient-to-br from-[#2A5C66] to-[#1d4047] rounded-3xl p-8 text-white relative overflow-hidden shadow-lg">
@@ -86,7 +141,7 @@ export default function CommissionsPage() {
             <Wallet size={160} />
           </div>
           <p className="text-white/80 font-medium mb-1">Total Platform Commissions</p>
-          <h2 className="text-4xl font-black">EGP {data.totalPlatformCommissions.toLocaleString()}</h2>
+          <h2 className="text-4xl font-black">{formatCurrency(data.totalPlatformCommissions)}</h2>
           <div className="mt-6 flex items-center gap-2 bg-white/20 w-fit px-3 py-1 rounded-full text-sm">
             <ArrowUpRight size={16} /> Lifetime Earnings
           </div>
@@ -97,10 +152,30 @@ export default function CommissionsPage() {
             <ArrowDownRight size={160} className="text-orange-500" />
           </div>
           <p className="text-slate-500 font-medium mb-1">Total Pending Debts</p>
-          <h2 className="text-4xl font-black text-orange-500">EGP {data.totalPendingDebts.toLocaleString()}</h2>
+          <h2 className="text-4xl font-black text-orange-500">{formatCurrency(data.totalPendingDebts)}</h2>
           <div className="mt-6 flex items-center gap-2 bg-orange-50 text-orange-600 w-fit px-3 py-1 rounded-full text-sm">
             <Activity size={16} /> Uncollected Cash
           </div>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Tracked Laundries</p>
+          <p className="mt-2 text-3xl font-bold text-slate-900">{data.laundryDebts.length}</p>
+        </div>
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Avg Commission Rate</p>
+          <p className="mt-2 text-3xl font-bold text-[#2A5C66]">{averageCommissionRate.toFixed(1)}%</p>
+        </div>
+        <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-400">Highest Debt</p>
+          <p className="mt-2 text-lg font-bold text-red-600">
+            {highestDebt ? highestDebt.laundryName : "No debts"}
+          </p>
+          <p className="mt-1 text-sm text-slate-500">
+            {highestDebt ? formatCurrency(highestDebt.pendingCommission) : "Nothing pending"}
+          </p>
         </div>
       </div>
 
@@ -150,22 +225,28 @@ export default function CommissionsPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {filteredDebts.length > 0 ? filteredDebts.map((debt, idx) => {
-                    const debtPercentage = (debt.pendingCommission / debt.debtCeiling) * 100;
+                    const debtPercentage =
+                      debt.debtCeiling > 0 ? (debt.pendingCommission / debt.debtCeiling) * 100 : 0;
                     const isDanger = debtPercentage > 80;
                     return (
                       <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                         <td className="py-4 px-6 font-medium text-slate-800">{debt.laundryName}</td>
-                        <td className="py-4 px-6 text-slate-600">EGP {debt.totalEarnings.toFixed(2)}</td>
+                        <td className="py-4 px-6 text-slate-600">{formatCurrency(debt.totalEarnings)}</td>
                         <td className="py-4 px-6">
                           <span className={`font-bold ${isDanger ? 'text-red-600' : 'text-slate-800'}`}>
-                            EGP {debt.pendingCommission.toFixed(2)}
+                            {formatCurrency(debt.pendingCommission)}
                           </span>
                         </td>
-                        <td className="py-4 px-6 text-slate-500">EGP {debt.debtCeiling.toFixed(2)}</td>
+                        <td className="py-4 px-6 text-slate-500">{formatCurrency(debt.debtCeiling)}</td>
                         <td className="py-4 px-6">
-                          <span className={`px-2 py-1 rounded-md text-xs font-bold ${
-                            debt.status === 'Active' ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'
-                          }`}>
+                          <span className={clsx(
+                            "px-2 py-1 rounded-md text-xs font-bold",
+                            debt.status === 'Active'
+                              ? 'bg-green-50 text-green-600'
+                              : debt.status === 'Suspended'
+                                ? 'bg-red-50 text-red-600'
+                                : 'bg-amber-50 text-amber-600',
+                          )}>
                             {debt.status}
                           </span>
                         </td>
@@ -194,9 +275,19 @@ export default function CommissionsPage() {
                     <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
                       <td className="py-4 px-6 font-mono text-slate-600 text-sm">#TX-{tx.id}</td>
                       <td className="py-4 px-6 font-medium text-slate-800">{tx.laundryName}</td>
-                      <td className="py-4 px-6 text-slate-500">EGP {tx.orderAmount.toFixed(2)}</td>
-                      <td className="py-4 px-6 font-bold text-green-600">+ EGP {tx.commissionAmount.toFixed(2)}</td>
-                      <td className="py-4 px-6 text-slate-400 text-sm">{new Date(tx.createdAt).toLocaleString()}</td>
+                      <td className="py-4 px-6 text-slate-500">
+                        <div>{formatCurrency(tx.orderAmount)}</div>
+                        <div className="mt-1 text-[11px] text-slate-400">
+                          Order #{tx.orderId || "-"}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="font-bold text-green-600">+ {formatCurrency(tx.commissionAmount)}</div>
+                        <div className="mt-1 text-[11px] text-slate-400">
+                          {Number(tx.commissionPercentage).toFixed(1)}% rate
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-slate-400 text-sm">{formatDateTime(tx.createdAt)}</td>
                     </tr>
                   )) : (
                     <tr><td colSpan={5} className="py-8 text-center text-slate-500">No transactions recorded.</td></tr>

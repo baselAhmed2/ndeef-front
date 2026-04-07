@@ -69,31 +69,222 @@ function formatHallucinatedOrders(text: string) {
   return text;
 }
 
+function normalizeArabicSpacing(text: string) {
+  const phraseReplacements: Array<[string, string]> = [
+    ["تمإلغاءالطلبرقم", "تم إلغاء الطلب رقم "],
+    ["تمالغاءالطلبرقم", "تم الغاء الطلب رقم "],
+    ["بنجاح.لو", "بنجاح. لو "],
+    ["بنجاح،لو", "بنجاح، لو "],
+    ["لوفيه", "لو فيه "],
+    ["أياستفسارات", "أي استفسارات "],
+    ["اياستفسارات", "اي استفسارات "],
+    ["تانيةاو", "تانية او "],
+    ["تانيةأو", "تانية أو "],
+    ["احتاجمساعدة", "احتاج مساعدة "],
+    ["احتاجمساعدة", "احتاج مساعدة "],
+    ["فيحاجة", "في حاجة "],
+    ["متترددش", "متترددش "],
+    ["شفينا", "فينا"],
+    ["الطلبرقم", "الطلب رقم "],
+    ["Ø±Ù‚Ù…Ø§Ù„Ø·Ù„Ø¨", "Ø±Ù‚Ù… Ø§Ù„Ø·Ù„Ø¨ "],
+    ["Ø§Ù„Ù…ØºØ³Ù„Ø©Ø§Ù„Ø³Ø¹Ø±", "Ø§Ù„Ù…ØºØ³Ù„Ø© Ø§Ù„Ø³Ø¹Ø± "],
+    ["Ø§Ù„Ø³Ø¹Ø±(Ø¬Ù…)Ø§Ù„Ø­Ø§Ù„Ø©", "Ø§Ù„Ø³Ø¹Ø± (Ø¬Ù…) Ø§Ù„Ø­Ø§Ù„Ø© "],
+    ["Ù…ØºØ³Ù„Ø©Ø§Ù„Ù†Ø¸Ø§ÙØ©", "Ù…ØºØ³Ù„Ø© Ø§Ù„Ù†Ø¸Ø§ÙØ© "],
+  ];
+
+  let normalized = text;
+
+  for (const [from, to] of phraseReplacements) {
+    normalized = normalized.replaceAll(from, to);
+  }
+
+  normalized = normalized
+    .replaceAll("\u0627\u062e\u0631\u0637\u0644\u0628\u0631\u0642\u0645", "\u0627\u062e\u0631 \u0637\u0644\u0628 \u0631\u0642\u0645 ")
+    .replaceAll("\u0648\u0645\u0648\u062c\u0648\u062f\u0641\u064a\u062d\u0627\u0644\u0629", "\u0648\u0645\u0648\u062c\u0648\u062f \u0641\u064a \u062d\u0627\u0644\u0629 ")
+    .replaceAll("\u0641\u064a\u0645\u063a\u0633\u0644\u0629", "\u0641\u064a \u0645\u063a\u0633\u0644\u0629 ")
+    .replaceAll("\u0628\u0633\u0639\u0631", "\u0628\u0633\u0639\u0631 ")
+    .replace(/([.!؟،,:])(?=\S)/g, "$1 ")
+    .replace(/(\d)(?=[\u0600-\u06FF])/g, "$1 ")
+    .replace(/([()])(?=\S)/g, "$1 ")
+    .replace(/(?<=\S)([()])/g, " $1")
+    .replace(/([\u0600-\u06FF])(?=\d)/g, "$1 ")
+    .replace(/([A-Za-z])(?=[\u0600-\u06FF])/g, "$1 ")
+    .replace(/([\u0600-\u06FF])(?=[A-Za-z])/g, "$1 ")
+    .replace(/(\d)(?=[A-Za-z])/g, "$1 ")
+    .replace(/([A-Za-z])(?=\d)/g, "$1 ")
+    .replace(/-{4,}/g, " ------------ ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return normalized;
+}
+
+const ARABIC_SUPPORT_WORDS = new Set([
+  "اخر",
+  "آخر",
+  "اول",
+  "أول",
+  "الأخير",
+  "هو",
+  "مش",
+  "معملش",
+  "معمول",
+  "لو",
+  "او",
+  "أو",
+  "اوأسعار",
+  "أوأسعار",
+  "أوأقرب",
+  "في",
+  "من",
+  "عن",
+  "على",
+  "الى",
+  "إلى",
+  "عندك",
+  "ممكن",
+  "ممكنتسألني",
+  "تسألني",
+  "طلب",
+  "طلبات",
+  "نشطة",
+  "حالياً",
+  "حاليا",
+  "رقم",
+  "الطلب",
+  "الطلبات",
+  "السابقة",
+  "حالة",
+  "الحالة",
+  "جاري",
+  "إنتظار",
+  "انتظار",
+  "تأكيد",
+  "لسه",
+  "قاعدين",
+  "التأكيد",
+  "على",
+  "متوقع",
+  "ننفذ",
+  "طلبك",
+  "قريباً",
+  "قريبا",
+  "جداً",
+  "جدا",
+  "موجود",
+  "مغسلة",
+  "المغسلة",
+  "النظافة",
+  "أقرب",
+  "اقرب",
+  "بسعر",
+  "سعر",
+  "أسعار",
+  "اسعار",
+  "الخدمات",
+  "جم",
+  "جنيه",
+  "بتقدر",
+  "تقدر",
+  "تسأل",
+  "اسأل",
+  "اسال",
+  "أساعدك",
+  "اساعدك",
+  "أكتر",
+  "اكتر",
+  "حابب",
+  "حاجة",
+  "تانية",
+  "قائمة",
+  "بالطلبات",
+  "تشوفها",
+  "لتشوفها",
+  "بنفسك",
+  "أرفق",
+  "ارفق",
+  "ليك",
+  "قوللي",
+  "عليه",
+  "واجيبلك",
+  "وأجيبلك",
+  "المعلومات",
+  "اللي",
+  "عندي",
+  "معين",
+  "عايز",
+  "تعرف",
+  "ده",
+  "دي",
+  "مساعدة",
+  "تم",
+  "إلغاء",
+  "الغاء",
+  "بنجاح",
+]);
+
+function splitArabicRun(run: string) {
+  if (run.length < 6) return run;
+
+  const best: Array<string[] | null> = new Array(run.length + 1).fill(null);
+  best[0] = [];
+
+  for (let i = 0; i < run.length; i += 1) {
+    const current = best[i];
+    if (!current) continue;
+
+    for (let j = Math.min(run.length, i + 12); j > i; j -= 1) {
+      const part = run.slice(i, j);
+      const normalizedPart = part.startsWith("و") && part.length > 2 ? part.slice(1) : part;
+      if (!ARABIC_SUPPORT_WORDS.has(part) && !ARABIC_SUPPORT_WORDS.has(normalizedPart)) continue;
+
+      const candidate = [...current, part];
+      const existing = best[j];
+      if (!existing || candidate.length < existing.length) {
+        best[j] = candidate;
+      }
+    }
+  }
+
+  const segmented = best[run.length];
+  if (!segmented || segmented.length <= 1) return run;
+
+  return segmented.join(" ");
+}
+
+function formatAssistantText(text: string) {
+  const base = normalizeArabicSpacing(text);
+  return base
+    .replace(/[\u0600-\u06FF]{6,}/g, (run) => splitArabicRun(run))
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function TableCell({ content }: { content: string }) {
   const s = content.trim();
 
   // Premium Status Badges
   if (s === "في انتظار الموافقة" || s === "في انتظار التأكيد" || s === "PendingConfirmation" || s === "قيد التنفيذ" || s === "Pending") {
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-[#FFF7ED] text-[#EA580C] border border-[#FED7AA] shadow-sm whitespace-nowrap">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#F97316] mr-1.5 animate-pulse"></span>
-        {s}
+      <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-[#FED7AA] bg-[#FFF7ED] px-2.5 py-1 text-xs font-bold leading-tight text-[#EA580C] shadow-sm whitespace-normal break-all">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F97316] animate-pulse"></span>
+        <span className="min-w-0">{s}</span>
       </span>
     );
   }
   if (s === "مكتمل" || s === "تم التوصيل" || s === "Done" || s === "Completed" || s === "Delivered") {
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-[#ECFDF5] text-[#059669] border border-[#A7F3D0] shadow-sm whitespace-nowrap">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#10B981] mr-1.5"></span>
-        {s}
+      <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-[#A7F3D0] bg-[#ECFDF5] px-2.5 py-1 text-xs font-bold leading-tight text-[#059669] shadow-sm whitespace-normal break-words">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#10B981]"></span>
+        <span className="min-w-0">{s}</span>
       </span>
     );
   }
   if (s === "ملغي" || s === "Canceled" || s === "Cancelled") {
     return (
-      <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-bold bg-[#FEF2F2] text-[#E11D48] border border-[#FECDD3] shadow-sm whitespace-nowrap">
-        <span className="w-1.5 h-1.5 rounded-full bg-[#F43F5E] mr-1.5"></span>
-        {s}
+      <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-[#FECDD3] bg-[#FEF2F2] px-2.5 py-1 text-xs font-bold leading-tight text-[#E11D48] shadow-sm whitespace-normal break-words">
+        <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#F43F5E]"></span>
+        <span className="min-w-0">{s}</span>
       </span>
     );
   }
@@ -121,43 +312,81 @@ function PaginatedTable({
   const clampedPage = Math.min(Math.max(1, page), totalPages);
   const start = (clampedPage - 1) * pageSize;
   const pageRows = bodyRows.slice(start, start + pageSize);
+  const desktopGridTemplate =
+    headerCells.length === 4
+      ? "minmax(0,1.05fr) minmax(0,1.15fr) minmax(0,0.9fr) minmax(0,1.4fr)"
+      : `repeat(${headerCells.length}, minmax(0, 1fr))`;
 
   const showPagination = bodyRows.length > pageSize;
 
   return (
     <div className="w-full my-4 drop-shadow-sm font-sans">
-      <div className="w-full overflow-x-auto rounded-xl ring-1 ring-slate-200 bg-white">
-        <table className="w-full text-sm border-collapse text-right" dir="auto">
-          <thead>
-            <tr className="bg-slate-50 border-b border-slate-200">
-              {headerCells.map((h, idx) => (
-                <th
-                  key={idx}
-                  className="px-4 py-3 text-slate-800 font-bold whitespace-nowrap"
+      <div className="rounded-2xl border border-slate-200/80 bg-white shadow-[0_12px_32px_-24px_rgba(15,23,42,0.45)] overflow-hidden">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-slate-50 via-white to-slate-50 px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-500">
+            Order Summary
+          </p>
+        </div>
+
+        <div className="divide-y divide-slate-100 md:hidden">
+          {pageRows.map((cells, rowIdx) => (
+            <div
+              key={`${rowIdx}-${cells.join("|")}`}
+              className="space-y-3 px-4 py-4 bg-white"
+            >
+              {cells.map((c, cellIdx) => (
+                <div
+                  key={cellIdx}
+                  className="rounded-xl bg-slate-50/80 px-3 py-2.5"
                 >
-                  {h}
-                </th>
+                  <span className="mb-1.5 block text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    {headerCells[cellIdx] ?? `Column ${cellIdx + 1}`}
+                  </span>
+                  <div className="min-w-0 text-right break-words">
+                    <TableCell content={c} />
+                  </div>
+                </div>
               ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
+            </div>
+          ))}
+        </div>
+
+        <div className="hidden md:block p-3">
+          <div
+            className="grid items-center gap-5 rounded-xl bg-slate-50 px-4 py-3 text-right"
+            style={{ gridTemplateColumns: desktopGridTemplate }}
+            dir="auto"
+          >
+            {headerCells.map((h, idx) => (
+              <div
+                key={idx}
+                className="min-w-0 whitespace-normal break-words font-bold text-slate-800"
+              >
+                {h}
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-3 space-y-3">
             {pageRows.map((cells, rowIdx) => (
-              <tr
+              <div
                 key={`${rowIdx}-${cells.join("|")}`}
-                className="bg-white hover:bg-slate-50/70 transition-colors duration-150"
+                className="grid items-center gap-5 rounded-xl border border-slate-100 bg-white px-4 py-3 text-right shadow-[0_10px_24px_-24px_rgba(15,23,42,0.55)] transition-colors duration-150 hover:bg-slate-50/70"
+                style={{ gridTemplateColumns: desktopGridTemplate }}
+                dir="auto"
               >
                 {cells.map((c, cellIdx) => (
-                  <td
+                  <div
                     key={cellIdx}
-                    className="px-4 py-3 align-middle"
+                    className="min-w-0 overflow-hidden break-words"
                   >
                     <TableCell content={c} />
-                  </td>
+                  </div>
                 ))}
-              </tr>
+              </div>
             ))}
-          </tbody>
-        </table>
+          </div>
+        </div>
       </div>
 
       {showPagination && (
@@ -192,7 +421,7 @@ function renderMarkdownWithTables(rawText: string) {
 
   // If no table detected, render as a single whitespace-preserving block
   if (!text.includes("|")) {
-    return <div className="whitespace-pre-wrap break-words leading-relaxed text-sm">{text}</div>;
+    return <div className="whitespace-pre-wrap break-words leading-relaxed text-sm">{formatAssistantText(text)}</div>;
   }
 
   const lines = text.split("\n");
@@ -259,7 +488,7 @@ function renderMarkdownWithTables(rawText: string) {
     // Default text line
     nodes.push(
       <div key={`text-${i}`} className="whitespace-pre-wrap break-words leading-relaxed mt-1">
-        {lines[i]}
+        {formatAssistantText(lines[i])}
       </div>
     );
     i += 1;
@@ -427,8 +656,8 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
   if (!isAuthReady) {
     return (
       <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex justify-center items-end sm:items-center sm:p-6 transition-all">
-        <div className="w-full h-[90dvh] sm:h-auto sm:max-h-[85dvh] sm:max-w-xl bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-transform">
-          <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+        <div className="w-full h-[90dvh] sm:h-auto sm:max-h-[85dvh] sm:max-w-[min(92vw,56rem)] bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-transform">
+          <div className="px-5 py-4 border-b border-slate-100 bg-white/95 flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Sparkles size={18} className="text-[#2A5C66]" />
               <p className="font-semibold text-slate-800">Support Chat</p>
@@ -445,8 +674,8 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm flex justify-center items-end sm:items-center sm:p-6 transition-all">
-      <div className="w-full h-[90dvh] sm:h-[80vh] sm:max-h-[800px] sm:max-w-xl bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-transform">
-        <div className="p-4 border-b border-slate-100 flex items-center justify-between">
+      <div className="w-full h-[90dvh] sm:h-[82vh] sm:max-h-[820px] sm:max-w-[min(92vw,56rem)] bg-white rounded-t-[2.5rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col transform transition-transform">
+        <div className="px-5 py-4 border-b border-slate-100 bg-white/95 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Sparkles size={18} className="text-[#2A5C66]" />
             <p className="font-semibold text-slate-800">Support Chat</p>
@@ -461,7 +690,7 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-4 py-5 space-y-4 bg-slate-50/50">
+        <div className="flex-1 overflow-y-auto px-4 sm:px-5 py-5 space-y-4 bg-gradient-to-b from-slate-50/70 via-white to-slate-50/40">
           {(!isLoggedIn || !token) && (
             <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 text-slate-700">
               <p className="text-sm font-semibold">Login required</p>
@@ -503,13 +732,13 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
           )}
 
           {messages.map((m) => (
-            <div key={m.id} className={m.role === "user" ? "flex justify-end pl-12" : "flex justify-start pr-4 sm:pr-12"}>
+            <div key={m.id} className={m.role === "user" ? "flex justify-end pl-8 sm:pl-20" : "flex justify-start pr-2 sm:pr-10"}>
               <div
                 dir="auto"
                 className={
                   m.role === "user"
-                    ? "bg-[#0D47A1] text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm whitespace-pre-wrap shadow-sm inline-block"
-                    : "w-full bg-white border border-slate-200/80 rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm text-slate-800 shadow-sm whitespace-pre-wrap overflow-hidden"
+                    ? "max-w-full bg-[#0D47A1] text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm whitespace-pre-wrap shadow-sm inline-block"
+                    : "w-full max-w-full bg-white/95 border border-slate-200/80 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-800 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.45)] whitespace-pre-wrap overflow-hidden"
                 }
               >
                 {m.role === "assistant" ? (
@@ -571,4 +800,5 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
     </div>
   );
 }
+
 

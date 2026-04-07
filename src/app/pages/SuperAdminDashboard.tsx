@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useState } from "react";
 import { motion } from "motion/react";
 import {
@@ -27,6 +29,7 @@ import {
 } from "recharts";
 
 import { apiRequest, ApiError } from "../lib/admin-api";
+import { useAuth } from "../context/AuthContext";
 
 interface SystemAnalyticsData {
   totalRevenue: number;
@@ -75,11 +78,28 @@ function getStatusBadge(status: string) {
 }
 
 export function SuperAdminDashboard() {
+  const { isAuthReady, isLoggedIn, user } = useAuth();
   const [data, setData] = useState<SystemAnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const normalizedRole = (user?.role ?? "").toLowerCase();
+  const isSuperAdmin = normalizedRole.includes("superadmin");
 
   const loadDashboard = useCallback(async () => {
+    if (!user?.token) {
+      setData(null);
+      setError("Your session is missing a valid token. Please sign in again.");
+      setLoading(false);
+      return;
+    }
+
+    if (!isSuperAdmin) {
+      setData(null);
+      setError(`This account has role "${user?.role ?? "Unknown"}" and cannot access system analytics.`);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
@@ -90,7 +110,9 @@ export function SuperAdminDashboard() {
       setData(null);
       setError(
         err instanceof ApiError
-          ? err.message
+          ? err.status === 401 || err.status === 403
+            ? "This dashboard is only available to a signed-in SuperAdmin."
+            : err.message
           : err instanceof Error
             ? err.message
             : "Could not load system analytics. Sign in as SuperAdmin and try again.",
@@ -98,13 +120,29 @@ export function SuperAdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isSuperAdmin, user?.role, user?.token]);
 
   useEffect(() => {
-    loadDashboard();
-  }, [loadDashboard]);
+    if (!isAuthReady) return;
 
-  if (loading) {
+    if (!isLoggedIn || !user?.token) {
+      setData(null);
+      setError("Please sign in with a SuperAdmin account to view the dashboard.");
+      setLoading(false);
+      return;
+    }
+
+    if (!isSuperAdmin) {
+      setData(null);
+      setError(`This account has role "${user.role}" and cannot access system analytics.`);
+      setLoading(false);
+      return;
+    }
+
+    loadDashboard();
+  }, [isAuthReady, isLoggedIn, isSuperAdmin, loadDashboard, user?.role, user?.token]);
+
+  if (loading || !isAuthReady) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#2A5C66]"></div>
