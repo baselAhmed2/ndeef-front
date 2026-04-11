@@ -1,12 +1,5 @@
-import { FeaturePlaceholder } from "@/app/components/layout/FeaturePlaceholder";
+import { Analytics } from "@/app/pages/laundry-admin/Analytics";
 
 export default function LaundryAnalyticsPage() {
-  return (
-    <FeaturePlaceholder
-      eyebrow="Branch Insights"
-      title="Analytics has a dedicated route in the new Next app."
-      description="This placeholder keeps your information architecture intact while you decide how deep branch reporting should go."
-      accent="orange"
-    />
-  );
+  return <Analytics />;
 }

@@ -1,12 +1,5 @@
-import { FeaturePlaceholder } from "@/app/components/layout/FeaturePlaceholder";
+import { Orders } from "@/app/pages/laundry-admin/Orders";
 
 export default function LaundryOrdersPage() {
-  return (
-    <FeaturePlaceholder
-      eyebrow="Order Operations"
-      title="Orders management can grow here next."
-      description="This route now works inside the laundry dashboard so branch managers can click through the sidebar without hitting a dead end during development."
-      accent="orange"
-    />
-  );
+  return <Orders />;
 }

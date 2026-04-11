@@ -1,343 +1,434 @@
-import { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
-import { 
-  TrendingUp, 
-  TrendingDown, 
-  Package, 
-  Clock, 
-  DollarSign,
-  Star,
-  ChevronRight,
-  Filter,
-  Download,
-  X
-} from "lucide-react";
-import { 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip as RechartsTooltip, 
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
+import {
+  AreaChart,
+  Area,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
   ResponsiveContainer,
-  BarChart,
-  Bar,
-  Cell
+  PieChart,
+  Pie,
+  Cell,
+  Legend,
 } from "recharts";
+import {
+  ShoppingBag,
+  DollarSign,
+  Users,
+  Clock,
+  TrendingUp,
+  TrendingDown,
+  ArrowRight,
+  CheckCircle2,
+  Loader2,
+  Package,
+  Truck,
+} from "lucide-react";
 
-const revenueData = [
-  { name: "Mon", revenue: 4000, orders: 120 },
-  { name: "Tue", revenue: 3000, orders: 98 },
-  { name: "Wed", revenue: 2000, orders: 86 },
-  { name: "Thu", revenue: 2780, orders: 105 },
-  { name: "Fri", revenue: 1890, orders: 75 },
-  { name: "Sat", revenue: 2390, orders: 110 },
-  { name: "Sun", revenue: 3490, orders: 130 },
+const defaultRevenueData = [
+  { month: "Jan", revenue: 3200, orders: 48 },
+  { month: "Feb", revenue: 4100, orders: 62 },
+  { month: "Mar", revenue: 3800, orders: 55 },
+  { month: "Apr", revenue: 5200, orders: 78 },
+  { month: "May", revenue: 4700, orders: 70 },
+  { month: "Jun", revenue: 6100, orders: 91 },
+  { month: "Jul", revenue: 5800, orders: 86 },
+  { month: "Aug", revenue: 7200, orders: 108 },
+  { month: "Sep", revenue: 6500, orders: 97 },
+  { month: "Oct", revenue: 8100, orders: 121 },
+  { month: "Nov", revenue: 7800, orders: 116 },
+  { month: "Dec", revenue: 9200, orders: 138 },
 ];
 
-const servicePerformance = [
-  { name: "Wash & Fold", value: 45 },
-  { name: "Dry Cleaning", value: 30 },
-  { name: "Ironing", value: 15 },
-  { name: "Carpet", value: 10 },
+const defaultOrderStatusData = [
+  { name: "Delivered", value: 48, color: "#22c55e" },
+  { name: "Processing", value: 23, color: "#1D5B70" },
+  { name: "Pending", value: 15, color: "#EBA050" },
+  { name: "Cancelled", value: 6, color: "#ef4444" },
+  { name: "Ready", value: 8, color: "#8b5cf6" },
 ];
 
-const COLORS = ["#1D6076", "#EBA050", "#3fb0d4", "#ffc485"];
-
-const recentOrders = [
-  { id: "#5542", customer: "Ahmed M.", service: "Wash & Fold", amount: "SAR 45", status: "Pending", time: "10 mins ago" },
-  { id: "#5541", customer: "Sara K.", service: "Dry Cleaning", amount: "SAR 120", status: "In Progress", time: "1 hour ago" },
-  { id: "#5540", customer: "Omar B.", service: "Ironing", amount: "SAR 30", status: "Ready", time: "2 hours ago" },
-  { id: "#5539", customer: "Faisal R.", service: "Carpet Cleaning", amount: "SAR 250", status: "Delivered", time: "5 hours ago" },
+const defaultRecentOrders = [
+  { id: "ORD-1024", customer: "Sarah Johnson", service: "Wash & Fold", items: 3, amount: 45.0, status: "Delivered", time: "2h ago" },
+  { id: "ORD-1023", customer: "Mohammed Al-Rashid", service: "Dry Cleaning", items: 5, amount: 120.0, status: "Ready", time: "3h ago" },
+  { id: "ORD-1022", customer: "Emily Chen", service: "Ironing", items: 8, amount: 32.0, status: "Processing", time: "5h ago" },
+  { id: "ORD-1021", customer: "James Williams", service: "Wash & Fold", items: 2, amount: 28.0, status: "Pending", time: "6h ago" },
+  { id: "ORD-1020", customer: "Fatima Al-Amin", service: "Dry Cleaning", items: 4, amount: 95.0, status: "Processing", time: "7h ago" },
+  { id: "ORD-1019", customer: "Lucas Moreira", service: "Stain Removal", items: 1, amount: 55.0, status: "Delivered", time: "8h ago" },
 ];
 
-// Drill-down Modal Component
-function RevenueDrillDownModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  if (!isOpen) return null;
+const defaultTopServices = [
+  { name: "Wash & Fold", orders: 138, revenue: 3840, growth: 12 },
+  { name: "Dry Cleaning", orders: 94, revenue: 6580, growth: 8 },
+  { name: "Ironing", orders: 72, revenue: 2160, growth: -3 },
+  { name: "Stain Removal", orders: 41, revenue: 2255, growth: 21 },
+];
+
+const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
+  Delivered: { color: "#22c55e", bg: "#f0fdf4", icon: CheckCircle2 },
+  Processing: { color: "#1D5B70", bg: "#f0f9ff", icon: Loader2 },
+  Pending: { color: "#EBA050", bg: "#fff7ed", icon: Clock },
+  Ready: { color: "#8b5cf6", bg: "#f5f3ff", icon: Package },
+  Cancelled: { color: "#ef4444", bg: "#fef2f2", icon: Truck },
+};
+
+function StatCard({
+  title,
+  value,
+  subtitle,
+  icon: Icon,
+  trend,
+  trendValue,
+  accent,
+  delay = 0,
+}: {
+  title: string;
+  value: string;
+  subtitle: string;
+  icon: React.ElementType;
+  trend: "up" | "down";
+  trendValue: string;
+  accent?: boolean;
+  delay?: number;
+}) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <motion.div 
-        initial={{ opacity: 0 }} 
-        animate={{ opacity: 1 }} 
-        exit={{ opacity: 0 }} 
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"
-      />
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        className="relative w-full max-w-3xl bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
-      >
-        <div className="flex items-center justify-between p-6 border-b border-slate-100">
-          <div>
-            <h2 className="text-xl font-bold text-slate-800">Revenue Breakdown</h2>
-            <p className="text-sm text-slate-500">Detailed view of today's earnings</p>
-          </div>
-          <button onClick={onClose} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors">
-            <X size={20} />
-          </button>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, delay }}
+      className={`rounded-2xl p-5 border ${accent ? "border-transparent text-white" : "bg-white border-gray-100"}`}
+      style={accent ? { background: "linear-gradient(135deg, #1D5B70 0%, #2a7a9a 100%)" } : {}}
+    >
+      <div className="flex items-start justify-between mb-4">
+        <div
+          className="w-10 h-10 rounded-xl flex items-center justify-center"
+          style={{
+            backgroundColor: accent ? "rgba(255,255,255,0.2)" : "#EBA050",
+          }}
+        >
+          <Icon className={`w-5 h-5 ${accent ? "text-white" : "text-white"}`} />
         </div>
-        <div className="p-6 overflow-y-auto">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-sm text-slate-500 font-medium">Online Payments</p>
-              <p className="text-2xl font-bold text-slate-800 mt-1">SAR 2,450</p>
-            </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-sm text-slate-500 font-medium">Cash on Delivery</p>
-              <p className="text-2xl font-bold text-slate-800 mt-1">SAR 890</p>
-            </div>
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-sm text-slate-500 font-medium">Ndeef Commission</p>
-              <p className="text-2xl font-bold text-red-500 mt-1">- SAR 334</p>
-            </div>
-          </div>
-          <h3 className="font-semibold text-slate-800 mb-4">Recent Transactions</h3>
-          <div className="space-y-3">
-            {[1,2,3,4,5].map(i => (
-              <div key={i} className="flex items-center justify-between p-3 bg-white border border-slate-100 rounded-xl">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-lg bg-[#EBA050]/10 flex items-center justify-center text-[#EBA050]">
-                    <DollarSign size={18} />
-                  </div>
-                  <div>
-                    <p className="font-medium text-slate-800 text-sm">Order #{5542 - i}</p>
-                    <p className="text-xs text-slate-500">Card Payment • 12:4{i} PM</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="font-bold text-slate-800 text-sm">+ SAR {(45 + i*15).toFixed(2)}</p>
-                  <p className="text-xs text-emerald-500">Completed</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </motion.div>
-    </div>
+        <span
+          className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${
+            trend === "up"
+              ? accent
+                ? "bg-white/20 text-white"
+                : "bg-green-50 text-green-600"
+              : accent
+              ? "bg-white/20 text-white"
+              : "bg-red-50 text-red-500"
+          }`}
+        >
+          {trend === "up" ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
+          {trendValue}
+        </span>
+      </div>
+      <p className={`text-2xl font-bold mb-1 ${accent ? "text-white" : "text-gray-900"}`}>{value}</p>
+      <p className={`text-sm font-medium mb-0.5 ${accent ? "text-white/90" : "text-gray-700"}`}>{title}</p>
+      <p className={`text-xs ${accent ? "text-white/60" : "text-gray-400"}`}>{subtitle}</p>
+    </motion.div>
   );
 }
 
-export function LaundryDashboard() {
-  const [modalOpen, setModalOpen] = useState(false);
+import { getDashboardSummary, getIncomingOrders, getRevenueMonthly } from "@/app/lib/laundry-admin-client";
 
-  const stats = [
-    { label: "Today's Revenue", value: "SAR 3,340", trend: "+12.5%", isPositive: true, icon: DollarSign, color: "text-emerald-500", bg: "bg-emerald-50" },
-    { label: "Active Orders", value: "48", trend: "+5", isPositive: true, icon: Package, color: "text-[#1D6076]", bg: "bg-[#1D6076]/10" },
-    { label: "Pending Pickup", value: "12", trend: "-2", isPositive: false, icon: Clock, color: "text-[#EBA050]", bg: "bg-[#EBA050]/10" },
-    { label: "Avg Rating", value: "4.8", trend: "+0.2", isPositive: true, icon: Star, color: "text-amber-500", bg: "bg-amber-50" },
-  ];
+export function LaundryDashboard() {
+  const router = useRouter();
+  const [chartPeriod, setChartPeriod] = useState<"6m" | "12m">("12m");
+
+  const [revenueData, setRevenueData] = useState(defaultRevenueData);
+  const [orderStatusData, setOrderStatusData] = useState(defaultOrderStatusData);
+  const [recentOrders, setRecentOrders] = useState(defaultRecentOrders);
+  const [topServices, setTopServices] = useState(defaultTopServices);
+
+  useEffect(() => {
+    async function fetchData() {
+      try {
+        const [summary, incoming] = await Promise.all([
+          getDashboardSummary().catch(() => null),
+          getIncomingOrders().catch(() => null)
+        ]);
+        if (summary?.revenueData) setRevenueData(summary.revenueData);
+        if (summary?.orderStatusData) setOrderStatusData(summary.orderStatusData);
+        if (summary?.topServices) setTopServices(summary.topServices);
+        if (incoming && Array.isArray(incoming) && incoming.length > 0) setRecentOrders(incoming);
+      } catch (err) {
+        console.error("Failed to load dashboard data", err);
+      }
+    }
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    async function fetchChart() {
+      if (chartPeriod === "12m") {
+        const m = await getRevenueMonthly(new Date().getFullYear()).catch(() => null);
+        if (m && Array.isArray(m) && m.length > 0) setRevenueData(m);
+      }
+    }
+    fetchChart();
+  }, [chartPeriod]);
+
+  const chartData = chartPeriod === "6m" ? revenueData.slice(-6) : revenueData;
 
   return (
-    <div className="space-y-6 w-full">
-      {/* Header Actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-slate-800">Branch Overview</h1>
-          <p className="text-sm text-slate-500 mt-1">Monitor your daily laundry operations and performance.</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-600 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors shadow-sm">
-            <Filter size={16} />
-            <span>This Week</span>
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#EBA050] text-white rounded-xl text-sm font-medium hover:bg-[#d99040] transition-colors shadow-sm shadow-[#EBA050]/20">
-            <Download size={16} />
-            <span>Export</span>
-          </button>
-        </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-        {stats.map((stat, i) => (
-          <motion.div
-            key={i}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.1 }}
-            className="bg-white/70 backdrop-blur-xl p-5 rounded-3xl border border-white shadow-xl shadow-slate-200/40 relative overflow-hidden group hover:shadow-2xl hover:shadow-slate-200/50 transition-all cursor-pointer"
-            onClick={() => i === 0 && setModalOpen(true)} // Open drill down for revenue
-          >
-            <div className="flex justify-between items-start mb-4">
-              <div className={`p-3 rounded-2xl ${stat.bg}`}>
-                <stat.icon size={22} className={stat.color} />
-              </div>
-              <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full ${
-                stat.isPositive ? 'bg-emerald-50 text-emerald-600' : 'bg-red-50 text-red-600'
-              }`}>
-                {stat.isPositive ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                {stat.trend}
-              </span>
-            </div>
-            <div>
-              <p className="text-3xl font-bold text-slate-800 tracking-tight">{stat.value}</p>
-              <p className="text-sm font-medium text-slate-500 mt-1">{stat.label}</p>
-            </div>
-            
-            {i === 0 && (
-              <div className="absolute right-4 bottom-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                <span className="text-[10px] font-bold text-[#EBA050] uppercase tracking-wider flex items-center gap-1">
-                  View Details <ChevronRight size={12} />
-                </span>
-              </div>
-            )}
-          </motion.div>
-        ))}
+    <div className="p-6 space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+        <StatCard
+          title="Total Revenue"
+          value="$62,400"
+          subtitle="This year"
+          icon={DollarSign}
+          trend="up"
+          trendValue="+18.2%"
+          accent
+          delay={0}
+        />
+        <StatCard
+          title="Total Orders"
+          value="1,284"
+          subtitle="This year"
+          icon={ShoppingBag}
+          trend="up"
+          trendValue="+12.5%"
+          delay={0.05}
+        />
+        <StatCard
+          title="Active Customers"
+          value="348"
+          subtitle="Unique this month"
+          icon={Users}
+          trend="up"
+          trendValue="+7.3%"
+          delay={0.1}
+        />
+        <StatCard
+          title="Pending Orders"
+          value="24"
+          subtitle="Awaiting processing"
+          icon={Clock}
+          trend="down"
+          trendValue="-4.1%"
+          delay={0.15}
+        />
       </div>
 
       {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart */}
-        <motion.div 
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Revenue Chart */}
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="lg:col-span-2 bg-white/70 backdrop-blur-xl p-6 rounded-3xl border border-white shadow-xl shadow-slate-200/40"
+          transition={{ duration: 0.4, delay: 0.2 }}
+          className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 p-5 min-w-0"
         >
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-5">
             <div>
-              <h3 className="text-lg font-bold text-slate-800">Revenue & Orders</h3>
-              <p className="text-sm text-slate-500">Weekly performance metrics</p>
+              <h2 className="text-gray-900 font-semibold">Revenue Overview</h2>
+              <p className="text-gray-400 text-xs mt-0.5">Monthly revenue & orders trend</p>
+            </div>
+            <div className="flex gap-1 p-1 bg-gray-100 rounded-xl">
+              {(["6m", "12m"] as const).map((p) => (
+                <button
+                  key={p}
+                  onClick={() => setChartPeriod(p)}
+                  className={`px-3 py-1 text-xs font-medium rounded-lg transition-all ${
+                    chartPeriod === p
+                      ? "bg-white text-gray-900 shadow-sm"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  {p === "6m" ? "6 Months" : "12 Months"}
+                </button>
+              ))}
             </div>
           </div>
-          <div className="h-[300px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={revenueData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#1D6076" stopOpacity={0.2}/>
-                    <stop offset="95%" stopColor="#1D6076" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
-                <RechartsTooltip 
-                  contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)' }}
-                  itemStyle={{ color: '#1e293b', fontWeight: 600 }}
-                />
-                <Area type="monotone" dataKey="revenue" stroke="#1D6076" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-              </AreaChart>
-            </ResponsiveContainer>
+          <ResponsiveContainer width="100%" height={220}>
+            <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 0, left: 0 }}>
+              <defs>
+                <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#1D5B70" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#1D5B70" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="ordGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#EBA050" stopOpacity={0.2} />
+                  <stop offset="95%" stopColor="#EBA050" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+              <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} width={45} />
+              <Tooltip
+                contentStyle={{ borderRadius: 12, border: "1px solid #e2e8f0", fontSize: 12 }}
+                formatter={(val: number, name: string) =>
+                  name === "revenue" ? [`$${val.toLocaleString()}`, "Revenue"] : [val, "Orders"]
+                }
+              />
+              <Area type="monotone" dataKey="revenue" stroke="#1D5B70" strokeWidth={2.5} fill="url(#revGradient)" dot={false} />
+              <Area type="monotone" dataKey="orders" stroke="#EBA050" strokeWidth={2} fill="url(#ordGradient)" dot={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </motion.div>
+
+        {/* Order Status Pie */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25 }}
+          className="bg-white rounded-2xl border border-gray-100 p-5 min-w-0"
+        >
+          <h2 className="text-gray-900 font-semibold mb-1">Order Status</h2>
+          <p className="text-gray-400 text-xs mb-4">Current month breakdown</p>
+          <ResponsiveContainer width="100%" height={220}>
+            <PieChart>
+              <Pie
+                data={orderStatusData}
+                cx="50%"
+                cy="50%"
+                innerRadius={50}
+                outerRadius={80}
+                paddingAngle={3}
+                dataKey="value"
+              >
+                {orderStatusData.map((entry, index) => (
+                  <Cell key={index} fill={entry.color} />
+                ))}
+              </Pie>
+              <Legend
+                iconType="circle"
+                iconSize={8}
+                formatter={(value) => <span style={{ fontSize: 11, color: "#64748b" }}>{value}</span>}
+              />
+              <Tooltip contentStyle={{ borderRadius: 10, fontSize: 12 }} />
+            </PieChart>
+          </ResponsiveContainer>
+        </motion.div>
+      </div>
+
+      {/* Bottom Row */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+        {/* Recent Orders */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.3 }}
+          className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 overflow-hidden min-w-0"
+        >
+          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-50">
+            <div>
+              <h2 className="text-gray-900 font-semibold">Recent Orders</h2>
+              <p className="text-gray-400 text-xs mt-0.5">Latest 6 orders</p>
+            </div>
+            <button
+              onClick={() => router.push("/laundry-admin/orders")}
+              className="flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-xl transition-all hover:opacity-80"
+              style={{ color: "#1D5B70", backgroundColor: "#f0f9ff" }}
+            >
+              View All <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+          <div className="divide-y divide-gray-50">
+            {recentOrders.map((order) => {
+              const cfg = statusConfig[order.status];
+              const Icon = cfg.icon;
+              return (
+                <div
+                  key={order.id}
+                  onClick={() => router.push(`/laundry-admin/orders/${order.id}`)}
+                  className="flex items-center gap-4 px-5 py-3.5 hover:bg-gray-50/60 cursor-pointer transition-all"
+                >
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: cfg.bg }}>
+                    <Icon className="w-4 h-4" style={{ color: cfg.color }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-gray-900">{order.id}</span>
+                      <span className="text-xs text-gray-400">•</span>
+                      <span className="text-xs text-gray-500 truncate">{order.customer}</span>
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-xs text-gray-400">{order.service}</span>
+                      <span className="text-xs text-gray-300">·</span>
+                      <span className="text-xs text-gray-400">{order.items} items</span>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="text-sm font-semibold text-gray-900">${order.amount.toFixed(2)}</p>
+                    <span
+                      className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                      style={{ color: cfg.color, backgroundColor: cfg.bg }}
+                    >
+                      {order.status}
+                    </span>
+                  </div>
+                  <span className="text-xs text-gray-300 shrink-0 hidden sm:block">{order.time}</span>
+                </div>
+              );
+            })}
           </div>
         </motion.div>
 
-        {/* Breakdown Chart */}
-        <motion.div 
+        {/* Top Services */}
+        <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-white/70 backdrop-blur-xl p-6 rounded-3xl border border-white shadow-xl shadow-slate-200/40"
+          transition={{ duration: 0.4, delay: 0.35 }}
+          className="bg-white rounded-2xl border border-gray-100 p-5 min-w-0"
         >
-          <div className="mb-6">
-            <h3 className="text-lg font-bold text-slate-800">Services Popularity</h3>
-            <p className="text-sm text-slate-500">Breakdown by order count</p>
-          </div>
-          <div className="h-[240px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={servicePerformance} layout="vertical" margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                <XAxis type="number" hide />
-                <YAxis dataKey="name" type="category" hide />
-                <RechartsTooltip cursor={{fill: 'transparent'}} contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }} />
-                <Bar dataKey="value" radius={[0, 8, 8, 0]} barSize={24}>
-                  {servicePerformance.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="mt-4 space-y-2.5">
-            {servicePerformance.map((item, i) => (
-              <div key={item.name} className="flex items-center justify-between text-sm">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: COLORS[i] }} />
-                  <span className="font-medium text-slate-700">{item.name}</span>
+          <h2 className="text-gray-900 font-semibold mb-1">Top Services</h2>
+          <p className="text-gray-400 text-xs mb-4">By revenue this month</p>
+          <div className="space-y-4">
+            {topServices.map((svc, i) => (
+              <div key={svc.name}>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-bold text-white"
+                      style={{ backgroundColor: i === 0 ? "#EBA050" : "#1D5B70" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <span className="text-sm font-medium text-gray-800">{svc.name}</span>
+                  </div>
+                  <span
+                    className={`text-xs font-medium flex items-center gap-0.5 ${
+                      svc.growth >= 0 ? "text-green-500" : "text-red-400"
+                    }`}
+                  >
+                    {svc.growth >= 0 ? (
+                      <TrendingUp className="w-3 h-3" />
+                    ) : (
+                      <TrendingDown className="w-3 h-3" />
+                    )}
+                    {Math.abs(svc.growth)}%
+                  </span>
                 </div>
-                <span className="font-bold text-slate-800">{item.value}%</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <motion.div
+                      initial={{ width: 0 }}
+                      animate={{ width: `${(svc.revenue / 7000) * 100}%` }}
+                      transition={{ duration: 0.8, delay: 0.4 + i * 0.1 }}
+                      className="h-full rounded-full"
+                      style={{ backgroundColor: i === 0 ? "#EBA050" : "#1D5B70" }}
+                    />
+                  </div>
+                  <span className="text-xs font-semibold text-gray-700 w-14 text-right">
+                    ${svc.revenue.toLocaleString()}
+                  </span>
+                </div>
+                <p className="text-[10px] text-gray-400 mt-0.5">{svc.orders} orders</p>
               </div>
             ))}
           </div>
         </motion.div>
       </div>
-
-      {/* Recent Orders Table */}
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="bg-white/70 backdrop-blur-xl rounded-3xl border border-white shadow-xl shadow-slate-200/40 overflow-hidden"
-      >
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-bold text-slate-800">Recent Orders</h3>
-            <p className="text-sm text-slate-500">Latest active orders across all services</p>
-          </div>
-          <button className="text-sm font-semibold text-[#1D6076] hover:text-[#154656] transition-colors">
-            View All
-          </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
-            <thead>
-              <tr className="bg-slate-50/50">
-                <th className="py-3 px-6 text-[11px] font-bold uppercase tracking-wider text-slate-400">Order ID</th>
-                <th className="py-3 px-6 text-[11px] font-bold uppercase tracking-wider text-slate-400">Customer</th>
-                <th className="py-3 px-6 text-[11px] font-bold uppercase tracking-wider text-slate-400">Service</th>
-                <th className="py-3 px-6 text-[11px] font-bold uppercase tracking-wider text-slate-400">Amount</th>
-                <th className="py-3 px-6 text-[11px] font-bold uppercase tracking-wider text-slate-400">Status</th>
-                <th className="py-3 px-6 text-[11px] font-bold uppercase tracking-wider text-slate-400">Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {recentOrders.map((order) => (
-                <tr key={order.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <td className="py-4 px-6">
-                    <span className="font-semibold text-slate-800">{order.id}</span>
-                    <p className="text-[11px] text-slate-400">{order.time}</p>
-                  </td>
-                  <td className="py-4 px-6">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs font-bold text-slate-500">
-                        {order.customer.charAt(0)}
-                      </div>
-                      <span className="font-medium text-slate-700">{order.customer}</span>
-                    </div>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className="text-sm text-slate-600 font-medium">{order.service}</span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className="font-bold text-slate-800">{order.amount}</span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      order.status === 'Pending' ? 'bg-amber-100 text-amber-700' :
-                      order.status === 'In Progress' ? 'bg-blue-100 text-blue-700' :
-                      order.status === 'Ready' ? 'bg-emerald-100 text-emerald-700' :
-                      'bg-slate-100 text-slate-700'
-                    }`}>
-                      {order.status}
-                    </span>
-                  </td>
-                  <td className="py-4 px-6">
-                    <button className="opacity-0 group-hover:opacity-100 transition-opacity px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-semibold">
-                      Manage
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
-
-      {/* Render Modals via Portal or direct state */}
-      <AnimatePresence>
-        {modalOpen && <RevenueDrillDownModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />}
-      </AnimatePresence>
     </div>
   );
 }

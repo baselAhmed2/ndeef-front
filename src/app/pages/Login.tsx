@@ -58,11 +58,13 @@ export default function Login() {
     if (!validate()) return;
     setLoading(true);
     const result = await login(email, password);
-    setLoading(false);
     if (result.ok) {
       router.replace(resolvePostLoginPath(result.user?.role, from));
+      // Keep loading as true while redirecting
+    } else {
+      setLoading(false);
+      setError(result.message ?? "Invalid email or password. Please try again.");
     }
-    else setError(result.message ?? "Invalid email or password. Please try again.");
   };
 
   const handleSocial = async (provider: string, credential: string) => {

@@ -1,161 +1,262 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { motion } from "motion/react";
-import clsx from "clsx";
+import { usePathname, useRouter } from "next/navigation";
+import { useState } from "react";
+import { useIsMobile } from "@/app/components/ui/use-mobile";
+import { useAuth } from "@/app/context/AuthContext";
+import { motion, AnimatePresence } from "motion/react";
 import {
   LayoutDashboard,
-  ClipboardList,
-  Tags,
-  Users,
-  BarChart3,
+  ShoppingBag,
+  Sparkles,
+  CalendarDays,
   Bell,
-  Settings,
-  HelpCircle,
-  X,
+  CreditCard,
+  ChevronLeft,
+  WashingMachine,
   LogOut,
-  MapPin
+  Settings,
+  X,
+  AlertTriangle,
 } from "lucide-react";
 
-const mainNav = [
-  { icon: LayoutDashboard, label: "Dashboard", path: "/laundry-admin" },
-  { icon: ClipboardList, label: "Orders", path: "/laundry-admin/orders", badge: 12 },
-  { icon: Tags, label: "Services & Pricing", path: "/laundry-admin/services" },
-  { icon: Users, label: "Customers", path: "/laundry-admin/customers" },
-  { icon: MapPin, label: "Delivery Drivers", path: "/laundry-admin/drivers" },
-  { icon: BarChart3, label: "Analytics", path: "/laundry-admin/analytics" },
+interface LaundrySidebarProps {
+  collapsed: boolean;
+  onToggle: () => void;
+}
+
+const navItems = [
+  { path: "/laundry-admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+  { path: "/laundry-admin/orders", label: "Orders", icon: ShoppingBag },
+  { path: "/laundry-admin/services", label: "Services", icon: Sparkles },
+  { path: "/laundry-admin/availability", label: "Availability", icon: CalendarDays },
+  { path: "/laundry-admin/notifications", label: "Notifications", icon: Bell },
+  { path: "/laundry-admin/payments", label: "Payments", icon: CreditCard },
 ];
 
-const bottomNav = [
-  { icon: Bell, label: "Notifications", path: "/laundry-admin/notifications", badge: 2 },
-  { icon: Settings, label: "Settings", path: "/laundry-admin/settings" },
-  { icon: HelpCircle, label: "Support", path: "/laundry-admin/support" },
-];
-
-export function LaundrySidebar({ open, setOpen }: { open: boolean; setOpen: (val: boolean) => void }) {
+export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySidebarProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isMobile = useIsMobile();
+  const collapsed = isMobile || rawCollapsed;
+  const { logout } = useAuth();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  const isActive = (path: string) => {
-    if (path === "/laundry-admin") return pathname === "/laundry-admin";
-    return pathname.startsWith(path);
-  };
+  const currentPath = pathname ?? "";
 
-  const NavItem = ({ item }: { item: (typeof mainNav)[0] }) => {
-    const active = isActive(item.path);
-    return (
-      <Link
-        href={item.path}
-        onClick={() => setOpen(false)}
-        className={clsx(
-          "flex items-center gap-3 px-3 py-2.5 rounded-xl text-[13px] font-medium transition-all duration-200 group relative",
-          active
-            ? "text-white"
-            : "text-slate-500 hover:text-slate-800 hover:bg-slate-50"
-        )}
-      >
-        {active && (
-          <motion.div
-            layoutId="laundry-sidebar-active"
-            className="absolute inset-0 bg-gradient-to-r from-[#EBA050] to-[#EBA050]/90 rounded-xl shadow-lg shadow-[#EBA050]/25"
-            transition={{ type: "spring", stiffness: 380, damping: 30 }}
-          />
-        )}
-        <item.icon
-          size={18}
-          strokeWidth={2}
-          className={clsx(
-            "relative z-10 transition-colors",
-            active ? "text-white" : "text-slate-400 group-hover:text-[#EBA050]"
-          )}
-        />
-        <span className="relative z-10 flex-1">{item.label}</span>
-        {item.badge && (
-          <span
-            className={clsx(
-              "relative z-10 min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] font-bold px-1.5",
-              active ? "bg-white/20 text-white" : "bg-[#EBA050]/10 text-[#EBA050]"
-            )}
-          >
-            {item.badge}
-          </span>
-        )}
-      </Link>
-    );
+  const isActive = (path: string, exact?: boolean) => {
+    if (exact) return currentPath === path;
+    return currentPath.startsWith(path);
   };
 
   return (
-    <>
-      <motion.aside
-        initial={{ x: "-100%" }}
-        animate={{ x: open ? "0%" : "-100%" }}
-        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-        className={clsx(
-          "fixed inset-y-0 left-0 z-50 w-[260px] bg-white/95 backdrop-blur-xl border-r border-slate-100/80 flex flex-col lg:static lg:translate-x-0 transition-transform duration-300",
-          !open && "-translate-x-full lg:translate-x-0"
-        )}
-        dir="ltr"
-      >
-        {/* Logo */}
-        <div className="flex items-center justify-between h-[72px] px-5 border-b border-slate-100/60">
-          <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#EBA050] to-[#ffb86b] flex items-center justify-center text-white font-bold text-base shadow-lg shadow-[#EBA050]/20">
-              L
-            </div>
-            <div>
-              <h1 className="text-base font-bold text-slate-800 tracking-tight leading-none">Clean & Care</h1>
-              <p className="text-[10px] font-semibold text-[#1D6076] tracking-widest uppercase mt-0.5">Laundry Partner</p>
-            </div>
-          </div>
-          <button
-            onClick={() => setOpen(false)}
-            className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg lg:hidden transition-colors"
+    <motion.aside
+      animate={{ width: collapsed ? 72 : 240 }}
+      transition={{ duration: 0.3, ease: "easeInOut" }}
+      className="relative flex flex-col h-screen shrink-0 overflow-hidden shadow-xl"
+      style={{ backgroundColor: "#1D5B70" }}
+    >
+      {/* Logo */}
+      <div className="flex items-center h-16 px-4 border-b border-white/10">
+        <div className="flex items-center gap-3 min-w-0">
+          <div
+            className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
+            style={{ backgroundColor: "#EBA050" }}
           >
-            <X size={18} />
-          </button>
-        </div>
-
-        {/* Main Nav */}
-        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
-          <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">Management</p>
-          {mainNav.map((item) => (
-            <NavItem key={item.path} item={item} />
-          ))}
-
-          <div className="!mt-6">
-            <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-3 mb-2">System</p>
-            {bottomNav.map((item) => (
-               <NavItem key={item.path} item={item} />
-            ))}
+            <WashingMachine className="w-5 h-5 text-white" />
           </div>
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.div
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="overflow-hidden"
+              >
+                <span className="text-white font-bold text-lg tracking-tight whitespace-nowrap">
+                  Ndeef
+                </span>
+                <p className="text-white/50 text-[10px] leading-none mt-0.5 whitespace-nowrap">
+                  Laundry Admin
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
+      </div>
 
-        {/* Laundry Profile */}
-        <div className="p-3 border-t border-slate-100/60">
-          <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/80 border border-slate-100/50">
-            <div className="w-9 h-9 rounded-lg bg-slate-200 overflow-hidden shadow-sm">
-              <img
-                src="https://images.unsplash.com/photo-1517677208171-0bc6725a3e60?q=80&w=200&auto=format&fit=crop"
-                alt="Laundry"
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <h4 className="text-[13px] font-semibold text-slate-800 truncate">Manager</h4>
-              <p className="text-[11px] text-slate-400">Jeddah Branch</p>
-            </div>
-            <button className="p-1.5 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
-              <LogOut size={16} />
-            </button>
-          </div>
-        </div>
-      </motion.aside>
+      {/* Nav Items */}
+      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
+        {navItems.map((item) => {
+          const active = isActive(item.path, item.exact);
+          return (
+            <Link key={item.path} href={item.path}>
+              <motion.div
+                whileHover={{ x: collapsed ? 0 : 4 }}
+                transition={{ duration: 0.15 }}
+                className={`
+                  relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200
+                  ${active
+                    ? "bg-white/20 text-white shadow-sm"
+                    : "text-white/60 hover:text-white hover:bg-white/10"
+                  }
+                `}
+                title={collapsed ? item.label : undefined}
+              >
+                {active && (
+                  <motion.div
+                    layoutId="activePill"
+                    className="absolute inset-0 rounded-xl"
+                    style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+                    transition={{ duration: 0.3, type: "spring", bounce: 0.2 }}
+                  />
+                )}
+                <item.icon className="w-5 h-5 shrink-0 relative z-10" />
+                <AnimatePresence>
+                  {!collapsed && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: "auto" }}
+                      exit={{ opacity: 0, width: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="text-sm font-medium whitespace-nowrap overflow-hidden relative z-10"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+                {active && (
+                  <div
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-6 rounded-r-full"
+                    style={{ backgroundColor: "#EBA050" }}
+                  />
+                )}
+              </motion.div>
+            </Link>
+          );
+        })}
+      </nav>
 
-      <style>{`
-        .custom-scrollbar::-webkit-scrollbar { width: 3px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
-      `}</style>
-    </>
+      {/* Bottom section */}
+      <div className="py-3 px-2 space-y-1 border-t border-white/10">
+        <Link href="/laundry-admin/settings">
+          <motion.div
+            whileHover={{ x: collapsed ? 0 : 4 }}
+            transition={{ duration: 0.15 }}
+            className={`
+              relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200
+              ${currentPath === "/laundry-admin/settings"
+                ? "bg-white/20 text-white shadow-sm"
+                : "text-white/60 hover:text-white hover:bg-white/10"
+              }
+            `}
+          >
+            <Settings className="w-5 h-5 shrink-0" />
+            <AnimatePresence>
+              {!collapsed && (
+                <motion.span
+                  initial={{ opacity: 0, width: 0 }}
+                  animate={{ opacity: 1, width: "auto" }}
+                  exit={{ opacity: 0, width: 0 }}
+                  transition={{ duration: 0.2 }}
+                  className="text-sm font-medium whitespace-nowrap overflow-hidden"
+                >
+                  Settings
+                </motion.span>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        </Link>
+        <button
+          onClick={() => setShowLogoutModal(true)}
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/60 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200"
+        >
+          <LogOut className="w-5 h-5 shrink-0" />
+          <AnimatePresence>
+            {!collapsed && (
+              <motion.span
+                initial={{ opacity: 0, width: 0 }}
+                animate={{ opacity: 1, width: "auto" }}
+                exit={{ opacity: 0, width: 0 }}
+                transition={{ duration: 0.2 }}
+                className="text-sm font-medium whitespace-nowrap overflow-hidden"
+              >
+                Logout
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </button>
+      </div>
+
+      {/* Logout Confirmation Modal */}
+      <AnimatePresence>
+        {showLogoutModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[100] flex items-center justify-center p-4"
+            onClick={() => setShowLogoutModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ duration: 0.2 }}
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-500" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Logout</h3>
+                  <p className="text-xs text-gray-400">Are you sure you want to logout?</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600 mb-5">
+                You'll be logged out of your Ndeef admin account. Any unsaved changes will be lost.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowLogoutModal(false)}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => { logout(); router.push("/"); }}
+                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all"
+                >
+                  Logout
+                </button>
+              </div>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100 transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Collapse toggle */}
+      {!isMobile && (
+        <button
+          onClick={onToggle}
+          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow z-50"
+          style={{ color: "#1D5B70" }}
+        >
+          <motion.div animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.3 }}>
+            <ChevronLeft className="w-3.5 h-3.5" />
+          </motion.div>
+        </button>
+      )}
+    </motion.aside>
   );
 }

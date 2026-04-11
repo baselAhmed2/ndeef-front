@@ -36,19 +36,44 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const { isLoggedIn, isAuthReady, user } = useAuth();
   const authPaths = ["/login", "/signup"];
   const isAuthPage = authPaths.includes(pathname);
-  const shouldShowTopNav = !isAuthPage || !!searchParams.get("from");
+  
+  const role = user?.role || "";
+  const isLaundryAdmin = isLoggedIn && role.toLowerCase().includes("laundryadmin");
 
   useEffect(() => {
     if (!isAuthReady) return;
 
-    if (isLoggedIn && isAuthPage) {
-      router.replace(resolveDefaultPathForRole(user?.role));
+    // Redirect admins from auth pages or user sections
+    if (isLaundryAdmin) {
+      if (!pathname.startsWith("/laundry-admin")) {
+        // Only redirect if NOT specifically requested a different user page via 'from' (rare for admin)
+        const from = searchParams.get("from");
+        if (!from || from === "/" || from === pathname) {
+          router.replace("/laundry-admin");
+        }
+      }
+      return;
     }
-  }, [isAuthPage, isAuthReady, isLoggedIn, router, user?.role]);
+  }, [isAuthPage, isAuthReady, isLoggedIn, isLaundryAdmin, pathname, router, searchParams]);
 
   if (!isAuthReady) {
     return null;
   }
+
+  // AGGRESSIVE: If you are an admin in a user section, show NOTHING but the white loader
+  // This kills the flicker of the Home page or TopNav instantly.
+  if (isLaundryAdmin && !pathname.startsWith("/laundry-admin")) {
+    return (
+      <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-[3px] border-gray-100 border-t-[#1D5B70] rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-[#1D5B70] tracking-widest uppercase opacity-80">Ndeef Admin</p>
+        </div>
+      </div>
+    );
+  }
+
+  const shouldShowTopNav = (!isAuthPage || !!searchParams.get("from")) && !isLaundryAdmin;
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
