@@ -145,6 +145,12 @@ export function LaundryDashboard() {
   const [orderStatusData, setOrderStatusData] = useState(defaultOrderStatusData);
   const [recentOrders, setRecentOrders] = useState(defaultRecentOrders);
   const [topServices, setTopServices] = useState(defaultTopServices);
+  const [stats, setStats] = useState({
+    totalRevenue: 62400,
+    totalOrders: 1284,
+    completedOrders: 348,
+    pendingOrders: 24,
+  });
 
   useEffect(() => {
     async function fetchData() {
@@ -156,6 +162,14 @@ export function LaundryDashboard() {
         if (summary?.revenueData) setRevenueData(summary.revenueData);
         if (summary?.orderStatusData) setOrderStatusData(summary.orderStatusData);
         if (summary?.topServices) setTopServices(summary.topServices);
+        if (summary?.stats) {
+          setStats({
+            totalRevenue: summary.stats.totalRevenue,
+            totalOrders: summary.stats.totalOrders,
+            completedOrders: summary.stats.completedOrders,
+            pendingOrders: summary.stats.pendingOrders,
+          });
+        }
         if (incoming && Array.isArray(incoming) && incoming.length > 0) setRecentOrders(incoming);
       } catch (err) {
         console.error("Failed to load dashboard data", err);
@@ -182,39 +196,39 @@ export function LaundryDashboard() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
         <StatCard
           title="Total Revenue"
-          value="$62,400"
-          subtitle="This year"
+          value={`EGP ${stats.totalRevenue.toLocaleString()}`}
+          subtitle="Delivered orders"
           icon={DollarSign}
           trend="up"
-          trendValue="+18.2%"
+          trendValue={`${stats.totalOrders} orders`}
           accent
           delay={0}
         />
         <StatCard
           title="Total Orders"
-          value="1,284"
-          subtitle="This year"
+          value={stats.totalOrders.toLocaleString()}
+          subtitle="Across your laundry"
           icon={ShoppingBag}
           trend="up"
-          trendValue="+12.5%"
+          trendValue="Live backend data"
           delay={0.05}
         />
         <StatCard
-          title="Active Customers"
-          value="348"
-          subtitle="Unique this month"
+          title="Completed Orders"
+          value={stats.completedOrders.toLocaleString()}
+          subtitle="Successfully delivered"
           icon={Users}
           trend="up"
-          trendValue="+7.3%"
+          trendValue="Live backend data"
           delay={0.1}
         />
         <StatCard
           title="Pending Orders"
-          value="24"
+          value={stats.pendingOrders.toString()}
           subtitle="Awaiting processing"
           icon={Clock}
-          trend="down"
-          trendValue="-4.1%"
+          trend="up"
+          trendValue="Needs attention"
           delay={0.15}
         />
       </div>
@@ -335,7 +349,7 @@ export function LaundryDashboard() {
           </div>
           <div className="divide-y divide-gray-50">
             {recentOrders.map((order) => {
-              const cfg = statusConfig[order.status];
+              const cfg = statusConfig[order.status] ?? statusConfig.Pending;
               const Icon = cfg.icon;
               return (
                 <div

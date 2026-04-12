@@ -6,8 +6,8 @@ import { motion } from "motion/react";
 import { Clock, Save, Info, CheckCircle2 } from "lucide-react";
 
 interface TimeSlot {
-  open: string;
-  close: string;
+  start: string;
+  end: string;
 }
 
 interface DaySchedule {
@@ -18,13 +18,13 @@ interface DaySchedule {
 type WeekSchedule = Record<string, DaySchedule>;
 
 const defaultSchedule: WeekSchedule = {
-  Monday: { enabled: true, slots: [{ open: "08:00", close: "20:00" }] },
-  Tuesday: { enabled: true, slots: [{ open: "08:00", close: "20:00" }] },
-  Wednesday: { enabled: true, slots: [{ open: "08:00", close: "20:00" }] },
-  Thursday: { enabled: true, slots: [{ open: "08:00", close: "20:00" }] },
-  Friday: { enabled: true, slots: [{ open: "09:00", close: "18:00" }] },
-  Saturday: { enabled: true, slots: [{ open: "10:00", close: "16:00" }] },
-  Sunday: { enabled: false, slots: [{ open: "10:00", close: "14:00" }] },
+  Monday: { enabled: true, slots: [{ start: "08:00", end: "20:00" }] },
+  Tuesday: { enabled: true, slots: [{ start: "08:00", end: "20:00" }] },
+  Wednesday: { enabled: true, slots: [{ start: "08:00", end: "20:00" }] },
+  Thursday: { enabled: true, slots: [{ start: "08:00", end: "20:00" }] },
+  Friday: { enabled: true, slots: [{ start: "09:00", end: "18:00" }] },
+  Saturday: { enabled: true, slots: [{ start: "10:00", end: "16:00" }] },
+  Sunday: { enabled: false, slots: [{ start: "10:00", end: "14:00" }] },
 };
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
@@ -104,7 +104,7 @@ export function Availability() {
     }));
   };
 
-  const updateSlot = (day: string, index: number, field: "open" | "close", value: string) => {
+  const updateSlot = (day: string, index: number, field: "start" | "end", value: string) => {
     setSchedule((prev) => {
       const slots = [...prev[day].slots];
       slots[index] = { ...slots[index], [field]: value };
@@ -200,24 +200,24 @@ export function Availability() {
                     {dayData.slots.map((slot, si) => (
                       <div key={si} className="flex items-center gap-2">
                         <select
-                          value={slot.open}
-                          onChange={(e) => updateSlot(day, si, "open", e.target.value)}
+                          value={slot.start}
+                          onChange={(e) => updateSlot(day, si, "start", e.target.value)}
                           className="h-9 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20 bg-white"
                         >
                           {timeOptions.map((t) => <option key={t}>{t}</option>)}
                         </select>
                         <span className="text-gray-400 text-xs font-medium">to</span>
                         <select
-                          value={slot.close}
-                          onChange={(e) => updateSlot(day, si, "close", e.target.value)}
+                          value={slot.end}
+                          onChange={(e) => updateSlot(day, si, "end", e.target.value)}
                           className="h-9 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20 bg-white"
                         >
                           {timeOptions.map((t) => <option key={t}>{t}</option>)}
                         </select>
                         <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
                           {(() => {
-                            const [oh, om] = slot.open.split(":").map(Number);
-                            const [ch, cm] = slot.close.split(":").map(Number);
+                            const [oh, om] = slot.start.split(":").map(Number);
+                            const [ch, cm] = slot.end.split(":").map(Number);
                             const diff = (ch * 60 + cm) - (oh * 60 + om);
                             const h = Math.floor(diff / 60);
                             const m = diff % 60;

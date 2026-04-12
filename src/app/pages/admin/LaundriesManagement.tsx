@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { motion } from "motion/react";
 import {
+  AlertTriangle,
+  Ban,
   CheckCircle,
   Clock3,
   Download,
@@ -13,6 +15,15 @@ import {
   XCircle,
 } from "lucide-react";
 import clsx from "clsx";
+import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../components/ui/dialog";
 import { apiRequest, ApiError } from "../../lib/admin-api";
 import type {
   CreateLaundryRequest,
@@ -51,6 +62,78 @@ function escapeCsv(value: string) {
   return `"${value.replace(/"/g, '""')}"`;
 }
 
+function showLaundryStatusToast({
+  laundryName,
+  nextStatus,
+  reason,
+}: {
+  laundryName: string;
+  nextStatus: "Active" | "Inactive";
+  reason?: string;
+}) {
+  const isSuspended = nextStatus === "Inactive";
+  const accentClasses = isSuspended
+    ? "border-amber-200/80 bg-gradient-to-br from-amber-50 via-white to-rose-50 text-slate-900"
+    : "border-emerald-200/80 bg-gradient-to-br from-emerald-50 via-white to-cyan-50 text-slate-900";
+  const badgeClasses = isSuspended
+    ? "bg-amber-100 text-amber-800 ring-1 ring-inset ring-amber-200"
+    : "bg-emerald-100 text-emerald-800 ring-1 ring-inset ring-emerald-200";
+  const iconClasses = isSuspended
+    ? "bg-gradient-to-br from-amber-500 to-rose-500 text-white shadow-lg shadow-amber-200/70"
+    : "bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-lg shadow-emerald-200/70";
+  const Icon = isSuspended ? Ban : CheckCircle;
+
+  toast.custom(
+    (id) => (
+      <div
+        className={clsx(
+          "w-[min(92vw,420px)] overflow-hidden rounded-[22px] border p-0 shadow-2xl shadow-slate-900/10 backdrop-blur",
+          accentClasses,
+        )}
+      >
+        <div className="relative">
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-slate-900/10 to-transparent" />
+          <div className="flex items-start gap-3 p-4">
+            <div className={clsx("flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl", iconClasses)}>
+              <Icon size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className={clsx("rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.18em]", badgeClasses)}>
+                  {isSuspended ? "Suspended" : "Activated"}
+                </span>
+              </div>
+              <p className="mt-3 text-sm font-semibold leading-5 text-slate-900">
+                {laundryName} has been {isSuspended ? "suspended" : "activated"} successfully.
+              </p>
+              <p className="mt-1 text-xs leading-5 text-slate-600">
+                {isSuspended
+                  ? "The laundry is now inactive and hidden from active operations."
+                  : "The laundry is back in service and available for operations."}
+              </p>
+              {reason ? (
+                <div className="mt-3 rounded-2xl border border-white/70 bg-white/80 px-3 py-2 text-xs text-slate-600 shadow-sm">
+                  <span className="font-semibold text-slate-800">Reason:</span> {reason}
+                </div>
+              ) : null}
+            </div>
+            <button
+              onClick={() => toast.dismiss(id)}
+              className="rounded-full p-1.5 text-slate-400 transition hover:bg-white/70 hover:text-slate-700"
+              aria-label="Dismiss notification"
+            >
+              <XCircle size={16} />
+            </button>
+          </div>
+        </div>
+      </div>
+    ),
+    {
+      duration: 4200,
+    },
+  );
+}
+
 export function LaundriesManagement() {
   const [laundries, setLaundries] = useState<LaundryRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -66,6 +149,9 @@ export function LaundriesManagement() {
     latitude: "",
     longitude: "",
   });
+  const [suspensionTarget, setSuspensionTarget] = useState<LaundryRecord | null>(null);
+  const [suspensionReason, setSuspensionReason] = useState("");
+  const [suspensionReasonError, setSuspensionReasonError] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -124,20 +210,30 @@ export function LaundriesManagement() {
     [laundries],
   );
 
+  function openSuspensionDialog(laundry: LaundryRecord) {
+    setSuspensionTarget(laundry);
+    setSuspensionReason("");
+    setSuspensionReasonError(null);
+  }
+
+  function closeSuspensionDialog() {
+    setSuspensionTarget(null);
+    setSuspensionReason("");
+    setSuspensionReasonError(null);
+  }
+
   async function handleStatusChange(laundry: LaundryRecord) {
     const nextStatus = laundry.status === "Active" ? "Inactive" : "Active";
-    let reason: string | undefined;
+    const reason = nextStatus === "Inactive" ? suspensionReason.trim() : undefined;
 
-    if (nextStatus === "Inactive") {
-      const promptValue = window.prompt("Enter a suspension reason for this laundry:");
-      if (!promptValue) {
-        return;
-      }
-      reason = promptValue;
+    if (nextStatus === "Inactive" && !reason) {
+      setSuspensionReasonError("Please enter a clear reason before suspending this laundry.");
+      return;
     }
 
     setIsUpdatingId(laundry.id);
     setError(null);
+    setSuspensionReasonError(null);
 
     try {
       await apiRequest(`/admin/laundries/${laundry.id}/status`, {
@@ -151,8 +247,20 @@ export function LaundriesManagement() {
       setLaundries((current) =>
         current.map((item) => (item.id === laundry.id ? { ...item, status: nextStatus } : item)),
       );
+      showLaundryStatusToast({
+        laundryName: laundry.name,
+        nextStatus,
+        reason,
+      });
+      if (nextStatus === "Inactive") {
+        closeSuspensionDialog();
+      }
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "Unable to update laundry status.");
+      const message = err instanceof ApiError ? err.message : "Unable to update laundry status.";
+      setError(message);
+      toast.error(message, {
+        description: `We couldn't ${nextStatus === "Inactive" ? "suspend" : "activate"} ${laundry.name}. Please try again.`,
+      });
     } finally {
       setIsUpdatingId(null);
     }
@@ -454,7 +562,14 @@ export function LaundriesManagement() {
                         <td className="py-3 px-3 text-xs text-slate-500">{formatDate(laundry.createdAt)}</td>
                         <td className="py-3 px-3">
                           <button
-                            onClick={() => handleStatusChange(laundry)}
+                            onClick={() => {
+                              if (laundry.status === "Active") {
+                                openSuspensionDialog(laundry);
+                                return;
+                              }
+
+                              void handleStatusChange(laundry);
+                            }}
                             disabled={isUpdatingId === laundry.id}
                             className={clsx(
                               "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
@@ -480,6 +595,88 @@ export function LaundriesManagement() {
           </>
         )}
       </div>
+
+      <Dialog
+        open={Boolean(suspensionTarget)}
+        onOpenChange={(open) => {
+          if (!open && isUpdatingId === null) {
+            closeSuspensionDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-w-[560px] overflow-hidden rounded-[28px] border-none bg-transparent p-0 shadow-none">
+          <div className="relative overflow-hidden rounded-[28px] border border-amber-200/70 bg-gradient-to-br from-slate-950 via-slate-900 to-[#1a2238] text-white shadow-2xl shadow-slate-950/30">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(251,191,36,0.22),_transparent_32%),radial-gradient(circle_at_bottom_left,_rgba(244,63,94,0.18),_transparent_28%)]" />
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-400 via-orange-300 to-rose-400" />
+
+            <div className="relative p-6 sm:p-7">
+              <DialogHeader className="space-y-0 text-left">
+                <div className="flex items-start gap-4">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-400 to-rose-500 text-slate-950 shadow-lg shadow-amber-500/20">
+                    <AlertTriangle size={24} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="inline-flex items-center rounded-full border border-amber-300/25 bg-white/10 px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-amber-200">
+                      Suspend Laundry
+                    </div>
+                    <DialogTitle className="mt-3 text-2xl font-semibold tracking-tight text-white">
+                      Add a suspension reason
+                    </DialogTitle>
+                    <DialogDescription className="mt-2 text-sm leading-6 text-slate-300">
+                      This note explains why <span className="font-semibold text-white">{suspensionTarget?.name}</span> is being suspended and will be attached to this admin action.
+                    </DialogDescription>
+                  </div>
+                </div>
+              </DialogHeader>
+
+              <div className="mt-6 rounded-[24px] border border-white/10 bg-white/5 p-4 backdrop-blur-sm">
+                <label htmlFor="suspension-reason" className="block text-xs font-semibold uppercase tracking-[0.2em] text-slate-300">
+                  Suspension Reason
+                </label>
+                <textarea
+                  id="suspension-reason"
+                  value={suspensionReason}
+                  onChange={(event) => {
+                    setSuspensionReason(event.target.value);
+                    if (suspensionReasonError) {
+                      setSuspensionReasonError(null);
+                    }
+                  }}
+                  placeholder="Example: Repeated order delays and unresolved customer complaints."
+                  rows={5}
+                  className="mt-3 w-full resize-none rounded-2xl border border-white/10 bg-slate-950/55 px-4 py-3 text-sm leading-6 text-white outline-none transition placeholder:text-slate-500 focus:border-amber-300/60 focus:ring-2 focus:ring-amber-300/20"
+                />
+                <div className="mt-3 flex items-center justify-between gap-3">
+                  <p className={clsx("text-xs", suspensionReasonError ? "text-rose-300" : "text-slate-400")}>
+                    {suspensionReasonError ?? "Keep it short, specific, and helpful for future admin review."}
+                  </p>
+                  <span className="text-xs text-slate-500">{suspensionReason.trim().length} chars</span>
+                </div>
+              </div>
+
+              <DialogFooter className="mt-6 flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <button
+                  type="button"
+                  onClick={closeSuspensionDialog}
+                  disabled={isUpdatingId === suspensionTarget?.id}
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => suspensionTarget && void handleStatusChange(suspensionTarget)}
+                  disabled={isUpdatingId === suspensionTarget?.id}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-amber-400 via-orange-400 to-rose-500 px-5 py-3 text-sm font-semibold text-slate-950 shadow-lg shadow-orange-500/20 transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {isUpdatingId === suspensionTarget?.id ? <LoaderCircle size={16} className="animate-spin" /> : <Ban size={16} />}
+                  {isUpdatingId === suspensionTarget?.id ? "Suspending..." : "Suspend Laundry"}
+                </button>
+              </DialogFooter>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
+  Crosshair,
   Minus,
   Plus,
   Clock,
@@ -16,6 +17,8 @@ import {
   CreditCard,
   RefreshCw,
   Trash2,
+  Navigation,
+  X,
 } from "lucide-react";
 import {
   ApiError,
@@ -27,6 +30,14 @@ import {
   placeOrderRequest,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
 
 const dates = ["Today", "Tomorrow", "Day After"];
 const timeSlots = [
@@ -58,6 +69,10 @@ function toPickupDateTime(dateLabel: string, timeSlot: string) {
   date.setHours(hours, minutes, 0, 0);
 
   return date.toISOString();
+}
+
+function formatMapAddress(latitude: number, longitude: number) {
+  return `Location selected from map (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`;
 }
 
 export default function OrderPage() {
@@ -94,6 +109,11 @@ export default function OrderPage() {
   const [pricingError, setPricingError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [calculatedTotal, setCalculatedTotal] = useState<number | null>(null);
+  const [mapTarget, setMapTarget] = useState<"pickup" | "delivery" | null>(null);
+  const [mapLatitude, setMapLatitude] = useState(30.044420);
+  const [mapLongitude, setMapLongitude] = useState(31.235712);
+  const [mapError, setMapError] = useState("");
+  const [mapLoadingLocation, setMapLoadingLocation] = useState(false);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -207,6 +227,11 @@ export default function OrderPage() {
 
   const deliveryFee = 0;
   const finalDelivery = sameAddress ? pickupAddress : deliveryAddress;
+  const mapPreviewSrc = useMemo(
+    () =>
+      `https://www.openstreetmap.org/export/embed.html?bbox=${mapLongitude - 0.01}%2C${mapLatitude - 0.01}%2C${mapLongitude + 0.01}%2C${mapLatitude + 0.01}&layer=mapnik&marker=${mapLatitude}%2C${mapLongitude}`,
+    [mapLatitude, mapLongitude],
+  );
 
   const updateItemCount = (serviceId: string, nextValue: number) => {
     setItemCounts((current) => ({
@@ -232,6 +257,62 @@ export default function OrderPage() {
         .filter((service) => service.id !== serviceId)
         .map((service) => service.id),
     );
+  };
+
+  const openMapPicker = (target: "pickup" | "delivery") => {
+    setMapTarget(target);
+    setMapError("");
+  };
+
+  const closeMapPicker = () => {
+    setMapTarget(null);
+    setMapError("");
+    setMapLoadingLocation(false);
+  };
+
+  const useCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      setMapError("Geolocation is not supported on this device.");
+      return;
+    }
+
+    setMapLoadingLocation(true);
+    setMapError("");
+
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setMapLatitude(position.coords.latitude);
+        setMapLongitude(position.coords.longitude);
+        setMapLoadingLocation(false);
+      },
+      () => {
+        setMapError("We couldn't access your location. Please allow location permission and try again.");
+        setMapLoadingLocation(false);
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+      },
+    );
+  };
+
+  const applyMapLocation = () => {
+    const nextAddress = formatMapAddress(mapLatitude, mapLongitude);
+
+    if (mapTarget === "pickup") {
+      setPickupAddress(nextAddress);
+      setErrors((current) => ({ ...current, pickup: "" }));
+      if (sameAddress) {
+        setDeliveryAddress(nextAddress);
+      }
+    }
+
+    if (mapTarget === "delivery") {
+      setDeliveryAddress(nextAddress);
+      setErrors((current) => ({ ...current, delivery: "" }));
+    }
+
+    closeMapPicker();
   };
 
   const handlePlaceOrder = async () => {
@@ -522,6 +603,20 @@ export default function OrderPage() {
               PICKUP ADDRESS
             </p>
           </div>
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] p-3">
+            <div>
+              <p className="text-sm font-medium text-gray-800">Choose your location from the map</p>
+              <p className="text-xs text-gray-500">Use current location or fine-tune the pin coordinates.</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => openMapPicker("pickup")}
+              className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-[#1D6076] px-3.5 py-2 text-sm font-medium text-white transition hover:bg-[#174e60]"
+            >
+              <MapPin size={15} />
+              Open Map
+            </button>
+          </div>
           <input
             type="text"
             placeholder="Enter your pickup address..."
@@ -572,6 +667,20 @@ export default function OrderPage() {
               <p className="text-xs font-semibold text-gray-400 tracking-wider">
                 DELIVERY ADDRESS
               </p>
+            </div>
+            <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] p-3">
+              <div>
+                <p className="text-sm font-medium text-gray-800">Pick a different delivery point</p>
+                <p className="text-xs text-gray-500">Open the map if delivery should go to another place.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => openMapPicker("delivery")}
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-[#1D6076]/15 bg-white px-3.5 py-2 text-sm font-medium text-[#1D6076] transition hover:bg-[#1D6076]/5"
+              >
+                <MapPin size={15} />
+                Open Map
+              </button>
             </div>
             <input
               type="text"
@@ -688,6 +797,118 @@ export default function OrderPage() {
           </button>
         </div>
       </div>
+
+      <Dialog open={Boolean(mapTarget)} onOpenChange={(open) => !open && closeMapPicker()}>
+        <DialogContent className="max-w-3xl rounded-[28px] border border-slate-200 bg-white p-0 shadow-2xl">
+          <div className="overflow-hidden rounded-[28px]">
+            <div className="bg-gradient-to-r from-[#1D6076] via-[#2b7d93] to-[#EBA050] px-6 py-5 text-white">
+              <DialogHeader className="text-left">
+                <DialogTitle className="text-xl font-semibold">
+                  Choose {mapTarget === "delivery" ? "delivery" : "pickup"} location from map
+                </DialogTitle>
+                <DialogDescription className="text-sm text-white/80">
+                  Use your current location, adjust the coordinates if needed, then save it to the order form.
+                </DialogDescription>
+              </DialogHeader>
+            </div>
+
+            <div className="grid gap-5 p-6 lg:grid-cols-[1.15fr_0.85fr]">
+              <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50">
+                <iframe
+                  title="Location map preview"
+                  src={mapPreviewSrc}
+                  className="h-[320px] w-full border-0"
+                  loading="lazy"
+                />
+                <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3">
+                  <div className="flex items-center gap-2 text-sm text-slate-600">
+                    <Navigation size={15} className="text-[#1D6076]" />
+                    {mapLatitude.toFixed(6)}, {mapLongitude.toFixed(6)}
+                  </div>
+                  <a
+                    href={`https://www.openstreetmap.org/?mlat=${mapLatitude}&mlon=${mapLongitude}#map=17/${mapLatitude}/${mapLongitude}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-[#1D6076] hover:underline"
+                  >
+                    Open larger map
+                  </a>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">QUICK ACTIONS</p>
+                  <button
+                    type="button"
+                    onClick={useCurrentLocation}
+                    disabled={mapLoadingLocation}
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1D6076] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#174e60] disabled:opacity-70"
+                  >
+                    {mapLoadingLocation ? <Loader2 size={16} className="animate-spin" /> : <Crosshair size={16} />}
+                    {mapLoadingLocation ? "Detecting location..." : "Use my current location"}
+                  </button>
+                  {mapError ? (
+                    <p className="mt-3 text-xs text-red-500">{mapError}</p>
+                  ) : (
+                    <p className="mt-3 text-xs text-slate-500">
+                      Allow browser location access for the fastest address selection.
+                    </p>
+                  )}
+                </div>
+
+                <div className="rounded-3xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">PIN COORDINATES</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-medium text-slate-500">Latitude</span>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={mapLatitude}
+                        onChange={(event) => setMapLatitude(Number(event.target.value))}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#1D6076] focus:ring-2 focus:ring-[#1D6076]/15"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-medium text-slate-500">Longitude</span>
+                      <input
+                        type="number"
+                        step="0.000001"
+                        value={mapLongitude}
+                        onChange={(event) => setMapLongitude(Number(event.target.value))}
+                        className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#1D6076] focus:ring-2 focus:ring-[#1D6076]/15"
+                      />
+                    </label>
+                  </div>
+                  <p className="mt-3 text-xs text-slate-500">
+                    The saved address will include the selected map coordinates so the laundry can find you accurately.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="border-t border-slate-100 px-6 py-4 sm:justify-between">
+              <button
+                type="button"
+                onClick={closeMapPicker}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-600 transition hover:bg-slate-50"
+              >
+                <X size={15} />
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={applyMapLocation}
+                className="inline-flex items-center justify-center gap-2 rounded-2xl bg-[#1D6076] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#174e60]"
+              >
+                <Check size={16} />
+                Use This Location
+              </button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

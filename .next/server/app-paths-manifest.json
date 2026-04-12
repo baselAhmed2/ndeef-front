@@ -1,4 +1,8 @@
 {
-  "/admin/settings/page": "app/admin/settings/page.js",
-  "/admin/help/page": "app/admin/help/page.js"
+  "/api/backend/[...path]/route": "app/api/backend/[...path]/route.js",
+  "/laundry-admin/settings/page": "app/laundry-admin/settings/page.js",
+  "/(app)/signup/page": "app/(app)/signup/page.js",
+  "/(app)/page": "app/(app)/page.js",
+  "/laundry-admin/page": "app/laundry-admin/page.js",
+  "/(app)/verify-email/page": "app/(app)/verify-email/page.js"
 }

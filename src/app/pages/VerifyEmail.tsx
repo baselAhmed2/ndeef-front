@@ -3,12 +3,22 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, Loader2, Mail, ShieldCheck, AlertCircle } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
+import {
+  clearPendingLaundryOnboarding,
+  LAUNDRY_ADMIN_DIDIT_SIGNUP_URL,
+  readPendingLaundryOnboarding,
+} from "@/app/lib/laundry-onboarding";
+import {
+  setupProfile,
+} from "@/app/lib/laundry-admin-client";
 
 export default function VerifyEmail() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { verifyEmail } = useAuth();
   const email = searchParams.get("email") ?? "";
+  const requestedRole = searchParams.get("role") ?? "";
+  const next = searchParams.get("next") ?? "";
 
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);
@@ -38,7 +48,35 @@ export default function VerifyEmail() {
       return;
     }
 
-    router.replace("/");
+    const resolvedRole = (result.user?.role ?? requestedRole).toLowerCase();
+    const isLaundryAdmin = resolvedRole.includes("laundryadmin");
+
+    if (isLaundryAdmin) {
+      const pendingLaundry = readPendingLaundryOnboarding();
+
+      if (pendingLaundry) {
+        try {
+          await setupProfile({
+            laundryName: pendingLaundry.laundryName,
+            address: pendingLaundry.address,
+            latitude: pendingLaundry.latitude,
+            longitude: pendingLaundry.longitude,
+          });
+          clearPendingLaundryOnboarding();
+          window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+          return;
+        } catch (error) {
+          console.error("Failed to complete laundry onboarding", error);
+          window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+          return;
+        }
+      }
+
+      window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+      return;
+    }
+
+    router.replace(next || "/");
   };
 
   return (

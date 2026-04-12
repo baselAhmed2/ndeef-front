@@ -131,17 +131,22 @@ export function OrderDetailsNew() {
   const cfg = statusConfig[currentStatus] ?? statusConfig["Pending"];
   const StatusIcon = cfg.icon;
 
-  const handleMarkReady = async () => {
+  const handleStatusChange = async (status: string) => {
     try {
       setIsUpdating(true);
-      await updateOrderStatus(order.id, "Ready");
-      setCurrentStatus("Ready");
-      setOrder((prev: any) => ({ ...prev, status: "Ready" }));
+      await updateOrderStatus(order.id, status);
+      setCurrentStatus(status);
+      setOrder((prev: any) => ({ ...prev, status }));
+      if (status === "Cancelled") setCancelled(true);
     } catch (e) {
       console.error(e);
     } finally {
       setIsUpdating(false);
     }
+  };
+
+  const handleMarkReady = async () => {
+    await handleStatusChange("Ready");
   };
 
   const handleSendSms = () => {
@@ -156,18 +161,8 @@ export function OrderDetailsNew() {
   };
 
   const handleCancelConfirm = async () => {
-    try {
-      setIsUpdating(true);
-      await updateOrderStatus(order.id, "Cancelled");
-      setCancelled(true);
-      setCurrentStatus("Cancelled");
-      setOrder((prev: any) => ({ ...prev, status: "Cancelled" }));
-      setShowCancelModal(false);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUpdating(false);
-    }
+    await handleStatusChange("Cancelled");
+    setShowCancelModal(false);
   };
 
   const subtotal = order.items.reduce((acc: number, item: any) => acc + item.qty * item.price, 0);
@@ -314,13 +309,13 @@ export function OrderDetailsNew() {
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-gray-900">{order.id}</h2>
-              <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
-                style={{ color: cfg.color, backgroundColor: cfg.bg }}
-              >
-                <StatusIcon className="w-3.5 h-3.5" />
-                {order.status}
-              </span>
+                <span
+                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
+                  style={{ color: cfg.color, backgroundColor: cfg.bg }}
+                >
+                  <StatusIcon className="w-3.5 h-3.5" />
+                {currentStatus}
+                </span>
             </div>
             <p className="text-gray-400 text-sm mt-1">Placed on {order.date}</p>
           </div>
@@ -337,7 +332,13 @@ export function OrderDetailsNew() {
               key={s}
               whileTap={{ scale: 0.96 }}
               disabled={isUpdating}
-              onClick={() => s === "Cancelled" ? setShowCancelModal(true) : setCurrentStatus(s)}
+              onClick={() => {
+                if (s === "Cancelled") {
+                  setShowCancelModal(true);
+                  return;
+                }
+                handleStatusChange(s);
+              }}
               className={`px-3 py-1 text-xs font-medium rounded-lg border transition-all disabled:opacity-50 ${
                 currentStatus === s
                   ? "text-white border-transparent"

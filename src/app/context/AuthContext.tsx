@@ -43,6 +43,7 @@ export interface SignupData {
   email: string;
   phone: string;
   password: string;
+  role?: "Customer" | "LaundryAdmin";
   address?: string;
 }
 
@@ -107,7 +108,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: data.email,
         password: data.password,
         phoneNumber: data.phone,
-        role: "Customer",
+        role: data.role ?? "Customer",
       });
 
       if (response.token) {

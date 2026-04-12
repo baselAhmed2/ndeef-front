@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { getProfile, setupProfile, startVerificationSession, uploadCommercialRegister } from "@/app/lib/laundry-admin-client";
+import { LAUNDRY_ADMIN_DIDIT_SIGNUP_URL } from "@/app/lib/laundry-onboarding";
 import { motion, AnimatePresence } from "motion/react";
 import {
   User,
@@ -47,6 +49,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 }
 
 export function Settings() {
+  const searchParams = useSearchParams();
+  const onboardingMode = searchParams.get("onboarding") === "1";
   const [saved, setSaved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -60,6 +64,8 @@ export function Settings() {
     phone: "+20 10 1234 5678",
     laundryName: "Ndeef Laundry",
     address: "123 Main Street, Cairo, Egypt",
+    latitude: 30.0444,
+    longitude: 31.2357,
   });
 
   const [passwords, setPasswords] = useState({
@@ -105,6 +111,10 @@ export function Settings() {
     try {
       setIsSaving(true);
       await setupProfile(profile);
+      if (onboardingMode) {
+        window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+        return;
+      }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
@@ -153,6 +163,17 @@ export function Settings() {
 
   return (
     <div className="p-6 space-y-5 w-full">
+      {onboardingMode && (
+        <div className="rounded-2xl border border-[#1D5B70]/15 bg-[#1D5B70]/5 px-5 py-4">
+          <h3 className="text-sm font-semibold text-[#1D5B70]">
+            Complete your laundry registration
+          </h3>
+          <p className="text-xs text-[#1D5B70]/80 mt-1 leading-relaxed">
+            Save your laundry details first. After saving, we will continue automatically to Didit for identity verification.
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -173,7 +194,7 @@ export function Settings() {
           ) : (
             <Save className="w-4 h-4" />
           )}
-          {isSaving ? "Saving..." : saved ? "Changes Saved!" : "Save Changes"}
+          {isSaving ? "Saving..." : saved ? "Changes Saved!" : onboardingMode ? "Save and Continue to Didit" : "Save Changes"}
         </motion.button>
       </div>
 
@@ -301,6 +322,30 @@ export function Settings() {
                   <input
                     value={profile.address}
                     onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                    className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                    Latitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={profile.latitude}
+                    onChange={(e) => setProfile({ ...profile, latitude: Number(e.target.value) })}
+                    className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
+                    Longitude
+                  </label>
+                  <input
+                    type="number"
+                    step="0.000001"
+                    value={profile.longitude}
+                    onChange={(e) => setProfile({ ...profile, longitude: Number(e.target.value) })}
                     className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
                   />
                 </div>

@@ -10,22 +10,77 @@ import {
   Loader2,
   AlertCircle,
   ArrowLeft,
+  User,
+  Store,
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
+import { getProfile } from "../lib/laundry-admin-client";
+import { LAUNDRY_ADMIN_DIDIT_SIGNUP_URL } from "../lib/laundry-onboarding";
 
 import sideImg from "../../assets/c3cadfc0d53d76910fffbccca80883d33cdb8d15.png";
 
 const SIDE_IMG = sideImg;
+type AccountType = "Customer" | "LaundryAdmin";
+
+function AccountTypeCard({
+  active,
+  title,
+  description,
+  icon: Icon,
+  onClick,
+}: {
+  active: boolean;
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`w-full text-left rounded-2xl border p-4 transition-all ${
+        active
+          ? "border-[#1D6076] bg-[#1D6076]/5 ring-2 ring-[#1D6076]/10"
+          : "border-gray-200 bg-white hover:border-[#1D6076]/30"
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <div
+          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            active ? "bg-[#1D6076] text-white" : "bg-gray-100 text-gray-500"
+          }`}
+        >
+          <Icon size={18} />
+        </div>
+        <div className="min-w-0">
+          <p className="text-sm font-semibold text-gray-900">{title}</p>
+          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
+            {description}
+          </p>
+        </div>
+      </div>
+    </button>
+  );
+}
 
 function resolvePostLoginPath(role?: string, from?: string) {
-  if (from && from !== "/") return from;
-
   const normalizedRole = (role ?? "").toLowerCase();
   if (normalizedRole.includes("laundryadmin")) return "/laundry-admin";
   if (normalizedRole.includes("admin")) return "/admin";
+  if (from && from !== "/") return from;
   return "/";
+}
+
+async function resolveLaundryAdminLoginPath() {
+  try {
+    await getProfile();
+    return "/laundry-admin";
+  } catch {
+    return LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+  }
 }
 
 export default function Login() {
@@ -34,53 +89,95 @@ export default function Login() {
   const { login, socialLogin } = useAuth();
 
   const from = searchParams.get("from") || "/";
+  const initialRole = searchParams.get("role");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
   const [socialLoad, setSocialLoad] = useState("");
+  const [loginPhase, setLoginPhase] = useState<"idle" | "auth" | "checking">(
+    "idle",
+  );
+  const [accountType, setAccountType] = useState<AccountType>(
+    initialRole === "LaundryAdmin" ? "LaundryAdmin" : "Customer",
+  );
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const validate = () => {
-    const e: Record<string, string> = {};
-    if (!email.trim()) e.email = "Email is required";
-    else if (!/\S+@\S+\.\S+/.test(email)) e.email = "Enter a valid email";
-    if (!password) e.password = "Password is required";
-    setErrors(e);
-    return Object.keys(e).length === 0;
+    const nextErrors: Record<string, string> = {};
+    if (!email.trim()) nextErrors.email = "Email is required";
+    else if (!/\S+@\S+\.\S+/.test(email)) nextErrors.email = "Enter a valid email";
+    if (!password) nextErrors.password = "Password is required";
+    setErrors(nextErrors);
+    return Object.keys(nextErrors).length === 0;
   };
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleLogin = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError("");
     if (!validate()) return;
+
     setLoading(true);
+    setLoginPhase("auth");
     const result = await login(email, password);
+
     if (result.ok) {
+      const resolvedRole = (result.user?.role ?? "").toLowerCase();
+      const isLaundryAdmin = resolvedRole.includes("laundryadmin");
+
+      if (accountType === "LaundryAdmin" && !isLaundryAdmin) {
+        setLoading(false);
+        setError(
+          "This account is not registered as a laundry owner. Switch to customer login or use a Laundry Admin account.",
+        );
+        return;
+      }
+
+      if (isLaundryAdmin) {
+        setLoginPhase("checking");
+        const nextPath = await resolveLaundryAdminLoginPath();
+        if (nextPath.startsWith("http")) {
+          window.location.href = nextPath;
+        } else {
+          router.replace(nextPath);
+        }
+        return;
+      }
+
       router.replace(resolvePostLoginPath(result.user?.role, from));
-      // Keep loading as true while redirecting
-    } else {
-      setLoading(false);
-      setError(result.message ?? "Invalid email or password. Please try again.");
+      return;
     }
+
+    setLoading(false);
+    setLoginPhase("idle");
+    setError(result.message ?? "Invalid email or password. Please try again.");
   };
 
   const handleSocial = async (provider: string, credential: string) => {
+    if (accountType === "LaundryAdmin") {
+      setError(
+        "Laundry owners should sign in with email so the Laundry Admin setup and verification flow stays correct.",
+      );
+      return;
+    }
+
     setError("");
     setSocialLoad(provider);
     const result = await socialLogin(provider, credential);
     setSocialLoad("");
+
     if (result.ok) {
       router.replace(resolvePostLoginPath(result.user?.role, from));
+      return;
     }
-    else setError(result.message ?? "Social sign-in is not available right now.");
+
+    setError(result.message ?? "Social sign-in is not available right now.");
   };
 
   return (
     <div className="min-h-[calc(100vh-64px)] bg-white flex" dir="ltr">
-      {/* ── Left: Form ─────────────────────────────────────────── */}
       <motion.div
         className="flex-1 flex flex-col justify-center px-6 md:px-14 lg:px-20 py-12 max-w-xl mx-auto w-full lg:max-w-none"
         initial={{ opacity: 0, x: -32 }}
@@ -88,7 +185,6 @@ export default function Login() {
         transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="max-w-md w-full mx-auto">
-          {/* Back */}
           <button
             onClick={() => router.back()}
             className="flex items-center gap-2 text-gray-400 hover:text-gray-600 text-sm mb-8 transition-colors group"
@@ -115,7 +211,7 @@ export default function Login() {
             <p className="text-gray-500 text-sm mb-8">
               Sign in to your Ndeef account.{" "}
               <Link
-                href="/signup"
+                href={`/signup?role=${accountType}`}
                 className="text-[#1D6076] font-medium hover:underline"
               >
                 Create account
@@ -123,7 +219,29 @@ export default function Login() {
             </p>
           </motion.div>
 
-          {/* Global error */}
+          <div className="space-y-3 mb-6">
+            <AccountTypeCard
+              active={accountType === "Customer"}
+              title="I am a customer"
+              description="Login to place orders, track deliveries, and manage your laundry account."
+              icon={User}
+              onClick={() => {
+                setAccountType("Customer");
+                setError("");
+              }}
+            />
+            <AccountTypeCard
+              active={accountType === "LaundryAdmin"}
+              title="I own a laundry"
+              description="Login as Laundry Admin to manage your branch, continue setup, and go to Didit when needed."
+              icon={Store}
+              onClick={() => {
+                setAccountType("LaundryAdmin");
+                setError("");
+              }}
+            />
+          </div>
+
           {error && (
             <div className="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-2xl px-4 py-3 mb-5">
               <AlertCircle
@@ -135,36 +253,42 @@ export default function Login() {
             </div>
           )}
 
-          {/* Social buttons */}
-          <div className="space-y-3 mb-6">
-            {socialLoad === "google" ? (
-              <div className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-2xl py-3.5 text-sm font-medium text-gray-800 opacity-60">
-                <Loader2
-                  size={18}
-                  className="animate-spin text-gray-500"
-                  strokeWidth={2}
+          {accountType === "Customer" ? (
+            <div className="space-y-3 mb-6">
+              {socialLoad === "google" ? (
+                <div className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-2xl py-3.5 text-sm font-medium text-gray-800 opacity-60">
+                  <Loader2
+                    size={18}
+                    className="animate-spin text-gray-500"
+                    strokeWidth={2}
+                  />
+                  Signing in with Google...
+                </div>
+              ) : (
+                <GoogleSignInButton
+                  disabled={loading}
+                  text="continue_with"
+                  onCredential={(credential) => handleSocial("google", credential)}
                 />
-                Signing in with Google...
-              </div>
-            ) : (
-              <GoogleSignInButton
-                disabled={loading}
-                text="continue_with"
-                onCredential={(credential) => handleSocial("google", credential)}
-              />
-            )}
-          </div>
+              )}
+            </div>
+          ) : (
+            <div className="mb-6 rounded-2xl border border-[#1D6076]/15 bg-[#1D6076]/5 px-4 py-3">
+              <p className="text-xs text-[#1D6076] leading-relaxed">
+                Laundry owners use email login so the system keeps the Laundry Admin route and onboarding flow correct.
+              </p>
+            </div>
+          )}
 
-          {/* Divider */}
           <div className="flex items-center gap-4 mb-6">
             <div className="flex-1 h-px bg-gray-100" />
-            <span className="text-gray-400 text-xs font-medium">or</span>
+            <span className="text-gray-400 text-xs font-medium">
+              {accountType === "Customer" ? "or" : "email login"}
+            </span>
             <div className="flex-1 h-px bg-gray-100" />
           </div>
 
-          {/* Form */}
           <form onSubmit={handleLogin} className="space-y-4">
-            {/* Email */}
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1.5">
                 Email
@@ -176,7 +300,7 @@ export default function Login() {
                   value={email}
                   onChange={(e) => {
                     setEmail(e.target.value);
-                    setErrors((p) => ({ ...p, email: "" }));
+                    setErrors((prev) => ({ ...prev, email: "" }));
                   }}
                   className={`w-full bg-gray-50 border rounded-2xl px-4 py-3.5 pl-11 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 transition-all ${
                     errors.email
@@ -198,7 +322,6 @@ export default function Login() {
               )}
             </div>
 
-            {/* Password */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="text-xs font-medium text-gray-600">
@@ -223,7 +346,7 @@ export default function Login() {
                   value={password}
                   onChange={(e) => {
                     setPassword(e.target.value);
-                    setErrors((p) => ({ ...p, password: "" }));
+                    setErrors((prev) => ({ ...prev, password: "" }));
                   }}
                   className={`w-full bg-gray-50 border rounded-2xl px-4 py-3.5 pl-11 pr-11 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 transition-all ${
                     errors.password
@@ -238,7 +361,7 @@ export default function Login() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPwd((v) => !v)}
+                  onClick={() => setShowPwd((value) => !value)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
                   {showPwd ? (
@@ -266,29 +389,34 @@ export default function Login() {
             >
               {loading ? (
                 <>
-                  <Loader2 size={18} className="animate-spin" strokeWidth={2} />{" "}
-                  Signing in…
+                  <Loader2 size={18} className="animate-spin" strokeWidth={2} />
+                  {loginPhase === "checking"
+                    ? "Checking your laundry setup..."
+                    : "Signing in..."}
                 </>
+              ) : accountType === "LaundryAdmin" ? (
+                "Sign In as Laundry Owner"
               ) : (
                 "Sign In"
               )}
             </button>
           </form>
 
-          {/* Demo hint */}
           <div className="mt-5 bg-[#1D6076]/5 rounded-2xl px-4 py-3">
             <p className="text-xs text-[#1D6076]/80 text-center">
-              💡 Demo: use any email & password to sign in
+              Use your real backend account credentials to sign in.
             </p>
           </div>
         </div>
       </motion.div>
 
-      {/* ── Right: Hero image ──────────────────────────────────── */}
       <div
         className="hidden lg:flex flex-1 relative overflow-hidden"
         style={{
-          background: "linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)",
+          background:
+            accountType === "LaundryAdmin"
+              ? "linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)"
+              : "linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)",
         }}
       >
         <ImageWithFallback
@@ -312,26 +440,37 @@ export default function Login() {
               lineHeight: 1.2,
             }}
           >
-            Clean clothes,
-            <br />
-            zero hassle.
+            {accountType === "LaundryAdmin" ? (
+              <>
+                Manage your laundry,
+                <br />
+                all in one place.
+              </>
+            ) : (
+              <>
+                Clean clothes,
+                <br />
+                zero hassle.
+              </>
+            )}
           </h2>
           <p className="text-white/70 text-base leading-relaxed mb-10">
-            Your neighborhood laundry, digitally connected. Browse, order, and
-            receive — all from one smart platform.
+            {accountType === "LaundryAdmin"
+              ? "Access Laundry Admin tools, finish onboarding, track branch operations, and continue to verification when required."
+              : "Your neighborhood laundry, digitally connected. Browse, order, and receive - all from one smart platform."}
           </p>
           <div className="grid grid-cols-3 gap-4">
             {[
               ["500+", "Orders"],
               ["50+", "Laundries"],
-              ["4.9★", "Rating"],
-            ].map(([v, l]) => (
+              ["4.9+", "Rating"],
+            ].map(([value, label]) => (
               <div
-                key={l}
+                key={label}
                 className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-4 text-center border border-white/20"
               >
-                <p className="text-white font-bold text-xl">{v}</p>
-                <p className="text-white/50 text-xs mt-0.5">{l}</p>
+                <p className="text-white font-bold text-xl">{value}</p>
+                <p className="text-white/50 text-xs mt-0.5">{label}</p>
               </div>
             ))}
           </div>

@@ -1,10 +1,11 @@
 "use client";
 
-import { Bell, Search, Menu, Command } from "lucide-react";
+import { Bell, Search, Menu, ChevronDown, User, Settings, LogOut } from "lucide-react";
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../../context/AuthContext";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { apiRequest } from "../../lib/admin-api";
 
 function formatTimeAgo(isoString: string) {
@@ -16,10 +17,26 @@ function formatTimeAgo(isoString: string) {
   return `${Math.floor(diff / 86400)} days ago`;
 }
 
+const pageTitles: Record<string, { title: string; subtitle: string }> = {
+  "/admin": { title: "Dashboard", subtitle: "Monitor the Ndeef platform from one place" },
+  "/admin/laundries": { title: "Laundries", subtitle: "Review laundry partners and operational status" },
+  "/admin/verifications": { title: "Verifications", subtitle: "Approve and track pending partner checks" },
+  "/admin/users": { title: "Users", subtitle: "Manage customers, couriers, and admins" },
+  "/admin/fraud": { title: "Fraud Monitor", subtitle: "Inspect suspicious activity and alerts" },
+  "/admin/commissions": { title: "Commissions", subtitle: "Track payouts, dues, and platform revenue" },
+  "/admin/analytics": { title: "Analytics", subtitle: "Understand growth, usage, and performance" },
+  "/admin/notifications": { title: "Notifications", subtitle: "Stay on top of platform-wide alerts" },
+  "/admin/settings": { title: "Settings", subtitle: "Configure admin preferences and controls" },
+  "/admin/help": { title: "Help Center", subtitle: "Access support and operational guidance" },
+};
+
 export function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => void }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchValue, setSearchValue] = useState("");
   const { user, logout } = useAuth();
+  const pathname = usePathname() ?? "/admin";
   const [notes, setNotes] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
@@ -37,52 +54,73 @@ export function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => voi
     fetchNotes();
   }, []);
 
+  const pathKey = Object.keys(pageTitles)
+    .sort((a, b) => b.length - a.length)
+    .find((key) => pathname === key || (key !== "/admin" && pathname.startsWith(key)));
+
+  const pageInfo = pageTitles[pathKey ?? "/admin"];
+
   return (
-    <header className="sticky top-0 z-30 h-16 bg-white/80 backdrop-blur-xl border-b border-slate-100/80 flex items-center justify-between px-4 lg:px-6 shrink-0" dir="ltr">
-      <div className="flex items-center gap-3">
+    <header className="h-16 flex items-center justify-between px-4 md:px-6 bg-white border-b border-gray-100 shrink-0" dir="ltr">
+      <div className="flex items-center gap-3 min-w-0">
         <button
           onClick={() => setSidebarOpen(true)}
-          className="lg:hidden p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+          className="lg:hidden w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
         >
-          <Menu size={20} />
+          <Menu className="w-5 h-5" />
         </button>
-
-        {/* Search */}
-        <div className="relative hidden md:flex items-center">
-          <Search size={16} className="absolute left-3 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search laundries, orders, users..."
-            className="w-72 lg:w-80 bg-slate-50/80 border border-slate-200/60 text-slate-700 text-[13px] rounded-xl pl-9 pr-16 py-2 focus:ring-2 focus:ring-[#2A5C66]/10 focus:border-[#2A5C66]/30 transition-all placeholder:text-slate-400"
-          />
-          <div className="absolute right-2.5 flex items-center gap-0.5 text-slate-300">
-            <Command size={12} />
-            <span className="text-[10px] font-medium">K</span>
-          </div>
+        <div className="min-w-0">
+          <h1 className="text-gray-900 font-semibold text-base leading-tight">{pageInfo.title}</h1>
+          <p className="text-gray-400 text-xs mt-0.5 truncate">{pageInfo.subtitle}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
-        {/* Live indicator */}
-        <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 rounded-full border border-emerald-100">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="text-[11px] font-semibold text-emerald-700">Live</span>
-        </div>
+      <div className="flex items-center gap-3">
+        <AnimatePresence>
+          {showSearch ? (
+            <motion.div
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 240, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ duration: 0.25 }}
+              className="overflow-hidden hidden sm:block"
+            >
+              <input
+                autoFocus
+                value={searchValue}
+                onChange={(e) => setSearchValue(e.target.value)}
+                onBlur={() => {
+                  setShowSearch(false);
+                  setSearchValue("");
+                }}
+                placeholder="Search laundries, users..."
+                className="w-full h-9 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
+              />
+            </motion.div>
+          ) : (
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={() => setShowSearch(true)}
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all hidden sm:flex"
+            >
+              <Search className="w-4 h-4" />
+            </motion.button>
+          )}
+        </AnimatePresence>
 
-        {/* Notifications */}
         <div className="relative">
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="relative p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors"
+            className="relative w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
           >
-            <Bell size={18} />
+            <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
+              <span
+                className="absolute top-1 right-1 min-w-[16px] h-4 px-1 rounded-full text-[10px] font-bold flex items-center justify-center text-white"
+                style={{ backgroundColor: "#EBA050" }}
+              >
+                {unreadCount}
               </span>
             )}
           </button>
@@ -90,45 +128,45 @@ export function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => voi
           <AnimatePresence>
             {showNotifications && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowNotifications(false)} />
+                <div className="fixed inset-0 z-10" onClick={() => setShowNotifications(false)} />
                 <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden z-50"
+                  className="absolute right-0 top-full mt-2 w-80 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20"
                 >
-                  <div className="p-3.5 border-b border-slate-100 flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-slate-800">Notifications</h3>
+                  <div className="p-3.5 border-b border-gray-50 flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-gray-800">Notifications</h3>
                     {unreadCount > 0 && (
-                      <span className="text-[10px] font-semibold text-[#2A5C66] bg-[#2A5C66]/10 px-2 py-0.5 rounded-full">{unreadCount} new</span>
+                      <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ color: "#1D5B70", backgroundColor: "#f0f9ff" }}>
+                        {unreadCount} new
+                      </span>
                     )}
                   </div>
                   <div className="max-h-72 overflow-y-auto p-1.5 space-y-0.5">
                     {notes.length === 0 ? (
-                      <div className="p-4 text-center text-xs text-slate-400">No recent notifications</div>
+                      <div className="p-4 text-center text-xs text-gray-400">No recent notifications</div>
                     ) : (
                       notes.slice(0, 5).map((n) => (
-                        <div key={n.id} className="flex gap-3 p-2.5 hover:bg-slate-50 rounded-xl cursor-pointer transition-colors">
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            n.type === 2 ? "bg-red-50 text-red-500" :
-                            n.type === 1 ? "bg-emerald-50 text-emerald-500" :
-                            "bg-blue-50 text-blue-500"
-                          }`}>
+                        <div key={n.id} className="flex gap-3 p-2.5 hover:bg-gray-50 rounded-xl cursor-pointer transition-colors">
+                          <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-blue-50 text-[#1D5B70]">
                             <Bell size={14} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-[12px] font-semibold text-slate-700 truncate">{n.title}</p>
-                            <p className="text-[11px] text-slate-400 truncate mt-0.5">{n.message}</p>
-                            <p className="text-[10px] text-slate-300 mt-1">{formatTimeAgo(n.createdAt)}</p>
+                            <p className="text-[12px] font-semibold text-gray-700 truncate">{n.title}</p>
+                            <p className="text-[11px] text-gray-400 truncate mt-0.5">{n.message}</p>
+                            <p className="text-[10px] text-gray-300 mt-1">{formatTimeAgo(n.createdAt)}</p>
                           </div>
-                          {!n.isRead && <span className="w-2 h-2 rounded-full bg-[#2A5C66] shrink-0 mt-1" />}
+                          {!n.isRead && <span className="w-2 h-2 rounded-full bg-[#EBA050] shrink-0 mt-1" />}
                         </div>
                       ))
                     )}
                   </div>
-                  <div className="p-2.5 border-t border-slate-100 text-center">
-                    <Link href="/admin/notifications" onClick={() => setShowNotifications(false)} className="text-[12px] font-semibold text-[#2A5C66] hover:underline block w-full">View All</Link>
+                  <div className="p-2.5 border-t border-gray-100 text-center">
+                    <Link href="/admin/notifications" onClick={() => setShowNotifications(false)} className="text-[12px] font-semibold hover:underline block w-full" style={{ color: "#1D5B70" }}>
+                      View All
+                    </Link>
                   </div>
                 </motion.div>
               </>
@@ -136,37 +174,70 @@ export function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => voi
           </AnimatePresence>
         </div>
 
-        {/* Admin avatar */}
+        <div className="w-px h-6 bg-gray-200 hidden sm:block" />
+
         <div className="relative">
-          <button onClick={() => setShowUserMenu(!showUserMenu)} className="flex items-center gap-2 p-1.5 hover:bg-slate-50 rounded-xl transition-colors">
-            <img
-              src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user ? `${user.firstName} ${user.lastName}`.trim() : "Admin User")}&background=2A5C66&color=fff&size=64`}
-              alt="Admin"
-              className="w-8 h-8 rounded-lg shadow-sm"
-            />
+          <button
+            onClick={() => setShowUserMenu(!showUserMenu)}
+            className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 transition-all"
+          >
+            <div
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
+              style={{ backgroundColor: "#1D5B70" }}
+            >
+              {(user?.firstName?.[0] ?? "A").toUpperCase()}
+            </div>
+            <div className="text-left hidden sm:block">
+              <p className="text-sm font-medium text-gray-800 leading-tight">
+                {user ? `${user.firstName} ${user.lastName}`.trim() : "Admin User"}
+              </p>
+              <p className="text-xs text-gray-400 leading-tight">{user?.role || "Super Admin"}</p>
+            </div>
+            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform hidden sm:block ${showUserMenu ? "rotate-180" : ""}`} />
           </button>
-          
+
           <AnimatePresence>
             {showUserMenu && (
               <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+                <div className="fixed inset-0 z-10" onClick={() => setShowUserMenu(false)} />
                 <motion.div
-                  initial={{ opacity: 0, y: 8, scale: 0.96 }}
+                  initial={{ opacity: 0, y: -8, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: 8, scale: 0.96 }}
+                  exit={{ opacity: 0, y: -8, scale: 0.95 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden z-50 py-1"
+                  className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20"
                 >
-                  <button 
-                    onClick={() => {
-                      logout();
-                      setShowUserMenu(false);
-                      window.location.href = "/";
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 font-medium transition-colors"
-                  >
-                    Logout
-                  </button>
+                  <div className="p-3 border-b border-gray-50">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {user ? `${user.firstName} ${user.lastName}`.trim() : "Admin User"}
+                    </p>
+                    <p className="text-xs text-gray-400">{user?.role || "Super Admin"}</p>
+                  </div>
+                  <div className="p-1.5">
+                    <button
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
+                    >
+                      <User className="w-4 h-4" /> Profile
+                    </button>
+                    <Link
+                      href="/admin/settings"
+                      onClick={() => setShowUserMenu(false)}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
+                    >
+                      <Settings className="w-4 h-4" /> Settings
+                    </Link>
+                    <button
+                      onClick={() => {
+                        logout();
+                        setShowUserMenu(false);
+                        window.location.href = "/";
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-red-500 hover:bg-red-50 rounded-xl transition-all"
+                    >
+                      <LogOut className="w-4 h-4" /> Logout
+                    </button>
+                  </div>
                 </motion.div>
               </>
             )}

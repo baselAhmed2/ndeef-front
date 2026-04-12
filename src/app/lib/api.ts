@@ -624,7 +624,7 @@ export async function registerRequest(payload: {
   email: string;
   password: string;
   phoneNumber: string;
-  role: "Customer";
+  role: "Customer" | "LaundryAdmin";
 }) {
   return request<BackendUserDto>("/Auth/register", {
     method: "POST",

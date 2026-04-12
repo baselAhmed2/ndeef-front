@@ -1,6 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  clearReadLaundryNotifications,
+  deleteLaundryNotification,
+  getLaundryNotifications,
+  markAllLaundryNotificationsRead,
+  markLaundryNotificationRead,
+} from "@/app/lib/laundry-admin-client";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bell,
@@ -54,6 +61,20 @@ export function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
   const [activeFilter, setActiveFilter] = useState<NotifFilter>("All");
 
+  useEffect(() => {
+    async function loadNotifications() {
+      try {
+        const data = await getLaundryNotifications();
+        if (data.length > 0) {
+          setNotifications(data as Notification[]);
+        }
+      } catch (error) {
+        console.error("Failed to load notifications", error);
+      }
+    }
+    loadNotifications();
+  }, []);
+
   const filtered = notifications.filter((n) => {
     if (activeFilter === "All") return true;
     if (activeFilter === "Unread") return !n.read;
@@ -63,19 +84,23 @@ export function Notifications() {
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markAllRead = () => {
+    markAllLaundryNotificationsRead().catch(console.error);
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
   const markRead = (id: string) => {
+    markLaundryNotificationRead(id).catch(console.error);
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
   };
 
   const dismiss = (id: string) => {
+    deleteLaundryNotification(id).catch(console.error);
     setNotifications((prev) => prev.filter((n) => n.id !== id));
   };
 
   const clearAll = () => {
-    setNotifications([]);
+    clearReadLaundryNotifications().catch(console.error);
+    setNotifications((prev) => prev.filter((n) => !n.read));
   };
 
   return (
