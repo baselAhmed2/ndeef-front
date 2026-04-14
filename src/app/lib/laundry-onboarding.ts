@@ -1,8 +1,6 @@
 "use client";
 
 const STORAGE_KEY = "nadeef_pending_laundry_onboarding";
-export const LAUNDRY_ADMIN_DIDIT_SIGNUP_URL =
-  "https://verify.didit.me/u/ueKcLhvVTo-8x_fXAt0ogw";
 
 export interface PendingLaundryOnboarding {
   laundryName: string;

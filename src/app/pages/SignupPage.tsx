@@ -22,7 +22,6 @@ import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 import {
   clearPendingLaundryOnboarding,
   savePendingLaundryOnboarding,
-  LAUNDRY_ADMIN_DIDIT_SIGNUP_URL,
   type PendingLaundryOnboarding,
 } from "../lib/laundry-onboarding";
 import {

@@ -9,35 +9,61 @@ export default function VerifyStatusPage() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "waiting" | "ready" | "error">("loading");
   const [errorMsg, setErrorMsg] = useState("");
+  const [isPolling, setIsPolling] = useState(true);
+  const [pollAttempt, setPollAttempt] = useState(0);
 
   const checkStatus = async () => {
     try {
       const data = await getVerificationStatus();
-      
+
       if (data.isIdentityVerified) {
         const isLaundryAdmin = data.role.toLowerCase().includes("laundryadmin") || data.role.toLowerCase().includes("admin");
-        
+
         if (isLaundryAdmin && !data.commercialRegisterDocumentUrl) {
           router.replace("/laundry-admin/commercial-register");
           return;
         }
-        
+
         setStatus("ready");
         setTimeout(() => {
           router.replace("/laundry-admin");
         }, 1500);
+        return true; // Verified - stop polling
       } else {
         setStatus("waiting");
+        return false; // Not yet verified - continue polling
       }
     } catch (err) {
       console.error(err);
       setStatus("error");
       setErrorMsg("Failed to check verification status.");
+      return true; // Error - stop polling
     }
   };
 
   useEffect(() => {
-    checkStatus();
+    const maxPolls = 10; // 30 seconds total (10 * 3 seconds)
+
+    const startPolling = async () => {
+      const isVerified = await checkStatus();
+      if (isVerified) {
+        setIsPolling(false);
+        return; // Stop if verified or error
+      }
+
+      setPollAttempt(prev => {
+        const next = prev + 1;
+        if (next >= maxPolls) {
+          setIsPolling(false); // Stop after 30 seconds
+          return next;
+        }
+        // Continue polling every 3 seconds
+        setTimeout(startPolling, 3000);
+        return next;
+      });
+    };
+
+    startPolling();
   }, []);
 
   return (
@@ -60,18 +86,31 @@ export default function VerifyStatusPage() {
               <ShieldAlert size={36} className="text-amber-500" strokeWidth={1.5} />
             </div>
             <h1 className="text-2xl font-black text-gray-900 mb-3 tracking-tight">Verification Pending</h1>
-            <p className="text-gray-500 text-sm mb-6 leading-relaxed">
+            <p className="text-gray-500 text-sm mb-4 leading-relaxed">
               We are still waiting for your identity check to be confirmed. This might take a few moments.
             </p>
-            <button 
-              onClick={() => {
-                setStatus("loading");
-                checkStatus();
-              }}
-              className="w-full py-3.5 rounded-2xl bg-[#1D6076] text-white font-semibold text-sm transition-all hover:opacity-90 shadow-lg shadow-[#1D6076]/20"
-            >
-              Check Again
-            </button>
+
+            {/* Auto-checking indicator */}
+            {isPolling && (
+              <div className="flex items-center gap-2 mb-4 text-sm text-[#1D6076]">
+                <Loader2 size={16} className="animate-spin" />
+                <span>Auto-checking... ({pollAttempt}/10)</span>
+              </div>
+            )}
+
+            {!isPolling && (
+              <button
+                onClick={() => {
+                  setStatus("loading");
+                  setIsPolling(true);
+                  setPollAttempt(0);
+                  checkStatus();
+                }}
+                className="w-full py-3.5 rounded-2xl bg-[#1D6076] text-white font-semibold text-sm transition-all hover:opacity-90 shadow-lg shadow-[#1D6076]/20"
+              >
+                Check Again
+              </button>
+            )}
           </div>
         )}
 
