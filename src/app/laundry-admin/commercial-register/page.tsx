@@ -56,7 +56,7 @@ export default function CommercialRegisterUploadPage() {
             type="file" 
             className="hidden" 
             ref={fileInputRef} 
-            accept="image/*,application/pdf"
+            accept="application/pdf"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
           />
           
@@ -77,7 +77,7 @@ export default function CommercialRegisterUploadPage() {
               <div className="flex flex-col items-center">
                 <UploadCloud size={28} className="text-gray-400 mb-2" />
                 <span className="text-sm font-medium text-gray-600">Browse Local Files</span>
-                <span className="text-xs text-gray-400 mt-1">Accepts PDF, JPG, PNG</span>
+                <span className="text-xs text-gray-400 mt-1">PDF only — max 10MB</span>
               </div>
             )}
           </button>

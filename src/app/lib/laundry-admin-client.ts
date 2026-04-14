@@ -711,6 +711,7 @@ export async function startVerificationSession(callbackUrl: string = "/laundry-a
   return {
     ...payload,
     url:
+      payload?.verification_url ??
       payload?.url ??
       payload?.session_url ??
       payload?.sessionUrl ??
