@@ -15,7 +15,7 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/api/backend/:path*',
-        destination: 'https://ndeefapp.runasp.net/api/:path*',
+        destination: 'https://api.nadeefapp.com/api/:path*', // غير ده للـ URL بتاعك
       },
     ];
   },
