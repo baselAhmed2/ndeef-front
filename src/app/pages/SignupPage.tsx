@@ -249,10 +249,10 @@ export default function SignupPage() {
       });
 
       clearPendingLaundryOnboarding();
-      window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+      router.replace("/laundry-admin/verify");
     } catch (error) {
       console.error("Failed to complete laundry onboarding", error);
-      window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+      router.replace("/laundry-admin/verify");
     }
   };
 

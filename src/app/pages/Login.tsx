@@ -76,10 +76,22 @@ function resolvePostLoginPath(role?: string, from?: string) {
 
 async function resolveLaundryAdminLoginPath() {
   try {
+    const { getVerificationStatus } = await import("../lib/laundry-admin-client");
+    const status = await getVerificationStatus();
+    
+    if (!status.isIdentityVerified) {
+       return "/laundry-admin/verify";
+    }
+    
+    const isLaundryAdmin = status.role.toLowerCase().includes("laundryadmin") || status.role.toLowerCase().includes("admin");
+    if (isLaundryAdmin && !status.commercialRegisterDocumentUrl) {
+       return "/laundry-admin/commercial-register";
+    }
+
     await getProfile();
     return "/laundry-admin";
   } catch {
-    return LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+    return "/laundry-admin/verify";
   }
 }
 

@@ -685,8 +685,9 @@ export async function getForecast(): Promise<any> {
   }));
 }
 
-export async function startVerificationSession(): Promise<any> {
-  const payload = await apiRequest<any>("/verification/session?callbackUrl=/laundry-admin/settings", {
+export async function startVerificationSession(callbackUrl: string = "/laundry-admin/settings"): Promise<any> {
+  const encodedCallback = encodeURIComponent(callbackUrl);
+  const payload = await apiRequest<any>(`/verification/session?callbackUrl=${encodedCallback}`, {
     method: "POST",
   });
 
@@ -715,6 +716,21 @@ export async function startVerificationSession(): Promise<any> {
       payload?.sessionUrl ??
       payload?.redirect_url ??
       "",
+  };
+}
+
+export async function getVerificationStatus(): Promise<{
+  isIdentityVerified: boolean;
+  role: string;
+  adminApprovalStatus: string;
+  commercialRegisterDocumentUrl: string | null;
+}> {
+  const payload = await apiRequest<any>("/verification/status");
+  return {
+    isIdentityVerified: payload.IsIdentityVerified ?? payload.isIdentityVerified ?? false,
+    role: payload.Role ?? payload.role ?? "",
+    adminApprovalStatus: payload.AdminApprovalStatus ?? payload.adminApprovalStatus ?? "",
+    commercialRegisterDocumentUrl: payload.CommercialRegisterDocumentUrl ?? payload.commercialRegisterDocumentUrl ?? null,
   };
 }
 
