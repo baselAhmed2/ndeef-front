@@ -685,9 +685,9 @@ export async function getForecast(): Promise<any> {
   }));
 }
 
-export async function startVerificationSession(callbackUrl: string = "/laundry-admin/settings"): Promise<any> {
-  const encodedCallback = encodeURIComponent(callbackUrl);
-  const payload = await apiRequest<any>(`/verification/session?callbackUrl=${encodedCallback}`, {
+export async function startVerificationSession(redirectUrl: string = "/laundry-admin/settings"): Promise<any> {
+  const encodedCallback = encodeURIComponent(redirectUrl);
+  const payload = await apiRequest<any>(`/verification/start-didit?redirectUrl=${encodedCallback}`, {
     method: "POST",
   });
 
