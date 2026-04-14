@@ -685,56 +685,6 @@ export async function getForecast(): Promise<any> {
   }));
 }
 
-export async function startVerificationSession(redirectUrl: string = "/laundry-admin/settings"): Promise<any> {
-  const encodedCallback = encodeURIComponent(redirectUrl);
-  const payload = await apiRequest<any>(`/verification/start-didit?redirectUrl=${encodedCallback}`, {
-    method: "POST",
-  });
-
-  if (typeof payload === "string") {
-    try {
-      const parsed = JSON.parse(payload);
-      return {
-        ...parsed,
-        url:
-          parsed?.url ??
-          parsed?.session_url ??
-          parsed?.sessionUrl ??
-          parsed?.redirect_url ??
-          "",
-      };
-    } catch {
-      return { url: payload };
-    }
-  }
-
-  return {
-    ...payload,
-    url:
-      payload?.verification_url ??
-      payload?.url ??
-      payload?.session_url ??
-      payload?.sessionUrl ??
-      payload?.redirect_url ??
-      "",
-  };
-}
-
-export async function getVerificationStatus(): Promise<{
-  isIdentityVerified: boolean;
-  role: string;
-  adminApprovalStatus: string;
-  commercialRegisterDocumentUrl: string | null;
-}> {
-  const payload = await apiRequest<any>("/verification/status");
-  return {
-    isIdentityVerified: payload.IsIdentityVerified ?? payload.isIdentityVerified ?? false,
-    role: payload.Role ?? payload.role ?? "",
-    adminApprovalStatus: payload.AdminApprovalStatus ?? payload.adminApprovalStatus ?? "",
-    commercialRegisterDocumentUrl: payload.CommercialRegisterDocumentUrl ?? payload.commercialRegisterDocumentUrl ?? null,
-  };
-}
-
 export async function uploadCommercialRegister(formData: FormData): Promise<any> {
   const { getStoredAuthToken } = await import("@/app/lib/auth-storage");
   const token = getStoredAuthToken();

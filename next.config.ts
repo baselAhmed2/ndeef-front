@@ -11,14 +11,6 @@ const nextConfig: NextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  async rewrites() {
-    return [
-      {
-        source: '/api/backend/:path*',
-        destination: 'https://ndeefapp.runasp.net/api/:path*', // Backend API URL
-      },
-    ];
-  },
 }
 
 export default nextConfig

@@ -248,10 +248,10 @@ export default function SignupPage() {
       });
 
       clearPendingLaundryOnboarding();
-      router.replace("/laundry-admin/verify");
+      router.replace("/laundry-admin");
     } catch (error) {
       console.error("Failed to complete laundry onboarding", error);
-      router.replace("/laundry-admin/verify");
+      router.replace("/laundry-admin");
     }
   };
 
