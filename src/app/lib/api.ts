@@ -14,7 +14,7 @@ function getMockBackendLaundries(): BackendLaundryDto[] {
     averageRating: l.rating,
     totalReviews: l.reviews,
     services: l.services.map((s, idx) => ({
-      id: parseInt(l.id) * 100 + idx, 
+      id: parseInt(l.id) * 100 + idx,
       serviceName: s.name,
       category: s.category === 'wash' ? 'Wash' : s.category === 'dry_clean' ? 'DryCleaning' : s.category === 'iron' ? 'Iron' : 'Specialty',
       price: s.price,
@@ -455,9 +455,9 @@ function haversineDistanceKm(
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(toRadians(fromLat)) *
-      Math.cos(toRadians(toLat)) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2);
+    Math.cos(toRadians(toLat)) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2);
 
   return radius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
@@ -474,11 +474,11 @@ export function mapLaundryDtoToUiLaundry(
 ): UiLaundry {
   const distance = coords
     ? haversineDistanceKm(
-        coords.lat,
-        coords.lng,
-        Number(laundry.latitude),
-        Number(laundry.longitude),
-      )
+      coords.lat,
+      coords.lng,
+      Number(laundry.latitude),
+      Number(laundry.longitude),
+    )
     : 0;
 
   return {

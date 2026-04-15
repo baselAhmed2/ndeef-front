@@ -323,43 +323,6 @@ export default function CommissionsPage() {
                 </tbody>
               </table>
             </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50">
-                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Transaction ID</th>
-                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Laundry</th>
-                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Order Amount</th>
-                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Collected Commission</th>
-                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Time</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {data.recentTransactions.length > 0 ? data.recentTransactions.map((tx, idx) => (
-                    <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-4 px-6 font-mono text-slate-600 text-sm">#TX-{tx.id}</td>
-                      <td className="py-4 px-6 font-medium text-slate-800">{tx.laundryName}</td>
-                      <td className="py-4 px-6 text-slate-500">
-                        <div>{formatCurrency(tx.orderAmount)}</div>
-                        <div className="mt-1 text-[11px] text-slate-400">
-                          Order #{tx.orderId || "-"}
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="font-bold text-green-600">+ {formatCurrency(tx.commissionAmount)}</div>
-                        <div className="mt-1 text-[11px] text-slate-400">
-                          {Number(tx.commissionPercentage).toFixed(1)}% rate
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 text-slate-400 text-sm">{formatDateTime(tx.createdAt)}</td>
-                    </tr>
-                  )) : (
-                    <tr><td colSpan={5} className="py-8 text-center text-slate-500">No transactions recorded.</td></tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
           ) : activeTab === 'laundries' ? (
             <div className="p-6">
               {/* Payment Status Stats */}

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  
+
   Mail,
   Lock,
   Eye,
@@ -42,11 +42,10 @@ function SegmentedControl({
           type="button"
           onClick={() => onChange(key)}
           whileTap={{ scale: 0.98 }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-300 relative ${
-            value === key
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-300 relative ${value === key
               ? "text-[#1D6076]"
               : "text-gray-500 hover:text-gray-700"
-          }`}
+            }`}
         >
           {value === key && (
             <motion.div
@@ -155,10 +154,10 @@ export default function Login() {
     setLoading(false);
     setLoginPhase("idle");
     setLoginProgress("");
-    
+
     // Better error messages based on backend response
     let errorMessage = result.message ?? "Invalid email or password. Please try again.";
-    
+
     // Normalize common backend error messages
     if (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("incorrect")) {
       errorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
@@ -169,7 +168,7 @@ export default function Login() {
     } else if (errorMessage.toLowerCase().includes("locked") || errorMessage.toLowerCase().includes("blocked")) {
       errorMessage = "Your account has been temporarily locked. Please try again later or contact support.";
     }
-    
+
     setError(errorMessage);
   };
 
@@ -197,7 +196,7 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
       {/* ── Left: Form ── */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -304,7 +303,7 @@ export default function Login() {
                 className="mt-6"
               >
                 {socialLoad === "google" ? (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-500 bg-gray-50/50"
@@ -333,8 +332,8 @@ export default function Login() {
           </div>
 
           {/* Form */}
-          <motion.form 
-            onSubmit={handleLogin} 
+          <motion.form
+            onSubmit={handleLogin}
             className="space-y-5"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -349,7 +348,7 @@ export default function Login() {
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
               </label>
-              <motion.div 
+              <motion.div
                 className="relative group"
                 whileTap={{ scale: errors.email ? 1 : 0.995 }}
               >
@@ -366,11 +365,10 @@ export default function Login() {
                       setEmail(e.target.value);
                       setErrors((prev) => ({ ...prev, email: "" }));
                     }}
-                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${
-                      errors.email
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${errors.email
                         ? "border-red-400 focus:ring-red-100 focus:border-red-500 bg-red-50/30"
                         : "border-gray-200 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 hover:border-gray-300 bg-white"
-                    }`}
+                      }`}
                   />
                   <AnimatePresence>
                     {email && !errors.email && (
@@ -388,7 +386,7 @@ export default function Login() {
               </motion.div>
               <AnimatePresence>
                 {errors.email && (
-                  <motion.p 
+                  <motion.p
                     initial={{ opacity: 0, y: -10, height: 0 }}
                     animate={{ opacity: 1, y: 0, height: "auto" }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
@@ -422,7 +420,7 @@ export default function Login() {
                   Forgot password?
                 </Link>
               </div>
-              <motion.div 
+              <motion.div
                 className="relative group"
                 whileTap={{ scale: errors.password ? 1 : 0.995 }}
               >
@@ -439,11 +437,10 @@ export default function Login() {
                       setPassword(e.target.value);
                       setErrors((prev) => ({ ...prev, password: "" }));
                     }}
-                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${
-                      errors.password
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${errors.password
                         ? "border-red-400 focus:ring-red-100 focus:border-red-500 bg-red-50/30"
                         : "border-gray-200 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 hover:border-gray-300 bg-white"
-                    }`}
+                      }`}
                   />
                   <motion.button
                     type="button"
@@ -468,7 +465,7 @@ export default function Login() {
               </motion.div>
               <AnimatePresence>
                 {errors.password && (
-                  <motion.p 
+                  <motion.p
                     initial={{ opacity: 0, y: -10, height: 0 }}
                     animate={{ opacity: 1, y: 0, height: "auto" }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
@@ -550,7 +547,7 @@ export default function Login() {
 
             <AnimatePresence>
               {loading && loginProgress && (
-                <motion.p 
+                <motion.p
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
@@ -584,7 +581,7 @@ export default function Login() {
       </motion.div>
 
       {/* ── Right: Brand panel ── */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
@@ -592,25 +589,25 @@ export default function Login() {
       >
         {/* Animated background shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <motion.div 
-            animate={{ 
+          <motion.div
+            animate={{
               scale: [1, 1.2, 1],
               rotate: [0, 90, 0],
             }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="absolute -top-20 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl" 
+            className="absolute -top-20 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl"
           />
-          <motion.div 
-            animate={{ 
+          <motion.div
+            animate={{
               scale: [1, 1.3, 1],
               rotate: [0, -60, 0],
             }}
             transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-            className="absolute -bottom-32 -left-32 w-80 h-80 bg-white/5 rounded-full blur-3xl" 
+            className="absolute -bottom-32 -left-32 w-80 h-80 bg-white/5 rounded-full blur-3xl"
           />
         </div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.5 }}
@@ -645,10 +642,10 @@ export default function Login() {
               </p>
             </motion.div>
           </AnimatePresence>
-          
+
           <div className="flex gap-8">
             {[["500+", "Orders"], ["50+", "Laundries"], ["4.9", "Rating"]].map(([v, l], i) => (
-              <motion.div 
+              <motion.div
                 key={l}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -663,7 +660,7 @@ export default function Login() {
           </div>
         </div>
 
-        <motion.p 
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 0.5 }}

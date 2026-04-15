@@ -35,12 +35,12 @@ type AccountType = "Customer" | "LaundryAdmin";
 
 function StepIndicator({ current, total }: { current: number; total: number }) {
   const steps = ["Account Info", "Contact & Location"];
-  
+
   return (
     <div className="mb-8">
       <div className="relative mb-6">
         <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-          <motion.div 
+          <motion.div
             initial={{ width: 0 }}
             animate={{ width: `${((current + 1) / total) * 100}%` }}
             transition={{ duration: 0.6, ease: "easeOut" }}
@@ -48,15 +48,15 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
           />
         </div>
       </div>
-      
+
       <div className="flex items-start justify-between">
         {steps.map((label, i) => {
           const isCompleted = i < current;
           const isActive = i === current;
-          
+
           return (
-            <motion.div 
-              key={i} 
+            <motion.div
+              key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1, duration: 0.4 }}
@@ -65,13 +65,12 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
               <motion.div
                 animate={isActive ? { scale: [1, 1.1, 1] } : {}}
                 transition={{ duration: 0.3 }}
-                className={`w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-semibold transition-all duration-300 ${
-                  isCompleted
+                className={`w-11 h-11 rounded-2xl flex items-center justify-center text-sm font-semibold transition-all duration-300 ${isCompleted
                     ? "bg-gradient-to-br from-[#0f4c5c] to-[#2d6b7a] text-white shadow-lg shadow-[#0f4c5c]/30"
                     : isActive
                       ? "bg-gradient-to-br from-[#0f4c5c] to-[#2d6b7a] text-white ring-4 ring-[#0f4c5c]/20 shadow-xl shadow-[#0f4c5c]/25"
                       : "bg-gray-100 text-gray-400"
-                }`}
+                  }`}
               >
                 {isCompleted ? (
                   <motion.div
@@ -85,9 +84,8 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
                   <span>{i + 1}</span>
                 )}
               </motion.div>
-              <span className={`text-xs font-medium text-center transition-colors ${
-                isActive ? "text-[#0f4c5c]" : isCompleted ? "text-gray-700" : "text-gray-400"
-              }`}>
+              <span className={`text-xs font-medium text-center transition-colors ${isActive ? "text-[#0f4c5c]" : isCompleted ? "text-gray-700" : "text-gray-400"
+                }`}>
                 {label}
               </span>
             </motion.div>
@@ -136,21 +134,18 @@ function InputField({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full border rounded-xl px-4 py-3.5 pl-10 ${
-            suffix ? "pr-10" : showCheck ? "pr-10" : ""
-          } text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 ${
-            error
+          className={`w-full border rounded-xl px-4 py-3.5 pl-10 ${suffix ? "pr-10" : showCheck ? "pr-10" : ""
+            } text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 ${error
               ? "border-red-300 focus:ring-red-200 focus:border-red-300"
               : showCheck
                 ? "border-green-300 focus:ring-green-200 focus:border-green-300"
                 : "border-gray-200 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/15 hover:border-gray-300"
-          }`}
+            }`}
         />
         <Icon
           size={16}
-          className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${
-            error ? "text-red-400" : showCheck ? "text-green-500" : "text-gray-400 group-focus-within:text-[#0f4c5c]"
-          }`}
+          className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-400" : showCheck ? "text-green-500" : "text-gray-400 group-focus-within:text-[#0f4c5c]"
+            }`}
         />
         {suffix && (
           <div className="absolute right-3 top-1/2 -translate-y-1/2">
@@ -158,7 +153,7 @@ function InputField({
           </div>
         )}
         {showCheck && !suffix && (
-          <motion.div 
+          <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             className="absolute right-3 top-1/2 -translate-y-1/2"
@@ -169,7 +164,7 @@ function InputField({
       </div>
       <AnimatePresence>
         {error && (
-          <motion.p 
+          <motion.p
             initial={{ opacity: 0, y: -5 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -5 }}
@@ -202,11 +197,10 @@ function SegmentedControl({
           type="button"
           onClick={() => onChange(key)}
           whileTap={{ scale: 0.98 }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-300 relative ${
-            value === key
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-300 relative ${value === key
               ? "text-[#0f4c5c]"
               : "text-gray-500 hover:text-gray-700"
-          }`}
+            }`}
         >
           {value === key && (
             <motion.div
@@ -260,7 +254,7 @@ function PasswordStrength({ password }: { password: string }) {
         <motion.div
           key={i}
           initial={false}
-          animate={{ 
+          animate={{
             backgroundColor: i <= level ? undefined : "#e5e7eb",
             scale: i <= level ? 1 : 0.95
           }}
@@ -410,11 +404,11 @@ export default function SignupPage() {
     const laundryData: PendingLaundryOnboarding | null =
       accountType === "LaundryAdmin"
         ? {
-            laundryName: laundryName.trim(),
-            address: laundryAddress.trim(),
-            latitude: latitude,
-            longitude: longitude,
-          }
+          laundryName: laundryName.trim(),
+          address: laundryAddress.trim(),
+          latitude: latitude,
+          longitude: longitude,
+        }
         : null;
 
     const result = await signup(signupData);
@@ -483,7 +477,7 @@ export default function SignupPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
@@ -512,8 +506,8 @@ export default function SignupPage() {
               </div>
               <span>{step === 0 ? "Back" : "Step " + step}</span>
             </motion.button>
-            
-            <motion.span 
+
+            <motion.span
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
@@ -532,7 +526,7 @@ export default function SignupPage() {
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.3 }}
             >
-              <motion.h1 
+              <motion.h1
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
@@ -540,7 +534,7 @@ export default function SignupPage() {
               >
                 Create account
               </motion.h1>
-              <motion.p 
+              <motion.p
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
@@ -562,7 +556,7 @@ export default function SignupPage() {
 
               <AnimatePresence mode="wait">
                 {accountType === "LaundryAdmin" && (
-                  <motion.p 
+                  <motion.p
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
@@ -575,14 +569,14 @@ export default function SignupPage() {
 
               <AnimatePresence mode="wait">
                 {accountType === "Customer" && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     className="mt-6"
                   >
                     {socialLoad === "google" ? (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-500 bg-gray-50/50"
@@ -601,7 +595,7 @@ export default function SignupPage() {
                 )}
               </AnimatePresence>
 
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.4 }}
@@ -641,7 +635,7 @@ export default function SignupPage() {
               transition={{ duration: 0.3 }}
             >
               <StepIndicator current={0} total={2} />
-              
+
               <div className="mb-6">
                 <h1 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">
                   {accountType === "LaundryAdmin"
@@ -766,7 +760,7 @@ export default function SignupPage() {
               transition={{ duration: 0.3 }}
             >
               <StepIndicator current={1} total={2} />
-              
+
               <div className="mb-6">
                 <h1 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">
                   {accountType === "LaundryAdmin"
@@ -819,7 +813,7 @@ export default function SignupPage() {
                       valid={isFieldValid("laundryName", laundryName)}
                       icon={Store}
                     />
-                    
+
                     {/* Map Picker for Laundry Location */}
                     <div className="border-t border-gray-100 pt-4 mt-2">
                       <MapPicker
@@ -861,11 +855,10 @@ export default function SignupPage() {
                 disabled={loading}
                 whileHover={{ scale: loading ? 1 : 1.02 }}
                 whileTap={{ scale: loading ? 1 : 0.98 }}
-                className={`w-full mt-6 py-3.5 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg ${
-                  accountType === "LaundryAdmin"
+                className={`w-full mt-6 py-3.5 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-lg ${accountType === "LaundryAdmin"
                     ? "bg-gradient-to-r from-[#0f4c5c] to-[#2d6b7a] hover:from-[#0a3440] hover:to-[#0f4c5c] shadow-[#0f4c5c]/30"
                     : "bg-gradient-to-r from-[#0f4c5c] to-[#2d6b7a] hover:from-[#0a3440] hover:to-[#0f4c5c] shadow-[#0f4c5c]/30"
-                }`}
+                  }`}
               >
                 {loading ? (
                   <>
@@ -887,7 +880,7 @@ export default function SignupPage() {
       </motion.div>
 
       {/* Right Panel */}
-      <motion.div 
+      <motion.div
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
@@ -895,19 +888,19 @@ export default function SignupPage() {
       >
         {/* Animated background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <motion.div 
+          <motion.div
             animate={{ scale: [1, 1.2, 1], rotate: [0, 90, 0] }}
             transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="absolute -top-20 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl" 
+            className="absolute -top-20 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl"
           />
-          <motion.div 
+          <motion.div
             animate={{ scale: [1, 1.3, 1], rotate: [0, -60, 0] }}
             transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
-            className="absolute -bottom-32 -left-32 w-80 h-80 bg-[#c9a227]/10 rounded-full blur-3xl" 
+            className="absolute -bottom-32 -left-32 w-80 h-80 bg-[#c9a227]/10 rounded-full blur-3xl"
           />
         </div>
 
-        <motion.div 
+        <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.5 }}
@@ -942,10 +935,10 @@ export default function SignupPage() {
               </p>
             </motion.div>
           </AnimatePresence>
-          
+
           <div className="flex gap-8">
             {[["500+", "Orders"], ["50+", "Laundries"], ["4.9", "Rating"]].map(([v, l], i) => (
-              <motion.div 
+              <motion.div
                 key={l}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -960,7 +953,7 @@ export default function SignupPage() {
           </div>
         </div>
 
-        <motion.p 
+        <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 0.5 }}
