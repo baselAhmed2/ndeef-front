@@ -22,33 +22,6 @@ interface Complaint {
   description?: string;
 }
 
-const defaultComplaints: Complaint[] = [
-  {
-    id: "TIC-101",
-    orderId: "ORD-1022",
-    customerName: "Emily Chen",
-    subject: "Missing item from laundry",
-    status: "Open",
-    date: "Apr 7, 2026",
-    description: "I received my laundry but one white shirt is missing.",
-  },
-  {
-    id: "TIC-102",
-    orderId: "ORD-1013",
-    customerName: "Ahmed Youssef",
-    subject: "Delay in pickup",
-    status: "Resolved",
-    date: "Apr 4, 2026",
-  },
-  {
-    id: "TIC-103",
-    customerName: "Sarah Johnson",
-    subject: "Pricing inquiry",
-    status: "In Progress",
-    date: "Apr 6, 2026",
-  },
-];
-
 const statusStyles = {
   Open: { color: "#ef4444", bg: "#fef2f2", icon: AlertCircle },
   "In Progress": { color: "#EBA050", bg: "#fff7ed", icon: Clock },
@@ -56,7 +29,8 @@ const statusStyles = {
 };
 
 export function Complaints() {
-  const [complaints, setComplaints] = useState<Complaint[]>(defaultComplaints);
+  const [complaints, setComplaints] = useState<Complaint[]>([]);
+  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [activeFilter, setActiveFilter] = useState<"All" | "Open" | "Resolved">("All");
 
@@ -64,11 +38,13 @@ export function Complaints() {
     async function fetchComplaints() {
       try {
         const data = await getComplaints();
-        if (data && Array.isArray(data) && data.length > 0) {
+        if (data && Array.isArray(data)) {
           setComplaints(data);
         }
       } catch (err) {
         console.error("Failed to load complaints", err);
+      } finally {
+        setLoading(false);
       }
     }
     fetchComplaints();
@@ -126,7 +102,12 @@ export function Complaints() {
 
       {/* List */}
       <div className="space-y-3">
-        {filtered.length === 0 ? (
+        {loading ? (
+          <div className="py-12 text-center bg-white rounded-2xl border border-gray-100">
+            <Clock className="w-10 h-10 text-gray-300 mx-auto mb-3 animate-pulse" />
+            <h3 className="text-gray-900 font-medium">Loading complaints...</h3>
+          </div>
+        ) : filtered.length === 0 ? (
           <div className="py-12 text-center bg-white rounded-2xl border border-gray-100">
             <MessageSquareWarning className="w-10 h-10 text-gray-300 mx-auto mb-3" />
             <h3 className="text-gray-900 font-medium">No complaints found</h3>

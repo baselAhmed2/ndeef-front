@@ -36,21 +36,6 @@ interface Order {
   address: string;
 }
 
-const defaultAllOrders: Order[] = [
-  { id: "ORD-1024", customer: "Sarah Johnson", phone: "+1 555-0101", service: "Wash & Fold", items: 3, amount: 45.0, status: "Delivered", date: "Apr 7, 2026", address: "123 Oak St" },
-  { id: "ORD-1023", customer: "Mohammed Al-Rashid", phone: "+966 555-0102", service: "Dry Cleaning", items: 5, amount: 120.0, status: "Ready", date: "Apr 7, 2026", address: "45 Palm Ave" },
-  { id: "ORD-1022", customer: "Emily Chen", phone: "+1 555-0103", service: "Ironing", items: 8, amount: 32.0, status: "Processing", date: "Apr 7, 2026", address: "78 Maple Dr" },
-  { id: "ORD-1021", customer: "James Williams", phone: "+1 555-0104", service: "Wash & Fold", items: 2, amount: 28.0, status: "Pending", date: "Apr 6, 2026", address: "90 Elm Rd" },
-  { id: "ORD-1020", customer: "Fatima Al-Amin", phone: "+966 555-0105", service: "Dry Cleaning", items: 4, amount: 95.0, status: "Processing", date: "Apr 6, 2026", address: "12 Rose Blvd" },
-  { id: "ORD-1019", customer: "Lucas Moreira", phone: "+55 555-0106", service: "Stain Removal", items: 1, amount: 55.0, status: "Delivered", date: "Apr 6, 2026", address: "34 Cedar Ln" },
-  { id: "ORD-1018", customer: "Anna Petrov", phone: "+7 555-0107", service: "Wash & Fold", items: 6, amount: 78.0, status: "Cancelled", date: "Apr 5, 2026", address: "56 Birch Way" },
-  { id: "ORD-1017", customer: "Khalid Al-Omar", phone: "+966 555-0108", service: "Dry Cleaning", items: 3, amount: 85.0, status: "Delivered", date: "Apr 5, 2026", address: "11 Willow St" },
-  { id: "ORD-1016", customer: "Mei Lin", phone: "+86 555-0109", service: "Ironing", items: 10, amount: 40.0, status: "Ready", date: "Apr 5, 2026", address: "29 Oak Ave" },
-  { id: "ORD-1015", customer: "Carlos Gomez", phone: "+52 555-0110", service: "Stain Removal", items: 2, amount: 65.0, status: "Pending", date: "Apr 4, 2026", address: "77 Pine Rd" },
-  { id: "ORD-1014", customer: "Priya Sharma", phone: "+91 555-0111", service: "Wash & Fold", items: 5, amount: 62.0, status: "Delivered", date: "Apr 4, 2026", address: "8 Lotus Dr" },
-  { id: "ORD-1013", customer: "Ahmed Youssef", phone: "+20 555-0112", service: "Dry Cleaning", items: 7, amount: 175.0, status: "Processing", date: "Apr 4, 2026", address: "33 Nile Blvd" },
-];
-
 const statusConfig: Record<Exclude<OrderStatus, "All">, { color: string; bg: string; icon: React.ElementType; label: string }> = {
   Pending: { color: "#EBA050", bg: "#fff7ed", icon: Clock, label: "Pending" },
   Processing: { color: "#1D5B70", bg: "#f0f9ff", icon: Loader2, label: "Processing" },

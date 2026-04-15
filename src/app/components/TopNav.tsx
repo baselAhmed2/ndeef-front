@@ -34,6 +34,7 @@ export function TopNav() {
   const { user, isLoggedIn, logout } = useAuth();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [userMenu, setUserMenu] = useState(false);
+  const currentPath = pathname ?? "/";
 
   const navLinks = [
     { href: '/', label: 'Home', icon: Home },
@@ -45,9 +46,10 @@ export function TopNav() {
   const visibleNavLinks = isLoggedIn
     ? navLinks
     : navLinks.filter(link => link.href !== '/orders');
-  const authHref = (path: '/login' | '/signup') => `${path}?from=${encodeURIComponent(pathname || '/')}`;
+  const authHref = (path: '/login' | '/signup') => `${path}?from=${encodeURIComponent(currentPath)}`;
 
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href);
+  const isActive = (href: string) =>
+    href === "/" ? currentPath === "/" : currentPath === href || currentPath.startsWith(`${href}/`);
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.trim() || "N";
   const displayName = user?.firstName || user?.name || "Account";
 

@@ -1,7 +1,11 @@
+"use client";
+
 import { Home, ShoppingBag, User } from 'lucide-react';
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 export function BottomNav() {
+  const pathname = usePathname() ?? '/';
   const navItems = [
     { path: '/', icon: Home, label: 'Home' },
     { path: '/orders', icon: ShoppingBag, label: 'Orders' },
@@ -13,7 +17,7 @@ export function BottomNav() {
       <div className="flex justify-around items-center h-16 px-2">
         {navItems.map((item) => {
           const Icon = item.icon;
-          const isActive = location.pathname === item.path;
+          const isActive = pathname === item.path;
           
           return (
             <Link key={item.path}

@@ -1,18 +1,23 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search, ChevronDown, User, Settings, LogOut, AlertTriangle, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/app/context/AuthContext";
+import { getLaundryUnreadNotificationCount } from "@/app/lib/laundry-admin-client";
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/laundry-admin": { title: "Dashboard", subtitle: "Welcome back, Ahmad" },
   "/laundry-admin/orders": { title: "Orders", subtitle: "Manage and track all laundry orders" },
   "/laundry-admin/services": { title: "Services", subtitle: "Manage your laundry service offerings" },
   "/laundry-admin/availability": { title: "Availability", subtitle: "Set your working hours and schedule" },
+  "/laundry-admin/customers": { title: "Customers", subtitle: "Customer history from backend orders" },
+  "/laundry-admin/drivers": { title: "Drivers", subtitle: "Assign and manage laundry couriers" },
   "/laundry-admin/notifications": { title: "Notifications", subtitle: "Stay updated with latest alerts" },
   "/laundry-admin/payments": { title: "Payments", subtitle: "Track revenue and payment history" },
+  "/laundry-admin/analytics": { title: "Analytics", subtitle: "Revenue, order insights, and demand forecast" },
+  "/laundry-admin/support": { title: "Support", subtitle: "Review customer complaints" },
   "/laundry-admin/settings": { title: "Settings", subtitle: "Manage your account and preferences" },
 };
 
@@ -20,14 +25,35 @@ interface LaundryHeaderProps {
   notificationCount?: number;
 }
 
-export function LaundryHeader({ notificationCount = 3 }: LaundryHeaderProps) {
+export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(notificationCount);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadUnreadCount() {
+      try {
+        const count = await getLaundryUnreadNotificationCount();
+        if (active) setUnreadCount(count);
+      } catch (error) {
+        console.error("Failed to load laundry notification count", error);
+        if (active) setUnreadCount(0);
+      }
+    }
+
+    void loadUnreadCount();
+
+    return () => {
+      active = false;
+    };
+  }, [pathname]);
 
   const currentPath = pathname ?? "";
   const pathKey = Object.keys(pageTitles)
@@ -84,12 +110,12 @@ export function LaundryHeader({ notificationCount = 3 }: LaundryHeaderProps) {
             className="relative w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
           >
             <Bell className="w-4 h-4" />
-            {notificationCount > 0 && (
+            {unreadCount > 0 && (
               <span
                 className="absolute top-1 right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center text-white"
                 style={{ backgroundColor: "#EBA050" }}
               >
-                {notificationCount}
+                {unreadCount > 9 ? "9+" : unreadCount}
               </span>
             )}
           </button>

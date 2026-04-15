@@ -1,7 +1,11 @@
-import { Bell, Package, CheckCircle, Truck, MessageSquare } from 'lucide-react';
+"use client";
+
+import { useEffect, useState } from 'react';
+import { Bell, Package, CheckCircle, Truck, MessageSquare, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { TopBar } from '../components/TopBar';
 import { BottomNav } from '../components/BottomNav';
+import { apiRequest } from '../lib/admin-api';
 
 interface Notification {
   id: string;
@@ -14,47 +18,17 @@ interface Notification {
   orderId?: string;
 }
 
-const notifications: Notification[] = [
-  {
-    id: '1',
-    type: 'order',
-    icon: 'check',
-    title: 'Your order is ready!',
-    message: 'Your order from Smart Clean Laundry is ready for pickup',
-    time: '5 minutes ago',
-    read: false,
-    orderId: '1001',
-  },
-  {
-    id: '2',
-    type: 'promo',
-    icon: 'bell',
-    title: 'Special Offer',
-    message: 'Get 30 EGP off on your next order',
-    time: '1 hour ago',
-    read: false,
-  },
-  {
-    id: '3',
-    type: 'order',
-    icon: 'truck',
-    title: 'On the way',
-    message: 'Driver is on the way to deliver your order',
-    time: '3 hours ago',
-    read: true,
-    orderId: '1002',
-  },
-  {
-    id: '4',
-    type: 'order',
-    icon: 'package',
-    title: 'Order processing started',
-    message: 'Laundry started working on your order',
-    time: '5 hours ago',
-    read: true,
-    orderId: '1001',
-  },
-];
+type BackendNotification = {
+  id: number | string;
+  title?: string | null;
+  message?: string | null;
+  type?: string | number | null;
+  isRead?: boolean | null;
+  orderId?: number | string | null;
+  createdAt?: string | null;
+};
+
+type NotificationResponse = BackendNotification[] | { data?: BackendNotification[] | null };
 
 const iconMap = {
   package: Package,
@@ -70,8 +44,93 @@ const colorConfig = {
   bell: { bg: 'bg-purple-50', text: 'text-purple-600' },
 };
 
+function formatTimeAgo(isoString?: string | null) {
+  if (!isoString) return '';
+  const diff = (Date.now() - new Date(isoString).getTime()) / 1000;
+  if (diff < 60) return 'Just now';
+  if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+  return `${Math.floor(diff / 86400)} days ago`;
+}
+
+function mapIcon(type: string | number | null | undefined): Notification['icon'] {
+  const normalized = String(type ?? '').toLowerCase();
+  if (normalized.includes('delivered') || normalized === '3') return 'check';
+  if (normalized.includes('confirmed') || normalized.includes('created') || normalized.includes('order') || ['1', '2'].includes(normalized)) {
+    return 'package';
+  }
+  if (normalized.includes('payment') || normalized === '4') return 'bell';
+  return 'bell';
+}
+
+function mapType(type: string | number | null | undefined): Notification['type'] {
+  const normalized = String(type ?? '').toLowerCase();
+  if (normalized.includes('promotion') || normalized === '5') return 'promo';
+  if (normalized.includes('order') || ['1', '2', '3'].includes(normalized)) return 'order';
+  return 'general';
+}
+
+function unwrapNotifications(payload: NotificationResponse) {
+  if (Array.isArray(payload)) return payload;
+  return Array.isArray(payload.data) ? payload.data : [];
+}
+
+function mapNotification(notification: BackendNotification): Notification {
+  return {
+    id: String(notification.id),
+    type: mapType(notification.type),
+    icon: mapIcon(notification.type),
+    title: notification.title ?? 'Notification',
+    message: notification.message ?? '',
+    time: formatTimeAgo(notification.createdAt),
+    read: Boolean(notification.isRead),
+    orderId: notification.orderId == null ? undefined : String(notification.orderId),
+  };
+}
+
 export default function Notifications() {
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadNotifications() {
+      try {
+        setLoading(true);
+        setError(null);
+        const payload = await apiRequest<NotificationResponse>('/notifications?PageIndex=1&PageSize=50');
+        if (active) setNotifications(unwrapNotifications(payload).map(mapNotification));
+      } catch (error) {
+        console.error('Failed to load notifications', error);
+        if (active) {
+          setNotifications([]);
+          setError('Failed to load notifications from backend.');
+        }
+      } finally {
+        if (active) setLoading(false);
+      }
+    }
+
+    void loadNotifications();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const markAllRead = async () => {
+    try {
+      setError(null);
+      await apiRequest('/notifications/mark-all-read', { method: 'PUT' });
+      setNotifications((current) => current.map((notification) => ({ ...notification, read: true })));
+    } catch (error) {
+      console.error('Failed to mark notifications as read', error);
+      setError('Failed to mark notifications as read.');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f8fafb] pb-20">
@@ -83,7 +142,7 @@ export default function Notifications() {
           <p className="text-sm text-gray-600">
             You have <span className="font-semibold text-[#1D6076]">{unreadCount}</span> new notifications
           </p>
-          <button className="text-sm text-[#1D6076] font-medium">
+          <button onClick={() => void markAllRead()} className="text-sm text-[#1D6076] font-medium">
             Mark all as read
           </button>
         </div>
@@ -91,7 +150,27 @@ export default function Notifications() {
 
       {/* Notifications List */}
       <div className="px-5 py-4 space-y-3">
-        {notifications.map((notification) => {
+        {error && (
+          <div className="rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+            <Loader2 className="mb-3 animate-spin" size={28} />
+            <p className="text-sm">Loading notifications...</p>
+          </div>
+        )}
+
+        {!loading && notifications.length === 0 && (
+          <div className="flex flex-col items-center justify-center rounded-2xl border border-gray-100 bg-white py-16 text-gray-400">
+            <Bell className="mb-3 opacity-50" size={32} />
+            <p className="text-sm font-medium">No notifications found</p>
+          </div>
+        )}
+
+        {!loading && notifications.map((notification) => {
           const Icon = iconMap[notification.icon];
           const color = colorConfig[notification.icon];
 

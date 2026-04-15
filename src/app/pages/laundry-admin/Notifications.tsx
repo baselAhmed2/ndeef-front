@@ -20,6 +20,7 @@ import {
   Trash2,
   Filter,
   X,
+  Loader2,
 } from "lucide-react";
 
 type NotifType = "order" | "payment" | "review" | "alert" | "system";
@@ -34,19 +35,6 @@ interface Notification {
   read: boolean;
 }
 
-const initialNotifications: Notification[] = [
-  { id: "n1", type: "order", title: "New Order Received", message: "Order ORD-1025 has been placed by David Kim for Dry Cleaning (3 items).", time: "2 min ago", read: false },
-  { id: "n2", type: "payment", title: "Payment Confirmed", message: "Payment of $95.00 received for Order ORD-1023 via Credit Card.", time: "15 min ago", read: false },
-  { id: "n3", type: "review", title: "New Review Posted", message: "Sarah Johnson left a 5-star review: \"Amazing service, very fast and professional!\"", time: "1h ago", read: false },
-  { id: "n4", type: "order", title: "Order Ready for Pickup", message: "Order ORD-1021 is ready and awaiting delivery confirmation.", time: "2h ago", read: true },
-  { id: "n5", type: "alert", title: "Low Capacity Warning", message: "You have reached 90% of today's maximum order capacity (27/30 orders).", time: "3h ago", read: true },
-  { id: "n6", type: "payment", title: "Refund Processed", message: "A refund of $28.00 was issued for Order ORD-1018 (Cancelled).", time: "5h ago", read: true },
-  { id: "n7", type: "system", title: "System Maintenance", message: "Scheduled maintenance will occur tonight at 2:00 AM for 30 minutes.", time: "8h ago", read: true },
-  { id: "n8", type: "order", title: "Order Delivered", message: "Order ORD-1019 has been marked as delivered by the driver.", time: "Yesterday", read: true },
-  { id: "n9", type: "review", title: "New Review Posted", message: "Fatima Al-Amin rated your service 4 stars. Check the feedback.", time: "Yesterday", read: true },
-  { id: "n10", type: "alert", title: "New Customer Registered", message: "Carlos Gomez has created a new account and placed their first order.", time: "2 days ago", read: true },
-];
-
 const typeConfig: Record<NotifType, { icon: React.ElementType; color: string; bg: string; label: string }> = {
   order: { icon: ShoppingBag, color: "#1D5B70", bg: "#f0f9ff", label: "Order" },
   payment: { icon: CreditCard, color: "#22c55e", bg: "#f0fdf4", label: "Payment" },
@@ -58,18 +46,24 @@ const typeConfig: Record<NotifType, { icon: React.ElementType; color: string; bg
 const filterOptions: NotifFilter[] = ["All", "Unread", "order", "payment", "review", "alert", "system"];
 
 export function Notifications() {
-  const [notifications, setNotifications] = useState<Notification[]>(initialNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [activeFilter, setActiveFilter] = useState<NotifFilter>("All");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadNotifications() {
       try {
+        setLoading(true);
+        setError(null);
         const data = await getLaundryNotifications();
-        if (data.length > 0) {
-          setNotifications(data as Notification[]);
-        }
+        setNotifications(data as Notification[]);
       } catch (error) {
         console.error("Failed to load notifications", error);
+        setNotifications([]);
+        setError("Failed to load notifications from backend.");
+      } finally {
+        setLoading(false);
       }
     }
     loadNotifications();
@@ -83,24 +77,58 @@ export function Notifications() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
-  const markAllRead = () => {
-    markAllLaundryNotificationsRead().catch(console.error);
+  const markAllRead = async () => {
+    try {
+      setError(null);
+      await markAllLaundryNotificationsRead();
+    } catch (error) {
+      console.error(error);
+      setError("Failed to mark notifications as read.");
+      return;
+    }
+
     setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
   };
 
-  const markRead = (id: string) => {
-    markLaundryNotificationRead(id).catch(console.error);
+  const markRead = async (id: string) => {
+    const notification = notifications.find((n) => n.id === id);
+    if (notification?.read) return;
+
     setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
+    try {
+      setError(null);
+      await markLaundryNotificationRead(id);
+    } catch (error) {
+      console.error(error);
+      setError("Failed to mark notification as read.");
+      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: false } : n)));
+    }
   };
 
-  const dismiss = (id: string) => {
-    deleteLaundryNotification(id).catch(console.error);
+  const dismiss = async (id: string) => {
+    const previousNotifications = notifications;
     setNotifications((prev) => prev.filter((n) => n.id !== id));
+    try {
+      setError(null);
+      await deleteLaundryNotification(id);
+    } catch (error) {
+      console.error(error);
+      setError("Failed to delete notification.");
+      setNotifications(previousNotifications);
+    }
   };
 
-  const clearAll = () => {
-    clearReadLaundryNotifications().catch(console.error);
+  const clearRead = async () => {
+    const previousNotifications = notifications;
     setNotifications((prev) => prev.filter((n) => !n.read));
+    try {
+      setError(null);
+      await clearReadLaundryNotifications();
+    } catch (error) {
+      console.error(error);
+      setError("Failed to clear read notifications.");
+      setNotifications(previousNotifications);
+    }
   };
 
   return (
@@ -132,17 +160,30 @@ export function Notifications() {
           )}
           {notifications.length > 0 && (
             <button
-              onClick={clearAll}
+              onClick={clearRead}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-xl text-red-500 border border-red-100 hover:bg-red-50 transition-all"
             >
-              <Trash2 className="w-3.5 h-3.5" /> Clear all
+              <Trash2 className="w-3.5 h-3.5" /> Clear read
             </button>
           )}
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
+
+      {loading && (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <Loader2 className="w-8 h-8 mb-3 animate-spin" />
+          <p className="text-sm font-medium">Loading notifications...</p>
+        </div>
+      )}
+
       {/* Filter Tabs */}
-      <div className="flex gap-1 overflow-x-auto pb-1">
+      {!loading && <div className="flex gap-1 overflow-x-auto pb-1">
         {filterOptions.map((f) => (
           <button
             key={f}
@@ -163,10 +204,10 @@ export function Notifications() {
             {f === "All" ? "All" : f === "Unread" ? `Unread (${unreadCount})` : typeConfig[f as NotifType]?.label ?? f}
           </button>
         ))}
-      </div>
+      </div>}
 
       {/* Notification List */}
-      <div className="space-y-2">
+      {!loading && <div className="space-y-2">
         <AnimatePresence>
           {filtered.length === 0 ? (
             <motion.div
@@ -189,7 +230,7 @@ export function Notifications() {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, x: -20, height: 0, marginBottom: 0 }}
                   transition={{ duration: 0.2, delay: i * 0.03 }}
-                  onClick={() => markRead(notif.id)}
+                  onClick={() => void markRead(notif.id)}
                   className={`relative flex items-start gap-4 p-4 rounded-2xl border cursor-pointer transition-all ${
                     !notif.read
                       ? "bg-white border-[#1D5B70]/20 shadow-sm"
@@ -224,7 +265,7 @@ export function Notifications() {
                       <div className="flex items-center gap-1 shrink-0">
                         <span className="text-[10px] text-gray-400 whitespace-nowrap">{notif.time}</span>
                         <button
-                          onClick={(e) => { e.stopPropagation(); dismiss(notif.id); }}
+                          onClick={(e) => { e.stopPropagation(); void dismiss(notif.id); }}
                           className="w-6 h-6 rounded-lg flex items-center justify-center text-gray-300 hover:text-gray-500 hover:bg-gray-100 transition-all"
                         >
                           <X className="w-3 h-3" />
@@ -240,7 +281,7 @@ export function Notifications() {
                       </span>
                       {!notif.read && (
                         <button
-                          onClick={(e) => { e.stopPropagation(); markRead(notif.id); }}
+                          onClick={(e) => { e.stopPropagation(); void markRead(notif.id); }}
                           className="text-[10px] text-gray-400 hover:text-gray-600 transition-colors"
                         >
                           Mark as read
@@ -253,7 +294,7 @@ export function Notifications() {
             })
           )}
         </AnimatePresence>
-      </div>
+      </div>}
     </div>
   );
 }

@@ -68,7 +68,8 @@ function SubmittingScreen({ step }: { step: number }) {
 }
 
 export default function RateLaundry() {
-  const { id }   = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? "";
   const router = useRouter();
 
   const [flowState, setFlowState] = useState<FlowState>('loading');

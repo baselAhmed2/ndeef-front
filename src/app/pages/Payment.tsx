@@ -48,7 +48,7 @@ export default function Payment() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAuthReady, isLoggedIn } = useAuth();
-  const orderId = searchParams.get("orderId");
+  const orderId = searchParams?.get("orderId") ?? "";
 
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [failureMessage, setFailureMessage] = useState(

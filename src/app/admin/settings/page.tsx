@@ -15,6 +15,7 @@ import {
   Shield,
 } from "lucide-react";
 import { apiRequest, ApiError } from "@/app/lib/admin-api";
+import { usePreferences, type ThemeMode } from "@/app/context/PreferencesContext";
 import type {
   ChangePasswordPayload,
   NotificationPreferencesRecord,
@@ -60,6 +61,7 @@ const defaultNotificationPreferences: NotificationPreferencesRecord = {
 };
 
 export default function SettingsPage() {
+  const { setLanguage, theme, setTheme } = usePreferences();
   const [activeTab, setActiveTab] = useState<(typeof tabs)[number]["id"]>("general");
   const [userSettings, setUserSettings] = useState<UserSettingsRecord>(defaultUserSettings);
   const [notificationPreferences, setNotificationPreferences] =
@@ -89,6 +91,9 @@ export default function SettingsPage() {
       ]);
 
       setUserSettings(settingsResponse);
+      if (settingsResponse.language === 1 || settingsResponse.language === 2) {
+        setLanguage(settingsResponse.language === 1 ? "ar" : "en");
+      }
       setNotificationPreferences(preferencesResponse);
     } catch (error) {
       setError(error instanceof ApiError ? error.message : "Failed to load settings.");
@@ -266,9 +271,11 @@ export default function SettingsPage() {
                   <span className="text-sm font-semibold text-slate-700">Language</span>
                   <select
                     value={userSettings.language}
-                    onChange={(event) =>
-                      setUserSettings((current) => ({ ...current, language: Number(event.target.value) }))
-                    }
+                    onChange={(event) => {
+                      const nextLanguage = Number(event.target.value);
+                      setUserSettings((current) => ({ ...current, language: nextLanguage }));
+                      setLanguage(nextLanguage === 1 ? "ar" : "en");
+                    }}
                     className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1D6076]/30 focus:ring-2 focus:ring-[#1D6076]/10"
                   >
                     {languageOptions.map((option) => (
@@ -276,6 +283,18 @@ export default function SettingsPage() {
                         {option.label}
                       </option>
                     ))}
+                  </select>
+                </label>
+
+                <label className="space-y-1.5">
+                  <span className="text-sm font-semibold text-slate-700">Theme</span>
+                  <select
+                    value={theme}
+                    onChange={(event) => setTheme(event.target.value as ThemeMode)}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-700 outline-none focus:border-[#1D6076]/30 focus:ring-2 focus:ring-[#1D6076]/10"
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
                   </select>
                 </label>
 

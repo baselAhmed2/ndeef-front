@@ -294,21 +294,45 @@ export interface VerificationStatusResponse {
 }
 
 /**
- * POST /api/verification/create-session
+ * POST /api/verification/session
  * Creates a Didit verification session for identity verification.
  */
 export async function createVerificationSession(
   redirectUrl?: string
 ): Promise<ApiResult<VerificationSessionResponse>> {
-  const res = await fetch(`${BASE_URL}/verification/create-session`, {
+  const query = redirectUrl ? `?callbackUrl=${encodeURIComponent(redirectUrl)}` : "";
+  const res = await fetch(`${BASE_URL}/verification/session${query}`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ redirectUrl }),
   });
 
-  const json = await res.json();
+  const raw = await res.text();
+  let json: any = raw;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    json = raw;
+  }
   if (!res.ok) {
-    return { isSuccess: false, error: json.message ?? "Failed to create verification session" };
+    return {
+      isSuccess: false,
+      error:
+        typeof json === "string"
+          ? json || "Failed to create verification session"
+          : json.message ?? "Failed to create verification session",
+    };
+  }
+  if (typeof json === "string") {
+    return {
+      isSuccess: true,
+      data: {
+        sessionId: "",
+        sessionToken: "",
+        url: json,
+        status: "created",
+        message: "Verification session created",
+      },
+    };
   }
   return { isSuccess: true, data: json };
 }

@@ -19,6 +19,10 @@ import {
   Settings,
   X,
   AlertTriangle,
+  Users,
+  Truck,
+  Headphones,
+  BarChart3,
 } from "lucide-react";
 
 interface LaundrySidebarProps {
@@ -31,8 +35,12 @@ const navItems = [
   { path: "/laundry-admin/orders", label: "Orders", icon: ShoppingBag },
   { path: "/laundry-admin/services", label: "Services", icon: Sparkles },
   { path: "/laundry-admin/availability", label: "Availability", icon: CalendarDays },
+  { path: "/laundry-admin/customers", label: "Customers", icon: Users },
+  { path: "/laundry-admin/drivers", label: "Drivers", icon: Truck },
   { path: "/laundry-admin/notifications", label: "Notifications", icon: Bell },
   { path: "/laundry-admin/payments", label: "Payments", icon: CreditCard },
+  { path: "/laundry-admin/analytics", label: "Analytics", icon: BarChart3 },
+  { path: "/laundry-admin/support", label: "Support", icon: Headphones },
 ];
 
 export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySidebarProps) {

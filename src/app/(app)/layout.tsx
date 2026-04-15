@@ -8,13 +8,6 @@ import { useEffect } from "react";
 import { ReactNode } from "react";
 import { Suspense } from "react";
 
-function resolveDefaultPathForRole(role?: string) {
-  const normalizedRole = (role ?? "").toLowerCase();
-  if (normalizedRole.includes("laundryadmin")) return "/laundry-admin";
-  if (normalizedRole.includes("admin")) return "/admin";
-  return "/";
-}
-
 const pageVariants = {
   initial: { opacity: 0, y: 14 },
   animate: {
@@ -35,7 +28,9 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { isLoggedIn, isAuthReady, user } = useAuth();
   const authPaths = ["/login", "/signup"];
-  const isAuthPage = authPaths.includes(pathname);
+  const currentPath = pathname ?? "/";
+  const fromParam = searchParams?.get("from");
+  const isAuthPage = authPaths.includes(currentPath);
   
   const role = user?.role || "";
   const isLaundryAdmin = isLoggedIn && role.toLowerCase().includes("laundryadmin");
@@ -45,16 +40,15 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
     // Redirect admins from auth pages or user sections
     if (isLaundryAdmin) {
-      if (!pathname.startsWith("/laundry-admin")) {
+      if (!currentPath.startsWith("/laundry-admin")) {
         // Only redirect if NOT specifically requested a different user page via 'from' (rare for admin)
-        const from = searchParams.get("from");
-        if (!from || from === "/" || from === pathname) {
+        if (!fromParam || fromParam === "/" || fromParam === currentPath) {
           router.replace("/laundry-admin");
         }
       }
       return;
     }
-  }, [isAuthPage, isAuthReady, isLoggedIn, isLaundryAdmin, pathname, router, searchParams]);
+  }, [currentPath, fromParam, isAuthReady, isLaundryAdmin, router]);
 
   if (!isAuthReady) {
     return null;
@@ -62,7 +56,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
   // AGGRESSIVE: If you are an admin in a user section, show NOTHING but the white loader
   // This kills the flicker of the Home page or TopNav instantly.
-  if (isLaundryAdmin && !pathname.startsWith("/laundry-admin")) {
+  if (isLaundryAdmin && !currentPath.startsWith("/laundry-admin")) {
     return (
       <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -73,14 +67,14 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
-  const shouldShowTopNav = (!isAuthPage || !!searchParams.get("from")) && !isLaundryAdmin;
+  const shouldShowTopNav = (!isAuthPage || !!fromParam) && !isLaundryAdmin;
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       {shouldShowTopNav && <TopNav />}
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
-          key={pathname}
+          key={currentPath}
           variants={pageVariants}
           initial="initial"
           animate="animate"

@@ -16,9 +16,9 @@ export default function VerifyEmail() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { verifyEmail } = useAuth();
-  const email = searchParams.get("email") ?? "";
-  const requestedRole = searchParams.get("role") ?? "";
-  const next = searchParams.get("next") ?? "";
+  const email = searchParams?.get("email") ?? "";
+  const requestedRole = searchParams?.get("role") ?? "";
+  const next = searchParams?.get("next") ?? "";
 
   const [otpCode, setOtpCode] = useState("");
   const [loading, setLoading] = useState(false);

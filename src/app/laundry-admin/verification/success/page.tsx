@@ -1,25 +1,18 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "@/app/context/AuthContext";
-import { getVerificationStatus } from "@/app/services/api";
+import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { CheckCircle2, Clock, Loader2, ShieldAlert } from "lucide-react";
+import { useAuth } from "@/app/context/AuthContext";
+import { getVerificationStatus } from "@/app/lib/laundry-admin-client";
 
-function VerificationSuccessContent() {
+export default function VerificationSuccessPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { user, isLoggedIn, isAuthReady } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [isVerified, setIsVerified] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Get session_id from URL if present (Didit redirect)
-  const sessionId = searchParams?.get("session_id");
-  const status = searchParams?.get("status");
-  
-  // Log for debugging
-  console.log("Verification callback - Session:", sessionId, "Status:", status);
+  const [loading, setLoading] = useState(true);
+  const [verified, setVerified] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -29,141 +22,76 @@ function VerificationSuccessContent() {
       return;
     }
 
-    const checkVerification = async () => {
+    async function checkStatus() {
       try {
-        // Check verification status from backend
-        const result = await getVerificationStatus();
-
-        if (result.isSuccess && result.data) {
-          setIsVerified(result.data.isVerified);
-
-          // If verified, wait a moment then redirect to dashboard
-          if (result.data.isVerified) {
-            setTimeout(() => {
-              router.push("/laundry-admin");
-            }, 3000);
-          }
-        } else {
-          setError(result.error || "Failed to check verification status");
+        const status = await getVerificationStatus();
+        setVerified(Boolean(status.isIdentityVerified));
+        if (status.isIdentityVerified) {
+          window.setTimeout(() => router.push("/laundry-admin"), 2500);
         }
       } catch (err) {
-        console.error("Error checking verification:", err);
-        setError("An unexpected error occurred");
+        const message = err instanceof Error ? err.message : "Could not check verification status.";
+        setError(message);
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
-    };
+    }
 
-    checkVerification();
+    checkStatus();
   }, [isLoggedIn, isAuthReady, user, router]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            جاري التحقق من حالة التحقق...
-          </h2>
-          <p className="text-gray-600">
-            يرجى الانتظار بينما نتحقق من اكتمال التحقق
-          </p>
-        </div>
-      </div>
-    );
-  }
+  const Icon = loading ? Loader2 : error ? ShieldAlert : verified ? CheckCircle2 : Clock;
+  const bodyText = loading
+    ? "Please wait while we confirm the latest status with the backend."
+    : error
+      ? error
+      : verified
+        ? "Your identity is verified. Redirecting to your laundry dashboard."
+        : "If you completed Didit verification, the backend may take a few minutes to update.";
 
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            حدث خطأ
-          </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <div className="flex gap-3 justify-center">
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
-            >
-              إعادة المحاولة
-            </button>
-            <Link
-              href="/laundry-admin/verification"
-              className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
-            >
-              العودة للتحقق
-            </Link>
-          </div>
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md rounded-[2rem] border border-gray-100 bg-white p-8 text-center shadow-xl shadow-gray-200/50">
+        <div
+          className={`mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl ${
+            error
+              ? "bg-red-50 text-red-600"
+              : verified
+                ? "bg-green-50 text-green-600"
+                : "bg-[#1D5B70]/10 text-[#1D5B70]"
+          }`}
+        >
+          <Icon className={`h-8 w-8 ${loading ? "animate-spin" : ""}`} />
         </div>
-      </div>
-    );
-  }
-
-  if (isVerified) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-green-500 text-5xl mb-4">✅</div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-            تم التحقق بنجاح!
-          </h2>
-          <p className="text-gray-600 mb-6">
-            تم التحقق من هويتك بنجاح. سيتم توجيهك إلى لوحة التحكم خلال ثوانٍ...
-          </p>
+        <h2 className="text-xl font-black text-gray-950">
+          {loading
+            ? "Checking verification status"
+            : error
+              ? "Status check failed"
+              : verified
+                ? "Verification complete"
+                : "Verification is processing"}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-gray-500">
+          {bodyText}
+        </p>
+        <div className="mt-6 flex justify-center gap-3">
           <Link
             href="/laundry-admin"
-            className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+            className="rounded-2xl bg-[#1D5B70] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#17495a]"
           >
-            الذهاب للوحة التحكم
+            Go to Dashboard
           </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Not verified yet
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="text-center max-w-md mx-auto px-4">
-        <div className="text-yellow-500 text-5xl mb-4">⏳</div>
-        <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-          جاري معالجة التحقق
-        </h2>
-        <p className="text-gray-600 mb-6">
-          لم يتم الانتهاء من التحقق بعد. إذا كنت قد أكملت التحقق، فقد يستغرق الأمر بضع دقائق للتحديث. يمكنك المحاولة مرة أخرى أو الاتصال بالدعم.
-        </p>
-        <div className="flex gap-3 justify-center">
-          <button
-            onClick={() => window.location.reload()}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
-          >
-            التحقق من الحالة
-          </button>
-          <Link
-            href="/laundry-admin/verification"
-            className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
-          >
-            إعادة التحقق
-          </Link>
+          {!verified && (
+            <Link
+              href="/laundry-admin/verification"
+              className="rounded-2xl border border-gray-200 px-5 py-3 text-sm font-bold text-gray-600 transition hover:bg-gray-50"
+            >
+              Retry
+            </Link>
+          )}
         </div>
       </div>
     </div>
-  );
-}
-
-export default function VerificationSuccessPage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">جاري التحميل...</p>
-        </div>
-      </div>
-    }>
-      <VerificationSuccessContent />
-    </Suspense>
   );
 }

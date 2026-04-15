@@ -170,7 +170,8 @@ function ServiceRow({
 }
 
 export default function LaundryDetails() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? "";
   const router = useRouter();
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [laundry, setLaundry] = useState<UiLaundry | null>(null);
