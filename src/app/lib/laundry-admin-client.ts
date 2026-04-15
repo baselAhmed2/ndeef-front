@@ -697,6 +697,18 @@ export async function uploadCommercialRegister(formData: FormData): Promise<any>
   return res.json();
 }
 
+export async function getVerificationStatus(): Promise<{
+  isIdentityVerified: boolean;
+  role: string;
+  commercialRegisterDocumentUrl: string | null;
+}> {
+  return await apiRequest<{
+    isIdentityVerified: boolean;
+    role: string;
+    commercialRegisterDocumentUrl: string | null;
+  }>("/verification/status");
+}
+
 export async function getLaundryNotifications(): Promise<any[]> {
   const notifications = await apiRequest<
     Array<{

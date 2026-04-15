@@ -1,8 +1,11 @@
+"use client";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import {
+  
   Mail,
   Lock,
   Eye,
@@ -12,57 +15,53 @@ import {
   ArrowLeft,
   User,
   Store,
+  Check,
+
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
-import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
-import { getProfile } from "../lib/laundry-admin-client";
-import { LAUNDRY_ADMIN_DIDIT_SIGNUP_URL } from "../lib/laundry-onboarding";
-
-import sideImg from "../../assets/c3cadfc0d53d76910fffbccca80883d33cdb8d15.png";
-
-const SIDE_IMG = sideImg;
+// Note: laundry-admin-client functions are dynamically imported in resolveLaundryAdminLoginPath
 type AccountType = "Customer" | "LaundryAdmin";
 
-function AccountTypeCard({
-  active,
-  title,
-  description,
-  icon: Icon,
-  onClick,
+function SegmentedControl({
+  value,
+  onChange,
 }: {
-  active: boolean;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-  onClick: () => void;
+  value: AccountType;
+  onChange: (v: AccountType) => void;
 }) {
+  const options: { key: AccountType; label: string; icon: React.ElementType }[] = [
+    { key: "Customer", label: "Customer", icon: User },
+    { key: "LaundryAdmin", label: "Laundry Owner", icon: Store },
+  ];
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full text-left rounded-2xl border p-4 transition-all ${
-        active
-          ? "border-[#1D6076] bg-[#1D6076]/5 ring-2 ring-[#1D6076]/10"
-          : "border-gray-200 bg-white hover:border-[#1D6076]/30"
-      }`}
-    >
-      <div className="flex items-start gap-3">
-        <div
-          className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-            active ? "bg-[#1D6076] text-white" : "bg-gray-100 text-gray-500"
+    <div className="flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+      {options.map(({ key, label, icon: Icon }) => (
+        <motion.button
+          key={key}
+          type="button"
+          onClick={() => onChange(key)}
+          whileTap={{ scale: 0.98 }}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-300 relative ${
+            value === key
+              ? "text-[#1D6076]"
+              : "text-gray-500 hover:text-gray-700"
           }`}
         >
-          <Icon size={18} />
-        </div>
-        <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900">{title}</p>
-          <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-            {description}
-          </p>
-        </div>
-      </div>
-    </button>
+          {value === key && (
+            <motion.div
+              layoutId="activeTab"
+              className="absolute inset-0 bg-white rounded-xl shadow-md shadow-black/5"
+              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+            />
+          )}
+          <span className="relative z-10 flex items-center gap-2">
+            <Icon size={16} className={value === key ? "text-[#1D6076]" : ""} />
+            {label}
+          </span>
+        </motion.button>
+      ))}
+    </div>
   );
 }
 
@@ -74,25 +73,14 @@ function resolvePostLoginPath(role?: string, from?: string) {
   return "/";
 }
 
-async function resolveLaundryAdminLoginPath() {
-  try {
-    const { getVerificationStatus } = await import("../lib/laundry-admin-client");
-    const status = await getVerificationStatus();
-    
-    if (!status.isIdentityVerified) {
-       return "/laundry-admin/verify";
-    }
-    
-    const isLaundryAdmin = status.role.toLowerCase().includes("laundryadmin") || status.role.toLowerCase().includes("admin");
-    if (isLaundryAdmin && !status.commercialRegisterDocumentUrl) {
-       return "/laundry-admin/commercial-register";
-    }
-
-    await getProfile();
-    return "/laundry-admin";
-  } catch {
-    return "/laundry-admin/verify";
+async function resolveLaundryAdminLoginPath(requiresVerification?: boolean) {
+  // Check if user needs identity verification (from login/signup result)
+  if (requiresVerification) {
+    return "/laundry-admin/verification";
   }
+  
+  // Otherwise go to dashboard
+  return "/laundry-admin";
 }
 
 export default function Login() {
@@ -100,8 +88,8 @@ export default function Login() {
   const searchParams = useSearchParams();
   const { login, socialLogin } = useAuth();
 
-  const from = searchParams.get("from") || "/";
-  const initialRole = searchParams.get("role");
+  const from = searchParams?.get("from") || "/";
+  const initialRole = searchParams?.get("role");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -116,6 +104,7 @@ export default function Login() {
   );
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [loginProgress, setLoginProgress] = useState("");
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
@@ -141,15 +130,16 @@ export default function Login() {
 
       if (accountType === "LaundryAdmin" && !isLaundryAdmin) {
         setLoading(false);
-        setError(
-          "This account is not registered as a laundry owner. Switch to customer login or use a Laundry Admin account.",
-        );
+        setLoginPhase("idle");
+        setLoginProgress("");
+        setError("Account type mismatch: This email is registered as a Customer, not a Laundry Owner.");
         return;
       }
 
       if (isLaundryAdmin) {
         setLoginPhase("checking");
-        const nextPath = await resolveLaundryAdminLoginPath();
+        setLoginProgress("Checking your laundry setup and verification status...");
+        const nextPath = await resolveLaundryAdminLoginPath(result.requiresVerification);
         if (nextPath.startsWith("http")) {
           window.location.href = nextPath;
         } else {
@@ -164,7 +154,23 @@ export default function Login() {
 
     setLoading(false);
     setLoginPhase("idle");
-    setError(result.message ?? "Invalid email or password. Please try again.");
+    setLoginProgress("");
+    
+    // Better error messages based on backend response
+    let errorMessage = result.message ?? "Invalid email or password. Please try again.";
+    
+    // Normalize common backend error messages
+    if (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("incorrect")) {
+      errorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
+    } else if (errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("no user")) {
+      errorMessage = "No account found with this email. Would you like to create a new account?";
+    } else if (errorMessage.toLowerCase().includes("not confirmed") || errorMessage.toLowerCase().includes("verify")) {
+      errorMessage = "Please verify your email address before signing in. Check your inbox for the verification code.";
+    } else if (errorMessage.toLowerCase().includes("locked") || errorMessage.toLowerCase().includes("blocked")) {
+      errorMessage = "Your account has been temporarily locked. Please try again later or contact support.";
+    }
+    
+    setError(errorMessage);
   };
 
   const handleSocial = async (provider: string, credential: string) => {
@@ -189,305 +195,483 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-white flex" dir="ltr">
-      <motion.div
-        className="flex-1 flex flex-col justify-center px-6 md:px-14 lg:px-20 py-12 max-w-xl mx-auto w-full lg:max-w-none"
-        initial={{ opacity: 0, x: -32 }}
-        animate={{ opacity: 1, x: 0 }}
-        transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
+      {/* ── Left: Form ── */}
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.5 }}
+        className="flex-1 flex flex-col justify-center px-8 md:px-16 lg:px-24 relative"
       >
-        <div className="max-w-md w-full mx-auto">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-400 hover:text-gray-600 text-sm mb-8 transition-colors group"
-          >
-            <ArrowLeft
-              size={16}
-              strokeWidth={2}
-              className="group-hover:-translate-x-0.5 transition-transform"
-            />
-            Back
-          </button>
+        {/* Background decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#1D6076]/5 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#EBA050]/5 rounded-full blur-3xl" />
+        </div>
 
+        <div className="w-full max-w-[420px] mx-auto relative z-10">
+          {/* Back */}
+          <motion.button
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1, duration: 0.4 }}
+            onClick={() => router.back()}
+            whileHover={{ x: -4 }}
+            whileTap={{ scale: 0.98 }}
+            className="group flex items-center gap-2 text-gray-400 hover:text-gray-600 text-sm mb-10 transition-all"
+          >
+            <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center transition-colors">
+              <ArrowLeft size={16} strokeWidth={2} />
+            </div>
+            <span className="font-medium">Back</span>
+          </motion.button>
+
+          {/* Header */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
           >
-            <h1
-              className="text-3xl text-gray-900 mb-1.5"
-              style={{ fontWeight: 800, letterSpacing: "-0.02em" }}
-            >
-              Welcome back!
+            <h1 className="text-[32px] font-bold text-gray-900 tracking-tight mb-2">
+              Welcome back
             </h1>
-            <p className="text-gray-500 text-sm mb-8">
-              Sign in to your Ndeef account.{" "}
-              <Link
-                href={`/signup?role=${accountType}`}
-                className="text-[#1D6076] font-medium hover:underline"
-              >
-                Create account
-              </Link>
+            <p className="text-gray-500 text-[15px] mb-8">
+              Sign in to your Nadeef account
             </p>
           </motion.div>
 
-          <div className="space-y-3 mb-6">
-            <AccountTypeCard
-              active={accountType === "Customer"}
-              title="I am a customer"
-              description="Login to place orders, track deliveries, and manage your laundry account."
-              icon={User}
-              onClick={() => {
-                setAccountType("Customer");
-                setError("");
-              }}
+          {/* Account type toggle */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+          >
+            <SegmentedControl
+              value={accountType}
+              onChange={(v) => { setAccountType(v); setError(""); }}
             />
-            <AccountTypeCard
-              active={accountType === "LaundryAdmin"}
-              title="I own a laundry"
-              description="Login as Laundry Admin to manage your branch, continue setup, and go to Didit when needed."
-              icon={Store}
-              onClick={() => {
-                setAccountType("LaundryAdmin");
-                setError("");
-              }}
-            />
-          </div>
+          </motion.div>
 
-          {error && (
-            <div className="flex items-center gap-2.5 bg-red-50 border border-red-100 rounded-2xl px-4 py-3 mb-5">
-              <AlertCircle
-                size={16}
-                className="text-red-500 shrink-0"
-                strokeWidth={2}
-              />
-              <p className="text-red-600 text-sm">{error}</p>
-            </div>
+          {/* Laundry admin hint */}
+          {accountType === "LaundryAdmin" && (
+            <p className="text-xs text-gray-500 mt-3 mb-1">
+              Laundry owners sign in with email to keep the verification flow correct.
+              New here?{" "}
+              <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium hover:underline">
+                Register your laundry
+              </Link>
+            </p>
           )}
 
-          {accountType === "Customer" ? (
-            <div className="space-y-3 mb-6">
-              {socialLoad === "google" ? (
-                <div className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-2xl py-3.5 text-sm font-medium text-gray-800 opacity-60">
-                  <Loader2
-                    size={18}
-                    className="animate-spin text-gray-500"
-                    strokeWidth={2}
-                  />
-                  Signing in with Google...
+          {/* Error */}
+          <AnimatePresence mode="wait">
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                transition={{ duration: 0.2 }}
+                className="mt-4 flex items-start gap-3 bg-red-50/80 backdrop-blur-sm border border-red-200 rounded-xl px-4 py-3.5 shadow-sm"
+              >
+                <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertCircle size={14} className="text-red-500" />
                 </div>
-              ) : (
-                <GoogleSignInButton
-                  disabled={loading}
-                  text="continue_with"
-                  onCredential={(credential) => handleSocial("google", credential)}
-                />
-              )}
-            </div>
-          ) : (
-            <div className="mb-6 rounded-2xl border border-[#1D6076]/15 bg-[#1D6076]/5 px-4 py-3">
-              <p className="text-xs text-[#1D6076] leading-relaxed">
-                Laundry owners use email login so the system keeps the Laundry Admin route and onboarding flow correct.
-              </p>
-            </div>
-          )}
+                <div className="flex-1 min-w-0">
+                  <p className="text-red-700 text-sm leading-snug font-medium">{error}</p>
+                  {error.includes("Account type mismatch") && accountType === "LaundryAdmin" && (
+                    <motion.button
+                      type="button"
+                      onClick={() => { setAccountType("Customer"); setError(""); }}
+                      whileHover={{ x: 2 }}
+                      className="mt-2 text-sm text-[#1D6076] font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      Switch to Customer login →
+                    </motion.button>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          <div className="flex items-center gap-4 mb-6">
-            <div className="flex-1 h-px bg-gray-100" />
-            <span className="text-gray-400 text-xs font-medium">
-              {accountType === "Customer" ? "or" : "email login"}
+          {/* Social (Customer only) */}
+          <AnimatePresence mode="wait">
+            {accountType === "Customer" && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.3 }}
+                className="mt-6"
+              >
+                {socialLoad === "google" ? (
+                  <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-500 bg-gray-50/50"
+                  >
+                    <Loader2 size={18} className="animate-spin" />
+                    Signing in with Google…
+                  </motion.div>
+                ) : (
+                  <GoogleSignInButton
+                    disabled={loading}
+                    text="continue_with"
+                    onCredential={(credential) => handleSocial("google", credential)}
+                  />
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Divider */}
+          <div className="flex items-center gap-3 my-6">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span className="text-gray-400 text-xs">
+              {accountType === "Customer" ? "or sign in with email" : "sign in with email"}
             </span>
-            <div className="flex-1 h-px bg-gray-100" />
+            <div className="flex-1 h-px bg-gray-200" />
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1.5">
+          {/* Form */}
+          <motion.form 
+            onSubmit={handleLogin} 
+            className="space-y-5"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.5, duration: 0.5 }}
+          >
+            {/* Email */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.6, duration: 0.5, type: "spring", stiffness: 100 }}
+            >
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Email
               </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => {
-                    setEmail(e.target.value);
-                    setErrors((prev) => ({ ...prev, email: "" }));
-                  }}
-                  className={`w-full bg-gray-50 border rounded-2xl px-4 py-3.5 pl-11 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 transition-all ${
-                    errors.email
-                      ? "border-red-300 focus:ring-red-200"
-                      : "border-gray-200 focus:border-[#1D6076] focus:ring-[#1D6076]/20"
-                  }`}
-                />
-                <Mail
-                  size={16}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  strokeWidth={2}
-                />
-              </div>
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
-                  <AlertCircle size={11} />
-                  {errors.email}
-                </p>
-              )}
-            </div>
+              <motion.div 
+                className="relative group"
+                whileTap={{ scale: errors.email ? 1 : 0.995 }}
+              >
+                <motion.div
+                  animate={errors.email ? { x: [0, -5, 5, -5, 5, 0] } : {}}
+                  transition={{ duration: 0.4 }}
+                >
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#0f4c5c] transition-colors duration-300" />
+                  <input
+                    type="email"
+                    placeholder="you@example.com"
+                    value={email}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      setErrors((prev) => ({ ...prev, email: "" }));
+                    }}
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${
+                      errors.email
+                        ? "border-red-400 focus:ring-red-100 focus:border-red-500 bg-red-50/30"
+                        : "border-gray-200 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 hover:border-gray-300 bg-white"
+                    }`}
+                  />
+                  <AnimatePresence>
+                    {email && !errors.email && (
+                      <motion.div
+                        initial={{ scale: 0, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0, opacity: 0 }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2"
+                      >
+                        <Check size={16} className="text-emerald-500" strokeWidth={3} />
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+              </motion.div>
+              <AnimatePresence>
+                {errors.email && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="text-red-500 text-xs mt-2 flex items-center gap-1.5 font-medium"
+                  >
+                    <motion.div
+                      initial={{ rotate: -180, scale: 0 }}
+                      animate={{ rotate: 0, scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                    >
+                      <AlertCircle size={14} />
+                    </motion.div>
+                    {errors.email}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-medium text-gray-600">
-                  Password
-                </label>
-                <button
-                  type="button"
-                  className="text-xs text-[#1D6076] hover:underline"
-                  onClick={() =>
-                    setError(
-                      "Password reset is available in the backend, but this frontend screen is not wired yet.",
-                    )
-                  }
+            {/* Password */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.75, duration: 0.5, type: "spring", stiffness: 100 }}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700">Password</label>
+                <Link
+                  href={`/forgot-password?email=${encodeURIComponent(email)}`}
+                  className="text-xs text-[#0f4c5c] hover:text-[#0a3440] font-semibold hover:underline transition-colors"
                 >
                   Forgot password?
-                </button>
+                </Link>
               </div>
-              <div className="relative">
-                <input
-                  type={showPwd ? "text" : "password"}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(e) => {
-                    setPassword(e.target.value);
-                    setErrors((prev) => ({ ...prev, password: "" }));
-                  }}
-                  className={`w-full bg-gray-50 border rounded-2xl px-4 py-3.5 pl-11 pr-11 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 transition-all ${
-                    errors.password
-                      ? "border-red-300 focus:ring-red-200"
-                      : "border-gray-200 focus:border-[#1D6076] focus:ring-[#1D6076]/20"
-                  }`}
-                />
-                <Lock
-                  size={16}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                  strokeWidth={2}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPwd((value) => !value)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+              <motion.div 
+                className="relative group"
+                whileTap={{ scale: errors.password ? 1 : 0.995 }}
+              >
+                <motion.div
+                  animate={errors.password ? { x: [0, -5, 5, -5, 5, 0] } : {}}
+                  transition={{ duration: 0.4 }}
                 >
-                  {showPwd ? (
-                    <EyeOff size={16} strokeWidth={2} />
-                  ) : (
-                    <Eye size={16} strokeWidth={2} />
-                  )}
-                </button>
-              </div>
-              {errors.password && (
-                <p className="text-red-500 text-xs mt-1.5 flex items-center gap-1">
-                  <AlertCircle size={11} />
-                  {errors.password}
-                </p>
-              )}
-            </div>
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#0f4c5c] transition-colors duration-300" />
+                  <input
+                    type={showPwd ? "text" : "password"}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      setErrors((prev) => ({ ...prev, password: "" }));
+                    }}
+                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${
+                      errors.password
+                        ? "border-red-400 focus:ring-red-100 focus:border-red-500 bg-red-50/30"
+                        : "border-gray-200 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 hover:border-gray-300 bg-white"
+                    }`}
+                  />
+                  <motion.button
+                    type="button"
+                    onClick={() => setShowPwd((v) => !v)}
+                    whileHover={{ scale: 1.1, rotate: showPwd ? -15 : 15 }}
+                    whileTap={{ scale: 0.9 }}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0f4c5c] p-1.5 rounded-lg hover:bg-[#0f4c5c]/10 transition-all duration-200"
+                  >
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={showPwd ? "eyeoff" : "eye"}
+                        initial={{ opacity: 0, scale: 0.5, rotate: -30 }}
+                        animate={{ opacity: 1, scale: 1, rotate: 0 }}
+                        exit={{ opacity: 0, scale: 0.5, rotate: 30 }}
+                        transition={{ duration: 0.2, type: "spring", stiffness: 300 }}
+                      >
+                        {showPwd ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </motion.div>
+                    </AnimatePresence>
+                  </motion.button>
+                </motion.div>
+              </motion.div>
+              <AnimatePresence>
+                {errors.password && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -10, height: 0 }}
+                    animate={{ opacity: 1, y: 0, height: "auto" }}
+                    exit={{ opacity: 0, y: -10, height: 0 }}
+                    className="text-red-500 text-xs mt-2 flex items-center gap-1.5 font-medium"
+                  >
+                    <motion.div
+                      initial={{ rotate: -180, scale: 0 }}
+                      animate={{ rotate: 0, scale: 1 }}
+                      transition={{ type: "spring", stiffness: 500, damping: 15 }}
+                    >
+                      <AlertCircle size={14} />
+                    </motion.div>
+                    {errors.password}
+                  </motion.p>
+                )}
+              </AnimatePresence>
+            </motion.div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-4 rounded-2xl text-white text-sm font-semibold flex items-center justify-center gap-2 shadow-md hover:-translate-y-0.5 active:scale-[0.99] transition-all disabled:opacity-70"
-              style={{
-                background: "linear-gradient(135deg, #1D6076 0%, #2a7a94 100%)",
-              }}
+            {/* Submit */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.9, duration: 0.5, type: "spring", stiffness: 100 }}
+              className="relative"
             >
-              {loading ? (
-                <>
-                  <Loader2 size={18} className="animate-spin" strokeWidth={2} />
-                  {loginPhase === "checking"
-                    ? "Checking your laundry setup..."
-                    : "Signing in..."}
-                </>
-              ) : accountType === "LaundryAdmin" ? (
-                "Sign In as Laundry Owner"
-              ) : (
-                "Sign In"
+              <motion.button
+                type="submit"
+                disabled={loading}
+                whileHover={{ scale: loading ? 1 : 1.02, y: loading ? 0 : -2 }}
+                whileTap={{ scale: loading ? 1 : 0.98 }}
+                className="relative overflow-hidden w-full py-4 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed bg-gradient-to-r from-[#0f4c5c] to-[#2d6b7a] hover:from-[#0a3440] hover:to-[#0f4c5c] shadow-xl shadow-[#0f4c5c]/30 hover:shadow-2xl hover:shadow-[#0f4c5c]/40"
+              >
+                {/* Shimmer effect */}
+                {!loading && (
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -skew-x-12"
+                    initial={{ x: "-100%" }}
+                    animate={{ x: "200%" }}
+                    transition={{ repeat: Infinity, duration: 2, ease: "linear", repeatDelay: 3 }}
+                  />
+                )}
+                <AnimatePresence mode="wait">
+                  {loading ? (
+                    <motion.div
+                      key="loading"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="flex items-center gap-2 relative z-10"
+                    >
+                      <Loader2 size={18} className="animate-spin" />
+                      <span>{loginProgress || (loginPhase === "checking" ? "Checking setup…" : "Signing in…")}</span>
+                    </motion.div>
+                  ) : accountType === "LaundryAdmin" ? (
+                    <motion.div
+                      key="laundry"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="flex items-center gap-2 relative z-10"
+                    >
+                      <Store size={18} />
+                      <span>Sign In as Laundry Owner</span>
+                    </motion.div>
+                  ) : (
+                    <motion.span
+                      key="signin"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      className="relative z-10"
+                    >
+                      Sign In
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.button>
+            </motion.div>
+
+            <AnimatePresence>
+              {loading && loginProgress && (
+                <motion.p 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -5 }}
+                  className="text-xs text-[#1D6076]/70 text-center font-medium"
+                >
+                  {loginProgress}
+                </motion.p>
               )}
-            </button>
-          </form>
+            </AnimatePresence>
+          </motion.form>
 
-          <div className="mt-5 bg-[#1D6076]/5 rounded-2xl px-4 py-3">
-            <p className="text-xs text-[#1D6076]/80 text-center">
-              Use your real backend account credentials to sign in.
-            </p>
-          </div>
-        </div>
-      </motion.div>
-
-      <div
-        className="hidden lg:flex flex-1 relative overflow-hidden"
-        style={{
-          background:
-            accountType === "LaundryAdmin"
-              ? "linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)"
-              : "linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)",
-        }}
-      >
-        <ImageWithFallback
-          src={SIDE_IMG}
-          alt="Laundry service"
-          className="absolute inset-0 w-full h-full object-cover opacity-25"
-        />
-        <div className="absolute inset-0 bg-gradient-to-br from-[#1D6076]/80 via-[#1D6076]/60 to-[#0d3d50]" />
-        <div className="relative z-10 flex flex-col justify-center px-14 py-16 max-w-lg">
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-              <span className="text-white font-black text-xl">N</span>
-            </div>
-            <span className="text-white font-bold text-2xl">Nadeef</span>
-          </div>
-          <h2
-            className="text-4xl text-white mb-5"
-            style={{
-              fontWeight: 800,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.2,
-            }}
-          >
+          {/* Footer */}
+          <p className="mt-8 text-sm text-gray-500 text-center">
             {accountType === "LaundryAdmin" ? (
               <>
-                Manage your laundry,
-                <br />
-                all in one place.
+                New laundry owner?{" "}
+                <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium hover:underline">
+                  Create an account
+                </Link>
               </>
             ) : (
               <>
-                Clean clothes,
-                <br />
-                zero hassle.
+                Don&apos;t have an account?{" "}
+                <Link href="/signup" className="text-[#1D6076] font-medium hover:underline">
+                  Sign up
+                </Link>
               </>
             )}
-          </h2>
-          <p className="text-white/70 text-base leading-relaxed mb-10">
-            {accountType === "LaundryAdmin"
-              ? "Access Laundry Admin tools, finish onboarding, track branch operations, and continue to verification when required."
-              : "Your neighborhood laundry, digitally connected. Browse, order, and receive - all from one smart platform."}
           </p>
-          <div className="grid grid-cols-3 gap-4">
-            {[
-              ["500+", "Orders"],
-              ["50+", "Laundries"],
-              ["4.9+", "Rating"],
-            ].map(([value, label]) => (
-              <div
-                key={label}
-                className="bg-white/10 backdrop-blur-sm rounded-2xl px-4 py-4 text-center border border-white/20"
+        </div>
+      </motion.div>
+
+      {/* ── Right: Brand panel ── */}
+      <motion.div 
+        initial={{ opacity: 0, x: 50 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.6, delay: 0.2 }}
+        className="hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-[#1D6076] to-[#164d5f] relative flex-col justify-between p-12 overflow-hidden"
+      >
+        {/* Animated background shapes */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <motion.div 
+            animate={{ 
+              scale: [1, 1.2, 1],
+              rotate: [0, 90, 0],
+            }}
+            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
+            className="absolute -top-20 -right-20 w-96 h-96 bg-white/5 rounded-full blur-3xl" 
+          />
+          <motion.div 
+            animate={{ 
+              scale: [1, 1.3, 1],
+              rotate: [0, -60, 0],
+            }}
+            transition={{ duration: 15, repeat: Infinity, ease: "linear" }}
+            className="absolute -bottom-32 -left-32 w-80 h-80 bg-white/5 rounded-full blur-3xl" 
+          />
+        </div>
+
+        <motion.div 
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.5 }}
+          className="flex items-center gap-3 relative z-10"
+        >
+          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/10 shadow-lg">
+            <span className="text-white font-bold text-lg">N</span>
+          </div>
+          <span className="text-white font-bold text-xl tracking-tight">Nadeef</span>
+        </motion.div>
+
+        <div className="relative z-10">
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={accountType}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+            >
+              <h2 className="text-[36px] font-bold text-white leading-tight mb-4">
+                {accountType === "LaundryAdmin" ? (
+                  <>Manage your laundry,<br />all in one place.</>
+                ) : (
+                  <>Clean clothes,<br />zero hassle.</>
+                )}
+              </h2>
+              <p className="text-white/70 text-base leading-relaxed mb-10 max-w-sm">
+                {accountType === "LaundryAdmin"
+                  ? "Track orders, manage services, and grow your business with Nadeef."
+                  : "Browse verified laundries, schedule pickups, and get fresh clothes delivered to your door."}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+          
+          <div className="flex gap-8">
+            {[["500+", "Orders"], ["50+", "Laundries"], ["4.9", "Rating"]].map(([v, l], i) => (
+              <motion.div 
+                key={l}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.7 + i * 0.1, duration: 0.4 }}
+                whileHover={{ scale: 1.05, y: -2 }}
+                className="cursor-default"
               >
-                <p className="text-white font-bold text-xl">{value}</p>
-                <p className="text-white/50 text-xs mt-0.5">{label}</p>
-              </div>
+                <p className="text-white font-bold text-2xl">{v}</p>
+                <p className="text-white/50 text-sm">{l}</p>
+              </motion.div>
             ))}
           </div>
         </div>
-      </div>
+
+        <motion.p 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 1, duration: 0.5 }}
+          className="text-white/30 text-xs relative z-10"
+        >
+          © {new Date().getFullYear()} Nadeef. All rights reserved.
+        </motion.p>
+      </motion.div>
     </div>
   );
 }

@@ -70,17 +70,20 @@ export function Orders() {
   const [page, setPage] = useState(1);
   const [exportToast, setExportToast] = useState(false);
   const [filtersToast, setFiltersToast] = useState(false);
-  const [orders, setOrders] = useState<Order[]>(defaultAllOrders);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function fetchOrders() {
       try {
         const data = await getIncomingOrders();
-        if (data && Array.isArray(data) && data.length > 0) {
+        if (data && Array.isArray(data)) {
           setOrders(data);
         }
       } catch (err) {
         console.error("Failed to fetch orders", err);
+      } finally {
+        setLoading(false);
       }
     }
     fetchOrders();
@@ -118,7 +121,7 @@ export function Orders() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
           <h2 className="text-gray-900 font-semibold">All Orders</h2>
-          <p className="text-gray-400 text-xs mt-0.5">{orders.length} total orders</p>
+          <p className="text-gray-400 text-xs mt-0.5">{loading ? "Loading..." : `${orders.length} total orders`}</p>
         </div>
         <div className="flex items-center gap-2">
           <button
@@ -294,7 +297,12 @@ export function Orders() {
             </tbody>
           </table>
 
-          {filtered.length === 0 && (
+          {loading ? (
+            <div className="flex flex-col items-center justify-center py-16 text-gray-400">
+              <Loader2 className="w-10 h-10 mb-3 opacity-40 animate-spin" />
+              <p className="text-sm font-medium">Loading orders...</p>
+            </div>
+          ) : filtered.length === 0 && (
             <div className="flex flex-col items-center justify-center py-16 text-gray-400">
               <Filter className="w-10 h-10 mb-3 opacity-40" />
               <p className="text-sm font-medium">No orders found</p>

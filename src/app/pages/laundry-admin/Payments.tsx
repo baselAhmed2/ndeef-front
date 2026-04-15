@@ -284,9 +284,10 @@ export function Payments() {
   const [page, setPage] = useState(1);
   const [downloadToast, setDownloadToast] = useState(false);
 
-  const [payments, setPayments] = useState<Payment[]>(defaultPayments);
-  const [revenueWeekly, setRevenueWeekly] = useState(defaultRevenueByDay);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [revenueWeekly, setRevenueWeekly] = useState<{day: string; revenue: number}[]>([]);
   const [commissionInfo, setCommissionInfo] = useState<{ totalRevenue?: number; commissionDue?: number; rate?: number } | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {
@@ -296,11 +297,13 @@ export function Payments() {
           getCommissionSummary().catch(() => null),
           getRevenueWeekly().catch(() => null)
         ]);
-        if (pays && Array.isArray(pays) && pays.length > 0) setPayments(pays);
+        if (pays && Array.isArray(pays)) setPayments(pays);
         if (comm) setCommissionInfo(comm);
-        if (rev && Array.isArray(rev) && rev.length > 0) setRevenueWeekly(rev);
+        if (rev && Array.isArray(rev)) setRevenueWeekly(rev);
       } catch (err) {
         console.error("Failed to load payments data", err);
+      } finally {
+        setLoading(false);
       }
     }
     loadData();

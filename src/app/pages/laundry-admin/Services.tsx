@@ -327,7 +327,8 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
 }
 
 export function Services() {
-  const [services, setServices] = useState<Service[]>(initialServices);
+  const [services, setServices] = useState<Service[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -345,8 +346,8 @@ export function Services() {
 
   useEffect(() => {
     getServices().then((data) => {
-      if (data && data.length > 0) setServices(data as Service[]);
-    }).catch(console.error);
+      if (data && Array.isArray(data)) setServices(data as Service[]);
+    }).catch(console.error).finally(() => setLoading(false));
   }, []);
 
   const handleToggle = async (id: string) => {
@@ -545,7 +546,12 @@ export function Services() {
         </AnimatePresence>
       </div>
 
-      {filtered.length === 0 && (
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+          <Loader2 className="w-10 h-10 mb-3 opacity-40 animate-spin" />
+          <p className="text-sm font-medium">Loading services...</p>
+        </div>
+      ) : filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-20 text-gray-400">
           <Sparkles className="w-10 h-10 mb-3 opacity-40" />
           <p className="text-sm font-medium">No services found</p>

@@ -1,4 +1,5 @@
 import { LaundryAdminLayout } from "@/app/components/layout/LaundryAdminLayout";
+import { VerificationGuard } from "@/app/components/auth/VerificationGuard";
 import type { ReactNode } from "react";
 
 export default function LaundrySectionLayout({
@@ -6,5 +7,9 @@ export default function LaundrySectionLayout({
 }: {
   children: ReactNode;
 }) {
-  return <LaundryAdminLayout>{children}</LaundryAdminLayout>;
+  return (
+    <VerificationGuard>
+      <LaundryAdminLayout>{children}</LaundryAdminLayout>
+    </VerificationGuard>
+  );
 }

@@ -140,6 +140,8 @@ import { getDashboardSummary, getIncomingOrders, getRevenueMonthly } from "@/app
 export function LaundryDashboard() {
   const router = useRouter();
   const [chartPeriod, setChartPeriod] = useState<"6m" | "12m">("12m");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const [revenueData, setRevenueData] = useState(defaultRevenueData);
   const [orderStatusData, setOrderStatusData] = useState(defaultOrderStatusData);

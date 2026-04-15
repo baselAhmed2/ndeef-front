@@ -61,13 +61,30 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
 
   if (!response.ok) {
     let message = `Request failed with status ${response.status}`;
+    let errorBody: any = null;
 
     try {
-      const payload = (await response.json()) as { message?: string; Message?: string; title?: string };
+      // Clone the response to read the body without consuming it
+      const clonedResponse = response.clone();
+      errorBody = await clonedResponse.text();
+      
+      // Try to parse as JSON
+      const payload = JSON.parse(errorBody) as { message?: string; Message?: string; title?: string };
       message = payload.Message || payload.message || payload.title || message;
     } catch {
-      // Ignore non-JSON error bodies.
+      // Not JSON, use text if available
+      if (errorBody) {
+        message = `${message}: ${errorBody.substring(0, 200)}`;
+      }
     }
+
+    console.error(`API Error ${response.status}:`, {
+      url: response.url,
+      status: response.status,
+      statusText: response.statusText,
+      body: errorBody,
+      message,
+    });
 
     throw new ApiError(message, response.status);
   }
@@ -77,4 +94,73 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   }
 
   return (await response.json()) as T;
+}
+
+// Super Admin: Get all laundry admin commission payments
+export async function getAllLaundryCommissions(): Promise<Array<{
+  laundryId: string;
+  laundryName: string;
+  ownerName: string;
+  totalRevenue: number;
+  commissionRate: number;
+  commissionDue: number;
+  commissionPaid: number;
+  lastPaymentDate: string | null;
+  paymentStatus: "paid" | "pending" | "overdue";
+  paymentHistory: Array<{
+    id: string;
+    amount: number;
+    date: string;
+    method: "kashier" | "cash" | "bank_transfer";
+    status: "completed" | "pending" | "failed";
+  }>;
+}>> {
+  return apiRequest("/superadmin/commissions");
+}
+
+// Super Admin: Get commission payment details for a specific laundry
+export async function getLaundryCommissionDetails(laundryId: string): Promise<{
+  laundryId: string;
+  laundryName: string;
+  ownerName: string;
+  email: string;
+  phone: string;
+  totalRevenue: number;
+  commissionRate: number;
+  commissionDue: number;
+  commissionPaid: number;
+  remainingBalance: number;
+  lastPaymentDate: string | null;
+  paymentStatus: "paid" | "pending" | "overdue";
+  ordersCount: number;
+  paymentHistory: Array<{
+    id: string;
+    amount: number;
+    date: string;
+    method: "kashier" | "cash" | "bank_transfer";
+    status: "completed" | "pending" | "failed";
+    reference?: string;
+  }>;
+}> {
+  return apiRequest(`/superadmin/commissions/${laundryId}`);
+}
+
+// Super Admin: Record manual commission payment (cash/bank transfer)
+export async function recordCommissionPayment(laundryId: string, payment: {
+  amount: number;
+  method: "cash" | "bank_transfer";
+  reference?: string;
+  notes?: string;
+}): Promise<{ success: boolean; message: string; paymentId: string }> {
+  return apiRequest(`/superadmin/commissions/${laundryId}/payments`, {
+    method: "POST",
+    body: JSON.stringify(payment),
+  });
+}
+
+// Super Admin: Send payment reminder to laundry admin
+export async function sendPaymentReminder(laundryId: string): Promise<{ success: boolean; message: string }> {
+  return apiRequest(`/superadmin/commissions/${laundryId}/remind`, {
+    method: "POST",
+  });
 }

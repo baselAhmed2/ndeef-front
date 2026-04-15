@@ -95,6 +95,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(nextUser);
       persistUser(nextUser);
 
+      // Check if user needs identity verification (LaundryAdmin)
+      if (nextUser.needsVerification) {
+        return { 
+          ok: true, 
+          user: nextUser, 
+          requiresVerification: true,
+          message: "Please complete identity verification to continue."
+        };
+      }
+
       return { ok: true, user: nextUser };
     } catch (error) {
       return toAuthError(error);
@@ -115,6 +125,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const nextUser = mapUserDtoToAuthUser(response);
         setUser(nextUser);
         persistUser(nextUser);
+        
+        // Check if user needs identity verification (LaundryAdmin)
+        if (nextUser.needsVerification) {
+          return { 
+            ok: true, 
+            user: nextUser, 
+            requiresVerification: true,
+            message: "Please complete identity verification to continue."
+          };
+        }
+        
         return { ok: true, user: nextUser };
       }
 

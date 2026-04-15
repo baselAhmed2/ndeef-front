@@ -6,13 +6,22 @@ import {
   AlertTriangle,
   ArrowDownRight,
   ArrowUpRight,
+  CheckCircle2,
   LoaderCircle,
+  Mail,
   RefreshCw,
   Search,
   Wallet,
+  XCircle,
+  Clock,
 } from "lucide-react";
 import clsx from "clsx";
-import { apiRequest, ApiError } from "@/app/lib/admin-api";
+import {
+  apiRequest,
+  ApiError,
+  getAllLaundryCommissions,
+  sendPaymentReminder,
+} from "@/app/lib/admin-api";
 import type {
   LaundryDebtRecord,
   SystemCommissionsRecord,
@@ -39,11 +48,30 @@ function formatDateTime(value: string) {
 
 export default function CommissionsPage() {
   const [data, setData] = useState<SystemCommissionsRecord | null>(null);
+  const [laundryCommissions, setLaundryCommissions] = useState<Array<{
+    laundryId: string;
+    laundryName: string;
+    ownerName: string;
+    totalRevenue: number;
+    commissionRate: number;
+    commissionDue: number;
+    commissionPaid: number;
+    lastPaymentDate: string | null;
+    paymentStatus: "paid" | "pending" | "overdue";
+    paymentHistory: Array<{
+      id: string;
+      amount: number;
+      date: string;
+      method: "kashier" | "cash" | "bank_transfer";
+      status: "completed" | "pending" | "failed";
+    }>;
+  }> | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"debts" | "transactions">("debts");
+  const [activeTab, setActiveTab] = useState<"overview" | "laundries" | "transactions">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchCommissions();
@@ -53,8 +81,12 @@ export default function CommissionsPage() {
     try {
       setError(null);
       setIsRefreshing(true);
-      const response = await apiRequest<SystemCommissionsRecord>("/admin/commissions");
-      setData(response);
+      const [overview, laundries] = await Promise.all([
+        apiRequest<SystemCommissionsRecord>("/admin/commissions"),
+        getAllLaundryCommissions().catch(() => null), // Gracefully handle if endpoint doesn't exist yet
+      ]);
+      setData(overview);
+      if (laundries) setLaundryCommissions(laundries);
     } catch (error) {
       setError(error instanceof ApiError ? error.message : "Failed to load commissions overview.");
     } finally {
@@ -92,6 +124,33 @@ export default function CommissionsPage() {
   const filteredDebts = data.laundryDebts.filter((debt) =>
     debt.laundryName.toLowerCase().includes(searchQuery.toLowerCase()),
   );
+
+  // Filter laundries by search query
+  const filteredLaundries = laundryCommissions?.filter((laundry) =>
+    laundry.laundryName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    laundry.ownerName.toLowerCase().includes(searchQuery.toLowerCase()),
+  ) ?? [];
+
+  // Calculate payment statistics
+  const paymentStats = {
+    total: laundryCommissions?.length ?? 0,
+    paid: laundryCommissions?.filter((l) => l.paymentStatus === "paid").length ?? 0,
+    pending: laundryCommissions?.filter((l) => l.paymentStatus === "pending").length ?? 0,
+    overdue: laundryCommissions?.filter((l) => l.paymentStatus === "overdue").length ?? 0,
+  };
+
+  // Handle sending payment reminder
+  const handleSendReminder = async (laundryId: string) => {
+    try {
+      setSendingReminder(laundryId);
+      await sendPaymentReminder(laundryId);
+      alert("Payment reminder sent successfully!");
+    } catch (error) {
+      alert("Failed to send reminder. Please try again.");
+    } finally {
+      setSendingReminder(null);
+    }
+  };
 
   const highestDebt = data.laundryDebts.reduce<LaundryDebtRecord | null>(
     (current, debt) => (!current || debt.pendingCommission > current.pendingCommission ? debt : current),
@@ -183,10 +242,16 @@ export default function CommissionsPage() {
         <div className="border-b border-slate-100 p-4 flex flex-col sm:flex-row justify-between items-center gap-4">
           <div className="flex bg-slate-100 p-1 rounded-xl w-full sm:w-auto">
             <button 
-              className={`flex-1 sm:px-6 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'debts' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
-              onClick={() => setActiveTab('debts')}
+              className={`flex-1 sm:px-6 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'overview' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
+              onClick={() => setActiveTab('overview')}
             >
-              Laundry Debts
+              Overview
+            </button>
+            <button 
+              className={`flex-1 sm:px-6 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'laundries' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
+              onClick={() => setActiveTab('laundries')}
+            >
+              All Laundries
             </button>
             <button 
               className={`flex-1 sm:px-6 py-2 rounded-lg font-medium text-sm transition-colors ${activeTab === 'transactions' ? 'bg-white text-slate-800 shadow-sm' : 'text-slate-500 hover:bg-slate-200/50'}`}
@@ -196,7 +261,7 @@ export default function CommissionsPage() {
             </button>
           </div>
 
-          {activeTab === 'debts' && (
+          {(activeTab === 'overview' || activeTab === 'laundries') && (
             <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <input 
@@ -211,7 +276,7 @@ export default function CommissionsPage() {
         </div>
 
         <div className="p-0">
-          {activeTab === 'debts' ? (
+          {activeTab === 'overview' ? (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
@@ -257,6 +322,132 @@ export default function CommissionsPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50">
+                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Transaction ID</th>
+                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Laundry</th>
+                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Order Amount</th>
+                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Collected Commission</th>
+                    <th className="font-semibold text-slate-500 text-sm py-4 px-6">Time</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {data.recentTransactions.length > 0 ? data.recentTransactions.map((tx, idx) => (
+                    <tr key={idx} className="hover:bg-slate-50/80 transition-colors">
+                      <td className="py-4 px-6 font-mono text-slate-600 text-sm">#TX-{tx.id}</td>
+                      <td className="py-4 px-6 font-medium text-slate-800">{tx.laundryName}</td>
+                      <td className="py-4 px-6 text-slate-500">
+                        <div>{formatCurrency(tx.orderAmount)}</div>
+                        <div className="mt-1 text-[11px] text-slate-400">
+                          Order #{tx.orderId || "-"}
+                        </div>
+                      </td>
+                      <td className="py-4 px-6">
+                        <div className="font-bold text-green-600">+ {formatCurrency(tx.commissionAmount)}</div>
+                        <div className="mt-1 text-[11px] text-slate-400">
+                          {Number(tx.commissionPercentage).toFixed(1)}% rate
+                        </div>
+                      </td>
+                      <td className="py-4 px-6 text-slate-400 text-sm">{formatDateTime(tx.createdAt)}</td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={5} className="py-8 text-center text-slate-500">No transactions recorded.</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          ) : activeTab === 'laundries' ? (
+            <div className="p-6">
+              {/* Payment Status Stats */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-slate-50 rounded-xl p-4">
+                  <div className="text-2xl font-bold text-slate-800">{paymentStats.total}</div>
+                  <div className="text-sm text-slate-500">Total Laundries</div>
+                </div>
+                <div className="bg-green-50 rounded-xl p-4">
+                  <div className="text-2xl font-bold text-green-600">{paymentStats.paid}</div>
+                  <div className="text-sm text-green-600">Paid</div>
+                </div>
+                <div className="bg-amber-50 rounded-xl p-4">
+                  <div className="text-2xl font-bold text-amber-600">{paymentStats.pending}</div>
+                  <div className="text-sm text-amber-600">Pending</div>
+                </div>
+                <div className="bg-red-50 rounded-xl p-4">
+                  <div className="text-2xl font-bold text-red-600">{paymentStats.overdue}</div>
+                  <div className="text-sm text-red-600">Overdue</div>
+                </div>
+              </div>
+
+              {/* Laundries Table */}
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50/50">
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Laundry</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Owner</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Revenue</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Commission Due</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Paid</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Status</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Last Payment</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {filteredLaundries.length > 0 ? filteredLaundries.map((laundry) => (
+                      <tr key={laundry.laundryId} className="hover:bg-slate-50/80 transition-colors">
+                        <td className="py-4 px-6 font-medium text-slate-800">{laundry.laundryName}</td>
+                        <td className="py-4 px-6 text-slate-500">{laundry.ownerName}</td>
+                        <td className="py-4 px-6 text-slate-600">{formatCurrency(laundry.totalRevenue)}</td>
+                        <td className="py-4 px-6 font-semibold text-slate-800">{formatCurrency(laundry.commissionDue)}</td>
+                        <td className="py-4 px-6 text-green-600">{formatCurrency(laundry.commissionPaid)}</td>
+                        <td className="py-4 px-6">
+                          <span className={clsx(
+                            "px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 w-fit",
+                            laundry.paymentStatus === 'paid'
+                              ? 'bg-green-50 text-green-600'
+                              : laundry.paymentStatus === 'overdue'
+                                ? 'bg-red-50 text-red-600'
+                                : 'bg-amber-50 text-amber-600'
+                          )}>
+                            {laundry.paymentStatus === 'paid' && <CheckCircle2 size={12} />}
+                            {laundry.paymentStatus === 'pending' && <Clock size={12} />}
+                            {laundry.paymentStatus === 'overdue' && <XCircle size={12} />}
+                            {laundry.paymentStatus}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6 text-slate-400 text-sm">
+                          {laundry.lastPaymentDate ? formatDateTime(laundry.lastPaymentDate) : "Never"}
+                        </td>
+                        <td className="py-4 px-6">
+                          <button
+                            onClick={() => handleSendReminder(laundry.laundryId)}
+                            disabled={sendingReminder === laundry.laundryId}
+                            className="p-2 text-slate-400 hover:text-[#2A5C66] hover:bg-[#2A5C66]/10 rounded-lg transition-colors disabled:opacity-50"
+                            title="Send payment reminder"
+                          >
+                            {sendingReminder === laundry.laundryId ? (
+                              <LoaderCircle size={18} className="animate-spin" />
+                            ) : (
+                              <Mail size={18} />
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    )) : (
+                      <tr>
+                        <td colSpan={8} className="py-8 text-center text-slate-500">
+                          {laundryCommissions === null ? "Loading..." : "No laundries found."}
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           ) : (
             <div className="overflow-x-auto">

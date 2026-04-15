@@ -44,6 +44,7 @@ export interface AuthUser {
   phone: string;
   role: string;
   token: string | null;
+  needsVerification?: boolean; // true if user needs identity verification
 }
 
 export interface AuthResult {
@@ -61,6 +62,7 @@ export interface BackendUserDto {
   phoneNumber: string | null;
   role: string;
   token: string | null;
+  needsVerification?: boolean;
 }
 
 export interface BackendUserProfileDto {
@@ -400,6 +402,7 @@ export function mapUserDtoToAuthUser(user: BackendUserDto): AuthUser {
     phone: user.phoneNumber ?? "",
     role: user.role,
     token: user.token,
+    needsVerification: user.needsVerification,
   };
 }
 

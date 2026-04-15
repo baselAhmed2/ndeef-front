@@ -10,6 +10,7 @@ export interface BackendUser {
   phoneNumber: string;
   role: string;
   token: string;
+  needsVerification?: boolean; // true if user needs identity verification (LaundryAdmin)
 }
 
 // Response from Paymob wallet payment
@@ -271,6 +272,75 @@ export async function getPaymentHistory(): Promise<ApiResult<PaymentDto[]>> {
   const json = await res.json();
   if (!res.ok) {
     return { isSuccess: false, error: "Could not load payment history" };
+  }
+  return { isSuccess: true, data: json };
+}
+
+// ── Didit Verification ──────────────────────────────────────────────────────
+
+export interface VerificationSessionResponse {
+  sessionId: string;
+  sessionToken: string;
+  url: string;
+  status: string;
+  message: string;
+}
+
+export interface VerificationStatusResponse {
+  isVerified: boolean;
+  isEmailVerified: boolean;
+  adminApprovalStatus: string | null;
+  role: string;
+}
+
+/**
+ * POST /api/verification/create-session
+ * Creates a Didit verification session for identity verification.
+ */
+export async function createVerificationSession(
+  redirectUrl?: string
+): Promise<ApiResult<VerificationSessionResponse>> {
+  const res = await fetch(`${BASE_URL}/verification/create-session`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+    body: JSON.stringify({ redirectUrl }),
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    return { isSuccess: false, error: json.message ?? "Failed to create verification session" };
+  }
+  return { isSuccess: true, data: json };
+}
+
+/**
+ * GET /api/verification/status
+ * Gets the current user's verification status.
+ */
+export async function getVerificationStatus(): Promise<ApiResult<VerificationStatusResponse>> {
+  const res = await fetch(`${BASE_URL}/verification/status`, {
+    headers: getAuthHeaders(),
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    return { isSuccess: false, error: json.message ?? "Failed to get verification status" };
+  }
+  return { isSuccess: true, data: json };
+}
+
+/**
+ * GET /api/verification/required
+ * Checks if a user needs verification.
+ */
+export async function isVerificationRequired(userId: string): Promise<ApiResult<{ userId: string; needsVerification: boolean; isVerified: boolean; role: string }>> {
+  const res = await fetch(`${BASE_URL}/verification/required?userId=${encodeURIComponent(userId)}`, {
+    headers: { "Content-Type": "application/json" },
+  });
+
+  const json = await res.json();
+  if (!res.ok) {
+    return { isSuccess: false, error: json.message ?? "Failed to check verification requirement" };
   }
   return { isSuccess: true, data: json };
 }
