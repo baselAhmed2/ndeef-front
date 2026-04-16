@@ -5,11 +5,11 @@ import { ArrowLeft, Loader2, Mail, ShieldCheck, AlertCircle } from "lucide-react
 import { useAuth } from "@/app/context/AuthContext";
 import {
   clearPendingLaundryOnboarding,
-  LAUNDRY_ADMIN_DIDIT_SIGNUP_URL,
   readPendingLaundryOnboarding,
 } from "@/app/lib/laundry-onboarding";
 import {
-  setupProfile,
+  saveLaundryProfile,
+  startVerificationSession,
 } from "@/app/lib/laundry-admin-client";
 
 export default function VerifyEmail() {
@@ -56,23 +56,32 @@ export default function VerifyEmail() {
 
       if (pendingLaundry) {
         try {
-          await setupProfile({
+          await saveLaundryProfile({
             laundryName: pendingLaundry.laundryName,
             address: pendingLaundry.address,
             latitude: pendingLaundry.latitude,
             longitude: pendingLaundry.longitude,
           });
           clearPendingLaundryOnboarding();
-          window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+          const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
+          const session = await startVerificationSession(redirectUrl);
+          window.location.href = session.url;
           return;
         } catch (error) {
           console.error("Failed to complete laundry onboarding", error);
-          window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+          setError(error instanceof Error ? error.message : "Failed to start identity verification.");
           return;
         }
       }
 
-      window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+      try {
+        const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
+        const session = await startVerificationSession(redirectUrl);
+        window.location.href = session.url;
+      } catch (error) {
+        console.error("Failed to start identity verification", error);
+        setError(error instanceof Error ? error.message : "Failed to start identity verification.");
+      }
       return;
     }
 

@@ -7,6 +7,16 @@ import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/app/context/AuthContext";
 import { getLaundryUnreadNotificationCount } from "@/app/lib/laundry-admin-client";
 
+const LOCAL_PROFILE_PHOTO_KEY = "nadeef_laundry_profile_photo";
+
+function normalizeDisplayValue(value: string | null | undefined) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed || trimmed.toLowerCase() === "null" || trimmed.toLowerCase() === "undefined") {
+    return "";
+  }
+  return trimmed;
+}
+
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/laundry-admin": { title: "Dashboard", subtitle: "Welcome back, Ahmad" },
   "/laundry-admin/orders": { title: "Orders", subtitle: "Manage and track all laundry orders" },
@@ -28,12 +38,13 @@ interface LaundryHeaderProps {
 export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const [unreadCount, setUnreadCount] = useState(notificationCount);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [profilePhoto, setProfilePhoto] = useState("");
 
   useEffect(() => {
     let active = true;
@@ -55,12 +66,45 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncPhoto = () => {
+      setProfilePhoto(window.localStorage.getItem(LOCAL_PROFILE_PHOTO_KEY) ?? "");
+    };
+
+    syncPhoto();
+    window.addEventListener("storage", syncPhoto);
+    window.addEventListener("focus", syncPhoto);
+
+    return () => {
+      window.removeEventListener("storage", syncPhoto);
+      window.removeEventListener("focus", syncPhoto);
+    };
+  }, []);
+
   const currentPath = pathname ?? "";
   const pathKey = Object.keys(pageTitles)
     .sort((a, b) => b.length - a.length)
     .find((k) => currentPath === k || (k !== "/laundry-admin" && currentPath.startsWith(k)));
 
   const pageInfo = pageTitles[pathKey ?? "/laundry-admin"] ?? { title: "Ndeef Admin", subtitle: "" };
+  const displayName =
+    normalizeDisplayValue(user?.name) ||
+    normalizeDisplayValue(user?.email).split("@")[0] ||
+    "Laundry Admin";
+  const displayEmail = normalizeDisplayValue(user?.email) || "Laundry Admin";
+  const initials =
+    displayName
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() ?? "")
+      .join("") || displayEmail[0]?.toUpperCase() || "L";
+  const pageSubtitle =
+    currentPath === "/laundry-admin"
+      ? `Welcome back, ${displayName}`
+      : pageInfo.subtitle;
 
   return (
     <>
@@ -68,7 +112,7 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
         {/* Left: Page Title */}
         <div>
           <h1 className="text-gray-900 font-semibold text-base leading-tight">{pageInfo.title}</h1>
-          <p className="text-gray-400 text-xs mt-0.5">{pageInfo.subtitle}</p>
+          <p className="text-gray-400 text-xs mt-0.5">{pageSubtitle}</p>
         </div>
 
         {/* Right: Actions */}
@@ -129,15 +173,23 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 transition-all"
             >
-              <div
-                className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
-                style={{ backgroundColor: "#1D5B70" }}
-              >
-                A
-              </div>
+              {profilePhoto ? (
+                <img
+                  src={profilePhoto}
+                  alt={displayName}
+                  className="w-8 h-8 rounded-full object-cover shrink-0"
+                />
+              ) : (
+                <div
+                  className="w-8 h-8 rounded-full flex items-center justify-center text-white text-sm font-semibold shrink-0"
+                  style={{ backgroundColor: "#1D5B70" }}
+                >
+                  {initials}
+                </div>
+              )}
               <div className="text-left hidden sm:block">
-                <p className="text-sm font-medium text-gray-800 leading-tight">Ahmad Hassan</p>
-                <p className="text-xs text-gray-400 leading-tight">Laundry Admin</p>
+                <p className="text-sm font-medium text-gray-800 leading-tight">{displayName}</p>
+                <p className="text-xs text-gray-400 leading-tight">{displayEmail}</p>
               </div>
               <ChevronDown
                 className={`w-4 h-4 text-gray-400 transition-transform hidden sm:block ${showUserMenu ? "rotate-180" : ""}`}
@@ -156,12 +208,12 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
                     className="absolute right-0 top-full mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden z-20"
                   >
                     <div className="p-3 border-b border-gray-50">
-                      <p className="text-sm font-semibold text-gray-800">Ahmad Hassan</p>
-                      <p className="text-xs text-gray-400">admin@ndeef.com</p>
+                      <p className="text-sm font-semibold text-gray-800">{displayName}</p>
+                      <p className="text-xs text-gray-400">{displayEmail}</p>
                     </div>
                     <div className="p-1.5">
                       <button
-                        onClick={() => { setShowUserMenu(false); router.push("/laundry-admin"); }}
+                        onClick={() => { setShowUserMenu(false); router.push("/laundry-admin/settings"); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
                       >
                         <User className="w-4 h-4" /> Profile

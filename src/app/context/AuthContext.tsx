@@ -35,6 +35,7 @@ interface AuthContextType {
   ) => Promise<AuthResult>;
   logout: () => void;
   socialLogin: (provider: string, credential?: string) => Promise<AuthResult>;
+  updateUser: (patch: Partial<User>) => void;
 }
 
 export interface SignupData {
@@ -113,6 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signup = async (data: SignupData): Promise<AuthResult> => {
     try {
+      const isLaundryAdmin = data.role === "LaundryAdmin";
       const response = await registerRequest({
         name: `${data.firstName} ${data.lastName}`.trim(),
         email: data.email,
@@ -127,7 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         persistUser(nextUser);
         
         // Check if user needs identity verification (LaundryAdmin)
-        if (nextUser.needsVerification) {
+        if (nextUser.needsVerification || isLaundryAdmin) {
           return { 
             ok: true, 
             user: nextUser, 
@@ -238,6 +240,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     persistUser(null);
   };
 
+  const updateUser = (patch: Partial<User>) => {
+    setUser((current) => {
+      if (!current) return current;
+      const nextUser = { ...current, ...patch };
+      persistUser(nextUser);
+      return nextUser;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -251,6 +262,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         resetPassword,
         logout,
         socialLogin,
+        updateUser,
       }}
     >
       {children}

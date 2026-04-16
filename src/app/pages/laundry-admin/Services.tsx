@@ -37,7 +37,7 @@ const categories = ["All", "Washing", "Dry Cleaning", "Ironing", "Special Care"]
 interface ServiceModalProps {
   service?: Partial<Service>;
   onClose: () => void;
-  onSave: (data: Partial<Service>) => void;
+  onSave: (data: Partial<Service>) => Promise<void> | void;
 }
 
 function normalizeService(service: Partial<Service>): Service {
@@ -72,6 +72,8 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  const [suggestError, setSuggestError] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -93,13 +95,33 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
     if (!form.name || !form.category) return;
     try {
       setSuggesting(true);
+      setSuggestError("");
       const res = await suggestPrice({ serviceName: form.name, category: form.category });
       if (res?.suggestedPrice) setForm({ ...form, price: res.suggestedPrice });
+      else setSuggestError("AI could not suggest a price for this service right now.");
     } catch (err) {
       console.error(err);
+      setSuggestError(err instanceof Error ? err.message : "AI price suggestion failed.");
     } finally {
       setSuggesting(false);
     }
+  };
+
+  const handleSaveClick = async () => {
+    const trimmedName = form.name.trim();
+
+    if (!trimmedName) {
+      setSaveError("Service name is required.");
+      return;
+    }
+
+    if (!Number.isFinite(form.price) || form.price <= 0) {
+      setSaveError("Price must be greater than 0.");
+      return;
+    }
+
+    setSaveError("");
+    await onSave({ ...form, name: trimmedName });
   };
 
   return (
@@ -180,6 +202,8 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
               </div>
               <input
                 type="number"
+                min="0.01"
+                step="0.01"
                 value={form.price}
                 onChange={(e) => setForm({ ...form, price: parseFloat(e.target.value) || 0 })}
                 className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
@@ -210,6 +234,11 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
               {categories.slice(1).map((c) => <option key={c}>{c}</option>)}
             </select>
           </div>
+          {(suggestError || saveError) && (
+            <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+              {saveError || suggestError}
+            </div>
+          )}
           <div className="flex items-center gap-4">
             <label className="flex items-center gap-2 cursor-pointer">
               <div
@@ -245,7 +274,7 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
             Cancel
           </button>
           <button
-            onClick={() => onSave(form)}
+            onClick={() => void handleSaveClick()}
             className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90"
             style={{ backgroundColor: "#1D5B70" }}
           >
@@ -321,6 +350,8 @@ export function Services() {
   };
 
   const handleSave = async (data: Partial<Service>) => {
+    let saved = false;
+
     try {
       setError(null);
       if (editingService) {
@@ -334,12 +365,15 @@ export function Services() {
         setActiveCategory(data.category ?? "All");
         await loadServices();
       }
+      saved = true;
     } catch (e) {
       console.error(e);
-      setError("Could not save service. Please check the backend response and try again.");
+      setError(e instanceof Error ? e.message : "Could not save service.");
     } finally {
-      setModalOpen(false);
-      setEditingService(undefined);
+      if (saved) {
+        setModalOpen(false);
+        setEditingService(undefined);
+      }
     }
   };
 

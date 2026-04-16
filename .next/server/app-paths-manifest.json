@@ -1,7 +1,4 @@
 {
   "/api/backend/[...path]/route": "app/api/backend/[...path]/route.js",
-  "/laundry-admin/availability/page": "app/laundry-admin/availability/page.js",
-  "/laundry-admin/services/page": "app/laundry-admin/services/page.js",
-  "/laundry-admin/customers/page": "app/laundry-admin/customers/page.js",
-  "/laundry-admin/analytics/page": "app/laundry-admin/analytics/page.js"
+  "/laundry-admin/availability/page": "app/laundry-admin/availability/page.js"
 }

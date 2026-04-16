@@ -3,8 +3,19 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { usePreferences } from "@/app/context/PreferencesContext";
-import { getProfile, setupProfile, startVerificationSession, uploadCommercialRegister } from "@/app/lib/laundry-admin-client";
-import { LAUNDRY_ADMIN_DIDIT_SIGNUP_URL } from "@/app/lib/laundry-onboarding";
+import { useAuth } from "@/app/context/AuthContext";
+import {
+  getProfile,
+  saveLaundryProfile,
+  startVerificationSession,
+  uploadCommercialRegister,
+  uploadServiceImage,
+} from "@/app/lib/laundry-admin-client";
+import {
+  clearPendingLaundryOnboarding,
+  readPendingLaundryOnboarding,
+} from "@/app/lib/laundry-onboarding";
+import { getUserProfileRequest, updateUserProfileRequest, changePasswordRequest } from "@/app/lib/api";
 import { motion, AnimatePresence } from "motion/react";
 import {
   User,
@@ -49,9 +60,29 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
+function normalizeText(value: string | null | undefined) {
+  const trimmed = String(value ?? "").trim();
+  if (!trimmed || trimmed.toLowerCase() === "null" || trimmed.toLowerCase() === "undefined") {
+    return "";
+  }
+  return trimmed;
+}
+
+const LOCAL_PROFILE_PHOTO_KEY = "nadeef_laundry_profile_photo";
+
+function readFileAsDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(new Error("Failed to read image file."));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function Settings() {
   const searchParams = useSearchParams();
   const { language, setLanguage, theme, setTheme } = usePreferences();
+  const { user, updateUser } = useAuth();
   const onboardingMode = searchParams?.get("onboarding") === "1";
   const [saved, setSaved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -61,13 +92,14 @@ export function Settings() {
   );
 
   const [profile, setProfile] = useState({
-    name: "Ahmad Hassan",
-    email: "admin@ndeef.com",
-    phone: "+20 10 1234 5678",
-    laundryName: "Ndeef Laundry",
-    address: "123 Main Street, Cairo, Egypt",
+    name: user?.name ?? "",
+    email: user?.email ?? "",
+    phone: user?.phone ?? "",
+    laundryName: "",
+    address: "",
     latitude: 30.0444,
     longitude: 31.2357,
+    imageUrl: "",
   });
 
   const [passwords, setPasswords] = useState({
@@ -96,18 +128,52 @@ export function Settings() {
   });
 
   const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [passwordMessage, setPasswordMessage] = useState("");
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   useEffect(() => {
+    let active = true;
+
     async function loadProf() {
       try {
-        const data = await getProfile().catch(() => null);
-        if (data) setProfile((prev) => ({ ...prev, ...data }));
+        const laundryProfile = await getProfile().catch(() => null);
+        const userProfilePromise =
+          user?.token ? getUserProfileRequest(user.token).catch(() => null) : Promise.resolve(null);
+        const userProfile = await userProfilePromise;
+
+        if (!active) return;
+
+        const firstName = normalizeText(userProfile?.firstName);
+        const lastName = normalizeText(userProfile?.lastName);
+        const backendFullName = [firstName, lastName].filter(Boolean).join(" ").trim();
+        const localPhoto =
+          typeof window !== "undefined"
+            ? window.localStorage.getItem(LOCAL_PROFILE_PHOTO_KEY) ?? ""
+            : "";
+        const pendingLaundry = !laundryProfile ? readPendingLaundryOnboarding() : null;
+
+        setProfile((prev) => ({
+          ...prev,
+          name: backendFullName || normalizeText(user?.name) || prev.name,
+          email: userProfile?.email ?? user?.email ?? prev.email,
+          phone: userProfile?.phone ?? user?.phone ?? prev.phone,
+          laundryName: laundryProfile?.laundryName ?? pendingLaundry?.laundryName ?? prev.laundryName,
+          address: laundryProfile?.address ?? pendingLaundry?.address ?? prev.address,
+          latitude: laundryProfile?.latitude ?? pendingLaundry?.latitude ?? prev.latitude,
+          longitude: laundryProfile?.longitude ?? pendingLaundry?.longitude ?? prev.longitude,
+          imageUrl: laundryProfile?.imageUrl ?? localPhoto ?? prev.imageUrl,
+        }));
       } catch (err) {
         console.error("Failed to load profile", err);
       }
     }
-    loadProf();
-  }, []);
+    void loadProf();
+
+    return () => {
+      active = false;
+    };
+  }, [user]);
 
   useEffect(() => {
     setPreferences((current) => ({
@@ -120,20 +186,50 @@ export function Settings() {
   const handleSave = async () => {
     try {
       setIsSaving(true);
-      await setupProfile(profile);
+      setSaveError("");
+
+      const fullName = profile.name.trim();
+      const nameParts = fullName.split(/\s+/).filter(Boolean);
+      const firstName = nameParts[0] ?? "";
+      const lastName = nameParts.slice(1).join(" ") || nameParts[0] || "";
+
+      if (user?.token) {
+        await updateUserProfileRequest(user.token, {
+          firstName,
+          lastName,
+          email: profile.email.trim(),
+          phone: profile.phone.trim(),
+        });
+      }
+
+      await saveLaundryProfile(profile);
+      clearPendingLaundryOnboarding();
+
+      updateUser({
+        name: fullName,
+        firstName,
+        lastName,
+        email: profile.email.trim(),
+        phone: profile.phone.trim(),
+      });
+
       if (onboardingMode) {
-        window.location.href = LAUNDRY_ADMIN_DIDIT_SIGNUP_URL;
+        const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
+        const session = await startVerificationSession(redirectUrl);
+        window.location.href = session.url;
         return;
       }
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (e) {
       console.error(e);
+      setSaveError(e instanceof Error ? e.message : "Failed to save profile changes.");
     } finally {
       setIsSaving(false);
     }
   };
 
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [commRegFile, setCommRegFile] = useState<File | null>(null);
   const [verifying, setVerifying] = useState(false);
@@ -162,6 +258,91 @@ export function Settings() {
       console.error(e);
     } finally {
       setUploading(false);
+    }
+  };
+
+  const handlePhotoSelected = async (file: File | null) => {
+    if (!file) return;
+
+    try {
+      setIsUploadingPhoto(true);
+      setSaveError("");
+      const formData = new FormData();
+      formData.append("file", file);
+      let uploaded;
+
+      try {
+        uploaded = await uploadServiceImage(formData);
+      } catch (uploadError) {
+        const message =
+          uploadError instanceof Error ? uploadError.message : "Failed to upload photo.";
+
+        if (message.toLowerCase().includes("no laundry is linked to this account")) {
+          await saveLaundryProfile({
+            laundryName: profile.laundryName,
+            address: profile.address,
+            latitude: profile.latitude,
+            longitude: profile.longitude,
+          });
+          clearPendingLaundryOnboarding();
+          uploaded = await uploadServiceImage(formData);
+        } else {
+          throw uploadError;
+        }
+      }
+
+      if (uploaded.url) {
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(LOCAL_PROFILE_PHOTO_KEY, uploaded.url);
+        }
+        setProfile((prev) => ({ ...prev, imageUrl: uploaded.url }));
+      }
+    } catch (error) {
+      console.error(error);
+      try {
+        const localImageUrl = await readFileAsDataUrl(file);
+        if (typeof window !== "undefined") {
+          window.localStorage.setItem(LOCAL_PROFILE_PHOTO_KEY, localImageUrl);
+        }
+        setProfile((prev) => ({ ...prev, imageUrl: localImageUrl }));
+        setSaveError("The backend image upload is unavailable right now, so the photo was saved locally on this device.");
+      } catch (readError) {
+        console.error(readError);
+        setSaveError(error instanceof Error ? error.message : "Failed to upload photo.");
+      }
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!user?.token) {
+      setPasswordMessage("You need to be logged in to change your password.");
+      return;
+    }
+
+    if (!passwords.current || !passwords.new || !passwords.confirm) {
+      setPasswordMessage("Please complete all password fields.");
+      return;
+    }
+
+    if (passwords.new !== passwords.confirm) {
+      setPasswordMessage("New password and confirm password must match.");
+      return;
+    }
+
+    try {
+      setPasswordMessage("");
+      await changePasswordRequest(user.token, {
+        currentPassword: passwords.current,
+        newPassword: passwords.new,
+        confirmPassword: passwords.confirm,
+      });
+      setPasswords({ current: "", new: "", confirm: "" });
+      setPasswordMessage("Password changed successfully.");
+    } catch (error) {
+      console.error(error);
+      setPasswordMessage(error instanceof Error ? error.message : "Failed to change password.");
     }
   };
 
@@ -207,6 +388,11 @@ export function Settings() {
           {isSaving ? "Saving..." : saved ? "Changes Saved!" : onboardingMode ? "Save and Continue to Didit" : "Save Changes"}
         </motion.button>
       </div>
+      {saveError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {saveError}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 bg-gray-100 p-1 rounded-2xl">
@@ -245,13 +431,23 @@ export function Settings() {
               <h3 className="font-semibold text-gray-900 mb-4">Profile Picture</h3>
               <div className="flex items-center gap-5">
                 <div className="relative">
-                  <div
-                    className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-3xl font-bold"
-                    style={{ backgroundColor: "#1D5B70" }}
-                  >
-                    A
-                  </div>
+                  {profile.imageUrl ? (
+                    <img
+                      src={profile.imageUrl}
+                      alt={profile.name || "Laundry profile"}
+                      className="w-20 h-20 rounded-2xl object-cover"
+                    />
+                  ) : (
+                    <div
+                      className="w-20 h-20 rounded-2xl flex items-center justify-center text-white text-3xl font-bold"
+                      style={{ backgroundColor: "#1D5B70" }}
+                    >
+                      {(profile.name.trim().charAt(0) || profile.email.trim().charAt(0) || "L").toUpperCase()}
+                    </div>
+                  )}
                   <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
                     className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-white border-2 border-gray-100 flex items-center justify-center shadow-sm hover:bg-gray-50 transition-all"
                     style={{ color: "#1D5B70" }}
                   >
@@ -261,8 +457,24 @@ export function Settings() {
                 <div>
                   <p className="text-sm font-semibold text-gray-800">{profile.name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">Laundry Admin</p>
-                  <button className="mt-2 text-xs font-medium px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">
-                    Upload Photo
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0] ?? null;
+                      void handlePhotoSelected(file);
+                      e.currentTarget.value = "";
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => photoInputRef.current?.click()}
+                    className="mt-2 text-xs font-medium px-3 py-1 rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-60"
+                    disabled={isUploadingPhoto}
+                  >
+                    {isUploadingPhoto ? "Uploading..." : "Upload Photo"}
                   </button>
                 </div>
               </div>
@@ -428,6 +640,27 @@ export function Settings() {
                     Passwords do not match
                   </div>
                 )}
+                {passwordMessage && (
+                  <div
+                    className={`flex items-center gap-2 text-xs px-3 py-2 rounded-xl ${
+                      passwordMessage.toLowerCase().includes("success")
+                        ? "text-green-600 bg-green-50"
+                        : "text-red-500 bg-red-50"
+                    }`}
+                  >
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    {passwordMessage}
+                  </div>
+                )}
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleChangePassword}
+                    className="px-4 py-2 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90"
+                    style={{ backgroundColor: "#1D5B70" }}
+                  >
+                    Update Password
+                  </button>
+                </div>
               </div>
             </div>
 

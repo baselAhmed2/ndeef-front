@@ -24,7 +24,7 @@ async function proxyRequest(
   const body =
     request.method === "GET" || request.method === "HEAD"
       ? undefined
-      : await request.text();
+      : Buffer.from(await request.arrayBuffer());
 
   const response = await fetch(backendUrl.toString(), {
     method: request.method,

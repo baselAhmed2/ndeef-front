@@ -1,9 +1,18 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getSchedule, updateSchedule, getCapacity, updateCapacity, getClosedDates, addClosedDate, removeClosedDate } from "@/app/lib/laundry-admin-client";
+import { useEffect, useMemo, useState } from "react";
+import {
+  addClosedDate,
+  ensureLaundryProfileFromPendingOnboarding,
+  getCapacity,
+  getClosedDates,
+  getSchedule,
+  removeClosedDate,
+  updateCapacity,
+  updateSchedule,
+} from "@/app/lib/laundry-admin-client";
 import { motion } from "motion/react";
-import { Clock, Save, Info, CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Clock, Info, Save } from "lucide-react";
 
 interface TimeSlot {
   start: string;
@@ -17,6 +26,13 @@ interface DaySchedule {
 
 type WeekSchedule = Record<string, DaySchedule>;
 
+interface ClosedDate {
+  id: string;
+  date: string;
+  name: string;
+  rawDate: string;
+}
+
 const defaultSchedule: WeekSchedule = {
   Monday: { enabled: true, slots: [{ start: "08:00", end: "20:00" }] },
   Tuesday: { enabled: true, slots: [{ start: "08:00", end: "20:00" }] },
@@ -28,12 +44,6 @@ const defaultSchedule: WeekSchedule = {
 };
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-
-const holidayDates = [
-  { date: "Apr 14, 2026", name: "National Holiday" },
-  { date: "May 1, 2026", name: "Labor Day" },
-  { date: "Jun 5, 2026", name: "Eid Al-Fitr" },
-];
 
 const timeOptions: string[] = [];
 for (let h = 6; h <= 23; h++) {
@@ -47,6 +57,7 @@ for (let h = 6; h <= 23; h++) {
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
+      type="button"
       onClick={() => onChange(!value)}
       className="relative shrink-0 rounded-full transition-all"
       style={{
@@ -67,35 +78,82 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
   );
 }
 
+function toDateInputValue(value: string) {
+  if (!value) return "";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function getSlotDurationLabel(slot: TimeSlot) {
+  const [openHour, openMinute] = slot.start.split(":").map(Number);
+  const [closeHour, closeMinute] = slot.end.split(":").map(Number);
+  const diff = closeHour * 60 + closeMinute - (openHour * 60 + openMinute);
+
+  if (diff <= 0) return "Invalid";
+
+  const hours = Math.floor(diff / 60);
+  const minutes = diff % 60;
+  return `${hours}h${minutes > 0 ? ` ${minutes}m` : ""}`;
+}
+
 export function Availability() {
   const [schedule, setSchedule] = useState<WeekSchedule>(defaultSchedule);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState("");
+  const [infoMessage, setInfoMessage] = useState("");
   const [maxOrders, setMaxOrders] = useState(30);
   const [leadTime, setLeadTime] = useState(2);
-  const [holidays, setHolidays] = useState<any[]>(holidayDates);
+  const [holidays, setHolidays] = useState<ClosedDate[]>([]);
   const [newHoliday, setNewHoliday] = useState({ date: "", name: "" });
-  const [, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isUpdatingClosedDates, setIsUpdatingClosedDates] = useState(false);
+
+  const loadAvailability = async (allowRestore = true) => {
+    try {
+      setIsLoading(true);
+      setSaveError("");
+
+      const [sched, cap, dates] = await Promise.all([
+        getSchedule(),
+        getCapacity(),
+        getClosedDates(),
+      ]);
+
+      if (allowRestore && Object.keys(sched).length === 0) {
+        const restored = await ensureLaundryProfileFromPendingOnboarding();
+        if (restored) {
+          await loadAvailability(false);
+          return;
+        }
+      }
+
+      if (Object.keys(sched).length > 0) setSchedule(sched as WeekSchedule);
+      setMaxOrders(cap.maxOrders ?? 30);
+      setLeadTime(cap.leadTime ?? 2);
+      setHolidays(dates as ClosedDate[]);
+    } catch (error) {
+      console.error("Failed to load availability", error);
+      setSaveError(error instanceof Error ? error.message : "Failed to load availability settings.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function loadAvail() {
-      try {
-        const [sched, cap, dates] = await Promise.all([
-          getSchedule().catch(() => null),
-          getCapacity().catch(() => null),
-          getClosedDates().catch(() => null)
-        ]);
-        if (sched && Object.keys(sched).length > 0) setSchedule(sched as any);
-        if (cap) {
-          setMaxOrders(cap.maxOrders ?? 30);
-          setLeadTime(cap.leadTime ?? 2);
-        }
-        if (dates && dates.length > 0) setHolidays(dates);
-      } catch (err) {
-        console.error("Failed to load availability", err);
-      }
-    }
-    loadAvail();
+    void loadAvailability();
   }, []);
+
+  const hoursOpen = useMemo(
+    () => Object.values(schedule).filter((day) => day.enabled).length,
+    [schedule],
+  );
 
   const toggleDay = (day: string) => {
     setSchedule((prev) => ({
@@ -112,123 +170,209 @@ export function Availability() {
     });
   };
 
+  const validateSchedule = () => {
+    for (const day of days) {
+      const slot = schedule[day].slots[0];
+      if (schedule[day].enabled && slot.start >= slot.end) {
+        return `${day} must have an opening time before its closing time.`;
+      }
+    }
+    return "";
+  };
+
   const handleSave = async () => {
+    const validationError = validateSchedule();
+    if (validationError) {
+      setSaveError(validationError);
+      return;
+    }
+
     try {
       setIsSaving(true);
-      await Promise.all([
-        updateSchedule(schedule as any),
-        updateCapacity({ maxOrders, leadTime }),
-      ]);
+      setSaveError("");
+      setInfoMessage("");
+
+      await updateSchedule(schedule as any);
+
+      try {
+        await updateCapacity({ maxOrders, leadTime });
+        setInfoMessage("Availability updated successfully.");
+      } catch (capacityError) {
+        console.error("Capacity settings failed to save", capacityError);
+        setInfoMessage("Working hours were saved, but capacity settings could not be updated.");
+        setSaveError(
+          capacityError instanceof Error
+            ? `Capacity settings could not be updated: ${capacityError.message}`
+            : "Capacity settings could not be updated.",
+        );
+      }
+
       setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
-    } catch (e) {
-      console.error(e);
+      window.setTimeout(() => setSaved(false), 3000);
+    } catch (error) {
+      console.error(error);
+      setSaveError(error instanceof Error ? error.message : "Failed to save availability changes.");
     } finally {
       setIsSaving(false);
     }
   };
 
-  const hoursOpen = Object.values(schedule).filter((d) => d.enabled).length;
+  const handleAddClosedDate = async () => {
+    if (!newHoliday.date || !newHoliday.name.trim()) {
+      setSaveError("Choose a date and enter a reason before adding a closed day.");
+      return;
+    }
+
+    try {
+      setIsUpdatingClosedDates(true);
+      setSaveError("");
+      setInfoMessage("");
+
+      const added = await addClosedDate({
+        date: newHoliday.date,
+        name: newHoliday.name.trim(),
+      });
+
+      setHolidays((prev) => [
+        ...prev,
+        {
+          id: String(added?.id ?? added?.Id ?? `closed-${Date.now()}`),
+          date: new Date(`${newHoliday.date}T00:00:00`).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          }),
+          name: newHoliday.name.trim(),
+          rawDate: newHoliday.date,
+        },
+      ]);
+      setNewHoliday({ date: "", name: "" });
+      setInfoMessage("Closed date added successfully.");
+    } catch (error) {
+      console.error(error);
+      setSaveError(error instanceof Error ? error.message : "Failed to add the closed date.");
+    } finally {
+      setIsUpdatingClosedDates(false);
+    }
+  };
+
+  const handleRemoveClosedDate = async (holiday: ClosedDate) => {
+    try {
+      setIsUpdatingClosedDates(true);
+      setSaveError("");
+      setInfoMessage("");
+      await removeClosedDate(holiday.id);
+      setHolidays((prev) => prev.filter((item) => item.id !== holiday.id));
+      setInfoMessage("Closed date removed successfully.");
+    } catch (error) {
+      console.error(error);
+      setSaveError(error instanceof Error ? error.message : "Failed to remove the closed date.");
+    } finally {
+      setIsUpdatingClosedDates(false);
+    }
+  };
 
   return (
     <div className="p-6 space-y-5">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-gray-900 font-semibold">Availability & Hours</h2>
-          <p className="text-gray-400 text-xs mt-0.5">Set your working schedule and capacity</p>
+          <h2 className="font-semibold text-gray-900">Availability & Hours</h2>
+          <p className="mt-0.5 text-xs text-gray-400">Set your working schedule and capacity</p>
         </div>
         <button
+          type="button"
           onClick={handleSave}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90"
+          disabled={isSaving || isLoading}
+          className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
           style={{ backgroundColor: saved ? "#22c55e" : "#1D5B70" }}
         >
-          {saved ? <CheckCircle2 className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saved ? "Saved!" : "Save Changes"}
+          {saved ? <CheckCircle2 className="h-4 w-4" /> : <Save className="h-4 w-4" />}
+          {isSaving ? "Saving..." : saved ? "Saved!" : "Save Changes"}
         </button>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-4">
+      {saveError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {saveError}
+        </div>
+      )}
+      {infoMessage && (
+        <div className="rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+          {infoMessage}
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         {[
           { label: "Days Open", value: `${hoursOpen} / 7`, color: "#1D5B70" },
           { label: "Max Orders / Day", value: maxOrders.toString(), color: "#EBA050" },
           { label: "Lead Time", value: `${leadTime}h`, color: "#8b5cf6" },
         ].map((item) => (
-          <div key={item.label} className="bg-white rounded-2xl border border-gray-100 p-4 text-center">
+          <div key={item.label} className="rounded-2xl border border-gray-100 bg-white p-4 text-center">
             <p className="text-2xl font-bold" style={{ color: item.color }}>{item.value}</p>
-            <p className="text-xs text-gray-400 mt-0.5">{item.label}</p>
+            <p className="mt-0.5 text-xs text-gray-400">{item.label}</p>
           </div>
         ))}
       </div>
 
-      {/* Weekly Schedule */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3 }}
-        className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
+        className="overflow-hidden rounded-2xl border border-gray-100 bg-white"
       >
-        <div className="px-5 py-4 border-b border-gray-50 flex items-center gap-2">
-          <Clock className="w-4 h-4" style={{ color: "#1D5B70" }} />
+        <div className="flex items-center gap-2 border-b border-gray-50 px-5 py-4">
+          <Clock className="h-4 w-4" style={{ color: "#1D5B70" }} />
           <h3 className="font-semibold text-gray-900">Weekly Schedule</h3>
         </div>
         <div className="divide-y divide-gray-50">
-          {days.map((day, i) => {
+          {days.map((day, index) => {
             const dayData = schedule[day];
+
             return (
               <motion.div
                 key={day}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.25, delay: i * 0.04 }}
-                className={`flex flex-col sm:flex-row sm:items-center gap-4 px-5 py-4 transition-all ${
+                transition={{ duration: 0.25, delay: index * 0.04 }}
+                className={`flex flex-col gap-4 px-5 py-4 transition-all sm:flex-row sm:items-center ${
                   !dayData.enabled ? "opacity-50" : ""
                 }`}
               >
-                {/* Day + Toggle */}
-                <div className="flex items-center gap-3 sm:w-40 shrink-0">
+                <div className="flex shrink-0 items-center gap-3 sm:w-40">
                   <Toggle value={dayData.enabled} onChange={() => toggleDay(day)} />
                   <span className={`text-sm font-semibold ${dayData.enabled ? "text-gray-900" : "text-gray-400"}`}>
                     {day}
                   </span>
                 </div>
 
-                {/* Time Slots */}
                 {dayData.enabled ? (
-                  <div className="flex flex-wrap items-center gap-3 flex-1">
-                    {dayData.slots.map((slot, si) => (
-                      <div key={si} className="flex items-center gap-2">
+                  <div className="flex flex-1 flex-wrap items-center gap-3">
+                    {dayData.slots.map((slot, slotIndex) => (
+                      <div key={`${day}-${slotIndex}`} className="flex items-center gap-2">
                         <select
                           value={slot.start}
-                          onChange={(e) => updateSlot(day, si, "start", e.target.value)}
-                          className="h-9 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20 bg-white"
+                          onChange={(event) => updateSlot(day, slotIndex, "start", event.target.value)}
+                          className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
                         >
-                          {timeOptions.map((t) => <option key={t}>{t}</option>)}
+                          {timeOptions.map((time) => <option key={`${day}-start-${time}`}>{time}</option>)}
                         </select>
-                        <span className="text-gray-400 text-xs font-medium">to</span>
+                        <span className="text-xs font-medium text-gray-400">to</span>
                         <select
                           value={slot.end}
-                          onChange={(e) => updateSlot(day, si, "end", e.target.value)}
-                          className="h-9 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20 bg-white"
+                          onChange={(event) => updateSlot(day, slotIndex, "end", event.target.value)}
+                          className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
                         >
-                          {timeOptions.map((t) => <option key={t}>{t}</option>)}
+                          {timeOptions.map((time) => <option key={`${day}-end-${time}`}>{time}</option>)}
                         </select>
-                        <span className="text-xs text-gray-400 bg-gray-100 px-2 py-1 rounded-lg">
-                          {(() => {
-                            const [oh, om] = slot.start.split(":").map(Number);
-                            const [ch, cm] = slot.end.split(":").map(Number);
-                            const diff = (ch * 60 + cm) - (oh * 60 + om);
-                            const h = Math.floor(diff / 60);
-                            const m = diff % 60;
-                            return diff > 0 ? `${h}h${m > 0 ? ` ${m}m` : ""}` : "â€”";
-                          })()}
+                        <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-400">
+                          {getSlotDurationLabel(slot)}
                         </span>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <span className="text-xs text-gray-400 italic">Closed</span>
+                  <span className="text-xs italic text-gray-400">Closed</span>
                 )}
               </motion.div>
             );
@@ -236,17 +380,16 @@ export function Availability() {
         </div>
       </motion.div>
 
-      {/* Capacity Settings */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="bg-white rounded-2xl border border-gray-100 p-5"
+        className="rounded-2xl border border-gray-100 bg-white p-5"
       >
-        <h3 className="font-semibold text-gray-900 mb-4">Capacity Settings</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <h3 className="mb-4 font-semibold text-gray-900">Capacity Settings</h3>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <label className="text-sm font-medium text-gray-700">Max Orders Per Day</label>
               <span className="text-sm font-bold" style={{ color: "#EBA050" }}>{maxOrders}</span>
             </div>
@@ -256,15 +399,16 @@ export function Availability() {
               max={100}
               step={5}
               value={maxOrders}
-              onChange={(e) => setMaxOrders(Number(e.target.value))}
+              onChange={(event) => setMaxOrders(Number(event.target.value))}
               className="w-full accent-[#EBA050]"
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
-              <span>5</span><span>100</span>
+            <div className="mt-1 flex justify-between text-xs text-gray-400">
+              <span>5</span>
+              <span>100</span>
             </div>
           </div>
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <label className="text-sm font-medium text-gray-700">Lead Time (hours)</label>
               <span className="text-sm font-bold" style={{ color: "#1D5B70" }}>{leadTime}h</span>
             </div>
@@ -274,86 +418,88 @@ export function Availability() {
               max={24}
               step={1}
               value={leadTime}
-              onChange={(e) => setLeadTime(Number(e.target.value))}
+              onChange={(event) => setLeadTime(Number(event.target.value))}
               className="w-full accent-[#1D5B70]"
             />
-            <div className="flex justify-between text-xs text-gray-400 mt-1">
-              <span>1h</span><span>24h</span>
+            <div className="mt-1 flex justify-between text-xs text-gray-400">
+              <span>1h</span>
+              <span>24h</span>
             </div>
           </div>
         </div>
-        <div className="mt-4 flex items-start gap-2 text-xs text-gray-500 bg-blue-50 px-3 py-2.5 rounded-xl">
-          <Info className="w-3.5 h-3.5 mt-0.5 text-blue-400 shrink-0" />
-          Lead time is the minimum hours required before a new order can be placed.
+        <div className="mt-4 flex items-start gap-2 rounded-xl bg-blue-50 px-3 py-2.5 text-xs text-gray-500">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-blue-400" />
+          Lead time is the minimum number of hours required before a new order can be placed.
         </div>
       </motion.div>
 
-      {/* Holiday / Closed Dates */}
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.15 }}
-        className="bg-white rounded-2xl border border-gray-100 p-5"
+        className="rounded-2xl border border-gray-100 bg-white p-5"
       >
-        <h3 className="font-semibold text-gray-900 mb-4">Closed / Holiday Dates</h3>
-        <div className="space-y-2 mb-4">
-          {holidays.map((h, i) => (
-            <div key={i} className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-gray-50">
-              <div>
-                <p className="text-sm font-medium text-gray-800">{h.name}</p>
-                <p className="text-xs text-gray-400">{h.date}</p>
-              </div>
-              <button
-                onClick={async () => {
-                  try {
-                    if (h.id) await removeClosedDate(h.id);
-                    setHolidays((prev) => prev.filter((_, idx) => idx !== i));
-                  } catch (e) {
-                    console.error(e);
-                  }
-                }}
-                className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-red-500 hover:bg-red-50 transition-all"
-              >
-                Ã—
-              </button>
+        <h3 className="mb-4 font-semibold text-gray-900">Closed / Holiday Dates</h3>
+        <div className="mb-4 space-y-2">
+          {holidays.length === 0 ? (
+            <div className="rounded-xl bg-gray-50 px-3 py-3 text-sm text-gray-500">
+              No closed dates added yet.
             </div>
-          ))}
+          ) : (
+            holidays.map((holiday) => (
+              <div key={holiday.id} className="flex items-center justify-between rounded-xl bg-gray-50 px-3 py-2.5">
+                <div>
+                  <p className="text-sm font-medium text-gray-800">{holiday.name}</p>
+                  <p className="text-xs text-gray-400">{holiday.date}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleRemoveClosedDate(holiday)}
+                  disabled={isUpdatingClosedDates}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-gray-400 transition-all hover:bg-red-50 hover:text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  x
+                </button>
+              </div>
+            ))
+          )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <input
-            type="text"
-            placeholder="e.g. May 1, 2026"
+            type="date"
             value={newHoliday.date}
-            onChange={(e) => setNewHoliday({ ...newHoliday, date: e.target.value })}
-            className="flex-1 h-9 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
+            onChange={(event) => setNewHoliday((prev) => ({ ...prev, date: event.target.value }))}
+            className="h-9 flex-1 rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
           />
           <input
             type="text"
             placeholder="Holiday name"
             value={newHoliday.name}
-            onChange={(e) => setNewHoliday({ ...newHoliday, name: e.target.value })}
-            className="flex-1 h-9 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
+            onChange={(event) => setNewHoliday((prev) => ({ ...prev, name: event.target.value }))}
+            className="h-9 flex-1 rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
           />
           <button
-            onClick={async () => {
-              if (newHoliday.date && newHoliday.name) {
-                try {
-                  const added = await addClosedDate(newHoliday);
-                  setHolidays((prev) => [...prev, { ...newHoliday, id: added?.id || `hol-${Date.now()}` }]);
-                  setNewHoliday({ date: "", name: "" });
-                } catch (e) {
-                  console.error(e);
-                }
-              }
-            }}
-            className="h-9 px-4 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90"
+            type="button"
+            onClick={() => void handleAddClosedDate()}
+            disabled={isUpdatingClosedDates || !newHoliday.date || !newHoliday.name.trim()}
+            className="h-9 rounded-xl px-4 text-sm font-medium text-white transition-all hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
             style={{ backgroundColor: "#1D5B70" }}
           >
-            Add
+            {isUpdatingClosedDates ? "Saving..." : "Add"}
           </button>
         </div>
+        {newHoliday.date && (
+          <p className="mt-2 text-xs text-gray-400">
+            Saving closed date for {toDateInputValue(newHoliday.date) || newHoliday.date}
+          </p>
+        )}
       </motion.div>
+
+      {isLoading && (
+        <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 text-sm text-gray-500">
+          Loading availability settings...
+        </div>
+      )}
     </div>
   );
 }
-

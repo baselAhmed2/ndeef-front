@@ -2,15 +2,21 @@
 
 import { Languages, Moon, Sun } from "lucide-react";
 import { motion } from "motion/react";
+import { usePathname } from "next/navigation";
 import { usePreferences } from "@/app/context/PreferencesContext";
 
 export function GlobalPreferenceFab() {
+  const pathname = usePathname();
   const { isArabic, isDark, toggleLanguage, toggleTheme } = usePreferences();
+  const isDashboardArea =
+    pathname?.startsWith("/laundry-admin") || pathname?.startsWith("/admin");
 
   return (
     <div
       data-no-translate
-      className="ndeef-preferences-widget fixed bottom-4 left-4 z-[999] flex items-center gap-2 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-2xl shadow-slate-900/15 backdrop-blur-xl"
+      className={`ndeef-preferences-widget fixed z-[999] flex items-center gap-2 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-2xl shadow-slate-900/15 backdrop-blur-xl ${
+        isDashboardArea ? "bottom-4 right-4" : "bottom-4 left-4"
+      }`}
       aria-label="Display preferences"
     >
       <motion.button

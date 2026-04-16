@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
+import { shouldBypassVerificationInDev } from "@/app/lib/verification-dev";
 
 interface VerificationGuardProps {
   children: React.ReactNode;
@@ -16,6 +17,11 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
 
   useEffect(() => {
     if (!isAuthReady) return;
+
+    if (shouldBypassVerificationInDev()) {
+      setIsChecking(false);
+      return;
+    }
 
     // Not logged in - let the auth context handle redirect to login
     if (!isLoggedIn || !user) {

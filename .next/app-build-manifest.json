@@ -20,21 +20,6 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/api/backend/[...path]/route.js"
-    ],
-    "/laundry-admin/services/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/laundry-admin/services/page.js"
-    ],
-    "/laundry-admin/customers/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/laundry-admin/customers/page.js"
-    ],
-    "/laundry-admin/analytics/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/laundry-admin/analytics/page.js"
     ]
   }
 }

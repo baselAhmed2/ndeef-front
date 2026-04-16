@@ -9,7 +9,7 @@ import Link from "next/link";
 function VerificationSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoggedIn, isAuthReady } = useAuth();
+  const { user, isLoggedIn, isAuthReady, logout } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -17,6 +17,8 @@ function VerificationSuccessContent() {
   // Get params from URL (Didit returns: ?sessionId=xxx&status=Approved)
   const sessionId = searchParams?.get("sessionId") || searchParams?.get("session_id");
   const status = searchParams?.get("status");
+  const urlStatus = status?.toLowerCase();
+  const isApprovedFromDidit = urlStatus === "approved";
   
   // Log for debugging
   console.log("Verification callback - Session:", sessionId, "Status:", status);
@@ -25,23 +27,37 @@ function VerificationSuccessContent() {
   useEffect(() => {
     if (!isAuthReady) return;
 
+    let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
+
     if (!isLoggedIn || !user) {
       router.push("/login");
-      return;
+      return () => {
+        if (redirectTimeout) clearTimeout(redirectTimeout);
+      };
     }
 
     const checkVerification = async () => {
       try {
+        if (isApprovedFromDidit) {
+          setIsVerified(true);
+          redirectTimeout = setTimeout(() => {
+            logout();
+            router.replace("/login");
+          }, 1500);
+          return;
+        }
+
         // Check verification status from backend
         const result = await getVerificationStatus();
 
         if (result.isSuccess && result.data) {
           setIsVerified(result.data.isVerified);
 
-          // If verified, wait a moment then redirect to dashboard
+          // If verified, wait a moment, then send the user to login.
           if (result.data.isVerified) {
-            setTimeout(() => {
-              router.push("/laundry-admin");
+            redirectTimeout = setTimeout(() => {
+              logout();
+              router.replace("/login");
             }, 3000);
           }
         } else {
@@ -56,7 +72,11 @@ function VerificationSuccessContent() {
     };
 
     checkVerification();
-  }, [isLoggedIn, isAuthReady, user, router]);
+
+    return () => {
+      if (redirectTimeout) clearTimeout(redirectTimeout);
+    };
+  }, [isLoggedIn, isAuthReady, user, router, logout, isApprovedFromDidit]);
 
   if (isLoading) {
     return (
@@ -74,9 +94,6 @@ function VerificationSuccessContent() {
     );
   }
 
-  // Handle different Didit statuses from URL
-  const urlStatus = status?.toLowerCase();
-  
   // Show declined/review status immediately from URL
   if (urlStatus === "declined" || urlStatus === "rejected") {
     return (
@@ -175,13 +192,13 @@ function VerificationSuccessContent() {
             تم التحقق بنجاح!
           </h2>
           <p className="text-gray-600 mb-6">
-            تم التحقق من هويتك بنجاح. سيتم توجيهك إلى لوحة التحكم خلال ثوانٍ...
+            تم التحقق من هويتك بنجاح. سيتم توجيهك إلى صفحة تسجيل الدخول خلال ثوانٍ...
           </p>
           <Link
-            href="/laundry-admin"
+            href="/login"
             className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
           >
-            الذهاب للوحة التحكم
+            الذهاب إلى تسجيل الدخول
           </Link>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from "./admin-api";
+import { readPendingLaundryOnboarding } from "./laundry-onboarding";
 
 type BackendOrderStatus =
   | "PendingConfirmation"
@@ -80,9 +81,6 @@ const DAY_NAMES = [
   "Friday",
   "Saturday",
 ] as const;
-
-const DIDIT_VERIFICATION_URL =
-  "https://verify.didit.me/u/ueKcLhvVTo-8x_fXAt0ogw";
 
 function unwrapArray<T>(
   payload: T[] | { data?: T[] | null } | null | undefined,
@@ -220,24 +218,51 @@ export interface DashboardSummary {
 export async function getDashboardSummary(): Promise<
   Partial<DashboardSummary>
 > {
-  const summary = await apiRequest<{
-    totalOrders: number;
-    pendingOrders: number;
-    inProgressOrders: number;
-    completedOrders: number;
-    cancelledOrders: number;
-    totalRevenue: number;
-  }>("/laundry-admin/dashboard/summary");
+  try {
+    const summary = await apiRequest<{
+      totalOrders: number;
+      pendingOrders: number;
+      inProgressOrders: number;
+      completedOrders: number;
+      cancelledOrders: number;
+      totalRevenue: number;
+    }>("/laundry-admin/dashboard/summary");
 
-  return {
-    stats: summary,
-    orderStatusData: [
-      { name: "Pending", value: summary.pendingOrders, color: "#EBA050" },
-      { name: "Processing", value: summary.inProgressOrders, color: "#1D5B70" },
-      { name: "Delivered", value: summary.completedOrders, color: "#22c55e" },
-      { name: "Cancelled", value: summary.cancelledOrders, color: "#ef4444" },
-    ],
-  };
+    return {
+      stats: summary,
+      orderStatusData: [
+        { name: "Pending", value: summary.pendingOrders, color: "#EBA050" },
+        { name: "Processing", value: summary.inProgressOrders, color: "#1D5B70" },
+        { name: "Delivered", value: summary.completedOrders, color: "#22c55e" },
+        { name: "Cancelled", value: summary.cancelledOrders, color: "#ef4444" },
+      ],
+    };
+  } catch (error) {
+    if (error instanceof ApiError && error.status >= 500) {
+      console.warn("Falling back to empty dashboard summary after backend failure", {
+        status: error.status,
+        message: error.message,
+      });
+      return {
+        stats: {
+          totalOrders: 0,
+          pendingOrders: 0,
+          inProgressOrders: 0,
+          completedOrders: 0,
+          cancelledOrders: 0,
+          totalRevenue: 0,
+        },
+        orderStatusData: [
+          { name: "Pending", value: 0, color: "#EBA050" },
+          { name: "Processing", value: 0, color: "#1D5B70" },
+          { name: "Delivered", value: 0, color: "#22c55e" },
+          { name: "Cancelled", value: 0, color: "#ef4444" },
+        ],
+      };
+    }
+
+    throw error;
+  }
 }
 
 export async function getRevenueWeekly(): Promise<
@@ -260,18 +285,30 @@ export async function getRevenueWeekly(): Promise<
 export async function getRevenueMonthly(
   year: number,
 ): Promise<Array<{ month: string; revenue: number; orders: number }>> {
-  const payload = await apiRequest<
-    | Array<{ label: string; revenue: number; orders: number }>
-    | {
-        data?: Array<{ label: string; revenue: number; orders: number }> | null;
-      }
-  >(`/laundry-admin/revenue/monthly?year=${year}`);
-  const points = unwrapArray(payload);
-  return points.map((point) => ({
-    month: point.label,
-    revenue: point.revenue,
-    orders: point.orders,
-  }));
+  try {
+    const payload = await apiRequest<
+      | Array<{ label: string; revenue: number; orders: number }>
+      | {
+          data?: Array<{ label: string; revenue: number; orders: number }> | null;
+        }
+    >(`/laundry-admin/revenue/monthly?year=${year}`);
+    const points = unwrapArray(payload);
+    return points.map((point) => ({
+      month: point.label,
+      revenue: point.revenue,
+      orders: point.orders,
+    }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status >= 500) {
+      console.warn("Falling back to empty monthly revenue after backend failure", {
+        status: error.status,
+        message: error.message,
+      });
+      return [];
+    }
+
+    throw error;
+  }
 }
 
 export async function getIncomingOrders(): Promise<any[]> {
@@ -407,6 +444,43 @@ export interface ServiceDTO {
   rating: number;
 }
 
+function isMissingLaundryError(error: unknown) {
+  return (
+    error instanceof ApiError &&
+    error.message.toLowerCase().includes("no laundry is linked to this account")
+  );
+}
+
+async function restoreMissingLaundryProfile() {
+  const pendingLaundry = readPendingLaundryOnboarding();
+  if (!pendingLaundry) return false;
+
+  await saveLaundryProfile({
+    laundryName: pendingLaundry.laundryName,
+    address: pendingLaundry.address,
+    latitude: pendingLaundry.latitude,
+    longitude: pendingLaundry.longitude,
+  });
+
+  return true;
+}
+
+async function withLaundryRecovery<T>(action: () => Promise<T>): Promise<T> {
+  try {
+    return await action();
+  } catch (error) {
+    if (isMissingLaundryError(error) && (await restoreMissingLaundryProfile())) {
+      return action();
+    }
+
+    throw error;
+  }
+}
+
+export async function ensureLaundryProfileFromPendingOnboarding(): Promise<boolean> {
+  return restoreMissingLaundryProfile();
+}
+
 export async function getServices(): Promise<ServiceDTO[]> {
   try {
     const payload = await apiRequest<
@@ -460,20 +534,47 @@ export async function getServices(): Promise<ServiceDTO[]> {
 export async function createService(
   data: Partial<ServiceDTO>,
 ): Promise<ServiceDTO> {
-  const created = await apiRequest<{
+  const requestBody = {
+    serviceName: data.name,
+    category: toServiceCategory(data.category ?? ""),
+    price: data.price ?? 0,
+  };
+
+  let created: {
     id?: number;
     serviceName?: string;
     category?: string;
     price?: number;
     isAvailable?: boolean;
-  }>("/laundry-admin/services", {
-    method: "POST",
-    body: JSON.stringify({
-      serviceName: data.name,
-      category: toServiceCategory(data.category ?? ""),
-      price: data.price ?? 0,
-    }),
-  });
+  };
+
+  try {
+    created = await apiRequest<{
+      id?: number;
+      serviceName?: string;
+      category?: string;
+      price?: number;
+      isAvailable?: boolean;
+    }>("/laundry-admin/services", {
+      method: "POST",
+      body: JSON.stringify(requestBody),
+    });
+  } catch (error) {
+    if (isMissingLaundryError(error) && (await restoreMissingLaundryProfile())) {
+      created = await apiRequest<{
+        id?: number;
+        serviceName?: string;
+        category?: string;
+        price?: number;
+        isAvailable?: boolean;
+      }>("/laundry-admin/services", {
+        method: "POST",
+        body: JSON.stringify(requestBody),
+      });
+    } else {
+      throw error;
+    }
+  }
 
   return {
     id: String(created.id ?? ""),
@@ -535,14 +636,30 @@ export async function uploadServiceImage(
     headers: token ? { Authorization: `Bearer ${token}` } : {},
     body: formData,
   });
-  if (!res.ok) throw new Error("Failed to upload image");
+  if (!res.ok) {
+    let message = "Failed to upload image";
+    try {
+      const text = await res.text();
+      if (text) {
+        try {
+          const payload = JSON.parse(text) as { Message?: string; message?: string; title?: string };
+          message = payload.Message ?? payload.message ?? payload.title ?? text;
+        } catch {
+          message = text;
+        }
+      }
+    } catch {
+      // ignore read errors and keep fallback message
+    }
+    throw new Error(message);
+  }
   const payload = await res.json();
   return { url: payload.ImageUrl ?? payload.imageUrl ?? payload.url ?? "" };
 }
 
 export async function suggestPrice(
   serviceDetails: any,
-): Promise<{ suggestedPrice: number }> {
+): Promise<{ suggestedPrice: number; reasoning?: string }> {
   const query = new URLSearchParams({
     ...serviceDetails,
     category: toServiceCategory(serviceDetails.category ?? ""),
@@ -550,7 +667,14 @@ export async function suggestPrice(
   const payload = await apiRequest<any>(
     `/laundry-admin/suggest-price?${query}`,
   );
-  return { suggestedPrice: payload?.suggestedPrice ?? payload?.price ?? 0 };
+  return {
+    suggestedPrice:
+      payload?.suggestedPrice ??
+      payload?.recommendedPrice ??
+      payload?.price ??
+      0,
+    reasoning: payload?.reasoning,
+  };
 }
 
 // ---------------------------------------------------------
@@ -563,14 +687,16 @@ export interface DaySchedule {
 export type WeeklySchedule = Record<string, DaySchedule>;
 
 export async function getSchedule(): Promise<WeeklySchedule> {
-  const payload = await apiRequest<{
-    days: Array<{
-      dayOfWeek: number;
-      isOpen: boolean;
-      openTime: string;
-      closeTime: string;
-    }>;
-  }>("/laundry-admin/availability/schedule");
+  const payload = await withLaundryRecovery(() =>
+    apiRequest<{
+      days: Array<{
+        dayOfWeek: number;
+        isOpen: boolean;
+        openTime: string;
+        closeTime: string;
+      }>;
+    }>("/laundry-admin/availability/schedule"),
+  );
 
   const schedule = {} as WeeklySchedule;
   for (const dayName of DAY_NAMES.slice(1).concat(DAY_NAMES[0])) {
@@ -611,18 +737,22 @@ export async function updateSchedule(data: WeeklySchedule): Promise<void> {
     },
   );
 
-  await apiRequest("/laundry-admin/availability/schedule", {
-    method: "PUT",
-    body: JSON.stringify({ days }),
-  });
+  await withLaundryRecovery(() =>
+    apiRequest("/laundry-admin/availability/schedule", {
+      method: "PUT",
+      body: JSON.stringify({ days }),
+    }),
+  );
 }
 
 export async function getCapacity(): Promise<any> {
-  const payload = await apiRequest<{
-    maxOrdersPerDay?: number;
-    leadTimeHours?: number;
-    data?: { maxOrdersPerDay?: number; leadTimeHours?: number } | null;
-  }>("/laundry-admin/availability/capacity");
+  const payload = await withLaundryRecovery(() =>
+    apiRequest<{
+      maxOrdersPerDay?: number;
+      leadTimeHours?: number;
+      data?: { maxOrdersPerDay?: number; leadTimeHours?: number } | null;
+    }>("/laundry-admin/availability/capacity"),
+  );
   const capacity = payload.data ?? payload;
   return {
     maxOrders: capacity?.maxOrdersPerDay ?? 0,
@@ -631,20 +761,24 @@ export async function getCapacity(): Promise<any> {
 }
 
 export async function updateCapacity(data: any): Promise<void> {
-  await apiRequest("/laundry-admin/availability/capacity", {
-    method: "PUT",
-    body: JSON.stringify({
-      maxOrdersPerDay: data.maxOrders,
-      leadTimeHours: data.leadTime,
+  await withLaundryRecovery(() =>
+    apiRequest("/laundry-admin/availability/capacity", {
+      method: "PUT",
+      body: JSON.stringify({
+        maxOrdersPerDay: data.maxOrders,
+        leadTimeHours: data.leadTime,
+      }),
     }),
-  });
+  );
 }
 
 export async function getClosedDates(): Promise<any[]> {
-  const payload = await apiRequest<
-    | Array<{ id: number; date: string; reason?: string }>
-    | { data?: Array<{ id: number; date: string; reason?: string }> | null }
-  >("/laundry-admin/availability/closed-dates");
+  const payload = await withLaundryRecovery(() =>
+    apiRequest<
+      | Array<{ id: number; date: string; reason?: string }>
+      | { data?: Array<{ id: number; date: string; reason?: string }> | null }
+    >("/laundry-admin/availability/closed-dates"),
+  );
   const dates = unwrapArray(payload);
   return dates.map((item) => ({
     id: String(item.id),
@@ -659,19 +793,30 @@ export async function getClosedDates(): Promise<any[]> {
 }
 
 export async function addClosedDate(data: any): Promise<any> {
-  return await apiRequest("/laundry-admin/availability/closed-dates", {
-    method: "POST",
-    body: JSON.stringify({
-      date: data.rawDate ?? data.date,
-      reason: data.name ?? data.reason,
+  const normalizedDate =
+    typeof data.rawDate === "string" && data.rawDate
+      ? data.rawDate
+      : typeof data.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(data.date)
+        ? new Date(`${data.date}T00:00:00`).toISOString()
+        : data.date;
+
+  return withLaundryRecovery(() =>
+    apiRequest("/laundry-admin/availability/closed-dates", {
+      method: "POST",
+      body: JSON.stringify({
+        date: normalizedDate,
+        reason: data.name ?? data.reason,
+      }),
     }),
-  });
+  );
 }
 
 export async function removeClosedDate(id: string): Promise<void> {
-  await apiRequest(`/laundry-admin/availability/closed-dates/${id}`, {
-    method: "DELETE",
-  });
+  await withLaundryRecovery(() =>
+    apiRequest(`/laundry-admin/availability/closed-dates/${id}`, {
+      method: "DELETE",
+    }),
+  );
 }
 
 // ---------------------------------------------------------
@@ -815,8 +960,38 @@ export async function setupProfile(data: any): Promise<void> {
       address: data.address,
       latitude: Number(data.latitude ?? 0),
       longitude: Number(data.longitude ?? 0),
+      imageUrl: data.imageUrl ?? null,
     }),
   });
+}
+
+export async function updateLaundryProfile(data: any): Promise<void> {
+  await apiRequest("/laundry-admin/profile", {
+    method: "PUT",
+    body: JSON.stringify({
+      name: data.laundryName ?? data.name,
+      address: data.address,
+      latitude: Number(data.latitude ?? 0),
+      longitude: Number(data.longitude ?? 0),
+    }),
+  });
+}
+
+export async function saveLaundryProfile(data: any): Promise<void> {
+  try {
+    await updateLaundryProfile(data);
+  } catch (error) {
+    if (
+      error instanceof ApiError &&
+      (error.message.toLowerCase().includes("no laundry is linked to this account") ||
+        error.message.toLowerCase().includes("you already have a laundry registered to this account"))
+    ) {
+      await setupProfile(data);
+      return;
+    }
+
+    throw error;
+  }
 }
 
 // ---------------------------------------------------------
@@ -859,23 +1034,27 @@ export async function unassignCourier(courierId: string): Promise<void> {
 
 export async function getComplaints(): Promise<any[]> {
   const payload = await apiRequest<
-    | Array<{
-        id: number;
-        orderId: number;
-        customerName: string;
-        details: string;
-        status: string;
-        createdAt: string;
-      }>
-    | {
-        data?: Array<{
+      | Array<{
           id: number;
           orderId: number;
           customerName: string;
+          customerPhone?: string;
+          customerEmail?: string;
           details: string;
           status: string;
           createdAt: string;
-        }> | null;
+        }>
+      | {
+          data?: Array<{
+            id: number;
+            orderId: number;
+            customerName: string;
+            customerPhone?: string;
+            customerEmail?: string;
+            details: string;
+            status: string;
+            createdAt: string;
+          }> | null;
       }
   >("/laundry-admin/complaints");
   const complaints = unwrapArray(payload);
@@ -884,6 +1063,8 @@ export async function getComplaints(): Promise<any[]> {
     id: String(complaint.id),
     orderId: complaint.orderId ? String(complaint.orderId) : undefined,
     customerName: complaint.customerName,
+    customerPhone: complaint.customerPhone ?? "",
+    customerEmail: complaint.customerEmail ?? "",
     subject: complaint.details,
     description: complaint.details,
     status:
@@ -900,11 +1081,40 @@ export async function getComplaints(): Promise<any[]> {
   }));
 }
 
+function toComplaintStatus(status: string) {
+  switch (status) {
+    case "In Progress":
+    case "InProgress":
+    case "2":
+      return "InProgress";
+    case "Resolved":
+    case "3":
+      return "Resolved";
+    case "Rejected":
+    case "4":
+      return "Rejected";
+    default:
+      return "Open";
+  }
+}
+
+export async function updateComplaintStatus(
+  id: string,
+  status: string,
+): Promise<void> {
+  await apiRequest(`/laundry-admin/complaints/${id}/status`, {
+    method: "PUT",
+    body: JSON.stringify({
+      status: toComplaintStatus(status),
+    }),
+  });
+}
+
 // ---------------------------------------------------------
 // Analytics & Verification
 // ---------------------------------------------------------
 export async function getExternalAnalytics(): Promise<any> {
-  const analytics = await apiRequest<{
+  let analytics: {
     totalRevenue: number;
     totalOrders: number;
     todayOrders: number;
@@ -912,7 +1122,47 @@ export async function getExternalAnalytics(): Promise<any> {
     averageRating: number;
     mostRequestedService: string;
     monthlyRevenue: Array<{ month: string; revenue: number }>;
-  }>("/analytics/laundry");
+  };
+
+  try {
+    analytics = await apiRequest<{
+      totalRevenue: number;
+      totalOrders: number;
+      todayOrders: number;
+      activeOrders: number;
+      averageRating: number;
+      mostRequestedService: string;
+      monthlyRevenue: Array<{ month: string; revenue: number }>;
+    }>("/analytics/laundry");
+  } catch (error) {
+    if (isMissingLaundryError(error) && (await restoreMissingLaundryProfile())) {
+      analytics = await apiRequest<{
+        totalRevenue: number;
+        totalOrders: number;
+        todayOrders: number;
+        activeOrders: number;
+        averageRating: number;
+        mostRequestedService: string;
+        monthlyRevenue: Array<{ month: string; revenue: number }>;
+      }>("/analytics/laundry");
+    } else if (error instanceof ApiError) {
+      console.warn("Falling back to empty analytics after backend failure", {
+        status: error.status,
+        message: error.message,
+      });
+      analytics = {
+        totalRevenue: 0,
+        totalOrders: 0,
+        todayOrders: 0,
+        activeOrders: 0,
+        averageRating: 0,
+        mostRequestedService: "",
+        monthlyRevenue: [],
+      };
+    } else {
+      throw error;
+    }
+  }
 
   return {
     activeOrders: analytics.activeOrders ?? 0,
@@ -932,24 +1182,46 @@ export async function getExternalAnalytics(): Promise<any> {
   };
 }
 export async function getForecast(): Promise<any> {
-  const forecast = await apiRequest<{
-    expectedOrdersNextWeek: number;
-    expectedRevenueNextWeek: number;
-    demandLevel: string;
-    insights?: string;
-    dailyBreakdown: Array<{ day: string; expectedOrders: number }>;
-  }>("/analytics/forecast");
+  try {
+    const forecast = await apiRequest<{
+      expectedOrdersNextWeek: number;
+      expectedRevenueNextWeek: number;
+      demandLevel: string;
+      insights?: string;
+      dailyBreakdown: Array<{ day: string; expectedOrders: number }>;
+    }>("/analytics/forecast");
 
-  return {
-    expectedOrdersNextWeek: forecast.expectedOrdersNextWeek,
-    expectedRevenueNextWeek: forecast.expectedRevenueNextWeek,
-    demandLevel: forecast.demandLevel,
-    insights: forecast.insights,
-    dailyBreakdown: (forecast.dailyBreakdown ?? []).map((day) => ({
-      day: day.day,
-      expectedOrders: day.expectedOrders,
-    })),
-  };
+    return {
+      expectedOrdersNextWeek: forecast.expectedOrdersNextWeek,
+      expectedRevenueNextWeek: forecast.expectedRevenueNextWeek,
+      demandLevel: forecast.demandLevel,
+      insights: forecast.insights,
+      dailyBreakdown: (forecast.dailyBreakdown ?? []).map((day) => ({
+        day: day.day,
+        expectedOrders: day.expectedOrders,
+      })),
+    };
+  } catch (error) {
+    if (isMissingLaundryError(error) && (await restoreMissingLaundryProfile())) {
+      return getForecast();
+    }
+
+    if (error instanceof ApiError) {
+      console.warn("Falling back to empty demand forecast after backend failure", {
+        status: error.status,
+        message: error.message,
+      });
+      return {
+        expectedOrdersNextWeek: 0,
+        expectedRevenueNextWeek: 0,
+        demandLevel: "Unknown",
+        insights: "Forecast is unavailable right now.",
+        dailyBreakdown: [],
+      };
+    }
+
+    throw error;
+  }
 }
 
 export async function startVerificationSession(
@@ -962,11 +1234,11 @@ export async function startVerificationSession(
       : undefined);
 
   try {
-    const query = resolvedCallback
-      ? `?callbackUrl=${encodeURIComponent(resolvedCallback)}`
-      : "";
-    const payload = await apiRequest<any>(`/verification/session${query}`, {
+    const payload = await apiRequest<any>("/verification/create-session", {
       method: "POST",
+      body: JSON.stringify({
+        redirectUrl: resolvedCallback,
+      }),
     });
     const url =
       typeof payload === "string"
@@ -975,10 +1247,15 @@ export async function startVerificationSession(
           payload?.Url ??
           payload?.sessionUrl ??
           payload?.verificationUrl);
-    return { url: url || DIDIT_VERIFICATION_URL };
+    if (!url) {
+      throw new ApiError("Verification session was created without a redirect URL.");
+    }
+    return { url };
   } catch (error) {
-    console.warn("Falling back to configured Didit URL", error);
-    return { url: DIDIT_VERIFICATION_URL };
+    console.error("Failed to create Didit verification session", error);
+    throw error instanceof Error
+      ? error
+      : new Error("Failed to create Didit verification session.");
   }
 }
 

@@ -27,7 +27,7 @@ import {
   savePendingLaundryOnboarding,
   type PendingLaundryOnboarding,
 } from "../lib/laundry-onboarding";
-import { setupProfile } from "../lib/laundry-admin-client";
+import { saveLaundryProfile, startVerificationSession } from "../lib/laundry-admin-client";
 
 type AccountType = "Customer" | "LaundryAdmin";
 
@@ -370,7 +370,7 @@ export default function SignupPage() {
 
   const finishLaundryOnboarding = async (data: PendingLaundryOnboarding) => {
     try {
-      await setupProfile({
+      await saveLaundryProfile({
         laundryName: data.laundryName,
         address: data.address,
         latitude: data.latitude,
@@ -422,6 +422,33 @@ export default function SignupPage() {
       return;
     }
 
+    if (accountType === "LaundryAdmin") {
+      try {
+        if (laundryData) {
+          await saveLaundryProfile({
+            laundryName: laundryData.laundryName,
+            address: laundryData.address,
+            latitude: laundryData.latitude,
+            longitude: laundryData.longitude,
+          });
+          clearPendingLaundryOnboarding();
+        }
+        const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
+        const session = await startVerificationSession(redirectUrl);
+        window.location.href = session.url;
+      } catch (error) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "Could not start identity verification.";
+        setErrors((prev) => ({
+          ...prev,
+          submit: message,
+        }));
+      }
+      return;
+    }
+
     if (laundryData) {
       savePendingLaundryOnboarding(laundryData);
     } else {
@@ -429,12 +456,6 @@ export default function SignupPage() {
     }
 
     if (result.requiresVerification) {
-      // For LaundryAdmin, redirect to identity verification page
-      if (accountType === "LaundryAdmin") {
-        router.push("/laundry-admin/verification");
-        return;
-      }
-      
       // For other users, redirect to email verification
       router.push(
         `/verify-email?email=${encodeURIComponent(result.email ?? email)}&role=${accountType}`,
