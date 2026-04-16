@@ -14,12 +14,13 @@ function VerificationSuccessContent() {
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get session_id from URL if present (Didit redirect)
-  const sessionId = searchParams?.get("session_id");
+  // Get params from URL (Didit returns: ?sessionId=xxx&status=Approved)
+  const sessionId = searchParams?.get("sessionId") || searchParams?.get("session_id");
   const status = searchParams?.get("status");
   
   // Log for debugging
   console.log("Verification callback - Session:", sessionId, "Status:", status);
+  console.log("Full URL:", typeof window !== "undefined" ? window.location.href : "");
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -73,6 +74,70 @@ function VerificationSuccessContent() {
     );
   }
 
+  // Handle different Didit statuses from URL
+  const urlStatus = status?.toLowerCase();
+  
+  // Show declined/review status immediately from URL
+  if (urlStatus === "declined" || urlStatus === "rejected") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="text-red-500 text-5xl mb-4">❌</div>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+            تم رفض التحقق
+          </h2>
+          <p className="text-gray-600 mb-6">
+            لم يتم قبول التحقق. يرجى التأكد من صحة المستندات والمحاولة مرة أخرى.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Link
+              href="/laundry-admin/verification"
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              إعادة التحقق
+            </Link>
+            <Link
+              href="/laundry-admin"
+              className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
+            >
+              لوحة التحكم
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (urlStatus === "in review" || urlStatus === "pending") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md mx-auto px-4">
+          <div className="text-yellow-500 text-5xl mb-4">⏳</div>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
+            قيد المراجعة
+          </h2>
+          <p className="text-gray-600 mb-6">
+            تم إرسال التحقق للمراجعة. سيتم إخطارك بالنتيجة خلال 24 ساعة.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              التحقق من الحالة
+            </button>
+            <Link
+              href="/laundry-admin"
+              className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition"
+            >
+              لوحة التحكم
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -101,7 +166,7 @@ function VerificationSuccessContent() {
     );
   }
 
-  if (isVerified) {
+  if (isVerified || urlStatus === "approved") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
