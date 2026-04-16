@@ -46,31 +46,6 @@ interface Payment {
   service: string;
 }
 
-const defaultPayments: Payment[] = [
-  { id: "PAY-5024", orderId: "ORD-1024", customer: "Sarah Johnson", method: "Credit Card", amount: 45.0, status: "Paid", date: "Apr 7, 2026", service: "Wash & Fold" },
-  { id: "PAY-5023", orderId: "ORD-1023", customer: "Mohammed Al-Rashid", method: "Apple Pay", amount: 120.0, status: "Paid", date: "Apr 7, 2026", service: "Dry Cleaning" },
-  { id: "PAY-5022", orderId: "ORD-1022", customer: "Emily Chen", method: "Credit Card", amount: 32.0, status: "Pending", date: "Apr 7, 2026", service: "Ironing" },
-  { id: "PAY-5021", orderId: "ORD-1021", customer: "James Williams", method: "Cash", amount: 28.0, status: "Pending", date: "Apr 6, 2026", service: "Wash & Fold" },
-  { id: "PAY-5020", orderId: "ORD-1020", customer: "Fatima Al-Amin", method: "Google Pay", amount: 95.0, status: "Paid", date: "Apr 6, 2026", service: "Dry Cleaning" },
-  { id: "PAY-5019", orderId: "ORD-1019", customer: "Lucas Moreira", method: "Credit Card", amount: 55.0, status: "Paid", date: "Apr 6, 2026", service: "Stain Removal" },
-  { id: "PAY-5018", orderId: "ORD-1018", customer: "Anna Petrov", method: "Credit Card", amount: 78.0, status: "Refunded", date: "Apr 5, 2026", service: "Wash & Fold" },
-  { id: "PAY-5017", orderId: "ORD-1017", customer: "Khalid Al-Omar", method: "Apple Pay", amount: 85.0, status: "Paid", date: "Apr 5, 2026", service: "Dry Cleaning" },
-  { id: "PAY-5016", orderId: "ORD-1016", customer: "Mei Lin", method: "Credit Card", amount: 40.0, status: "Paid", date: "Apr 5, 2026", service: "Ironing" },
-  { id: "PAY-5015", orderId: "ORD-1015", customer: "Carlos Gomez", method: "Cash", amount: 65.0, status: "Pending", date: "Apr 4, 2026", service: "Stain Removal" },
-  { id: "PAY-5014", orderId: "ORD-1014", customer: "Priya Sharma", method: "Google Pay", amount: 62.0, status: "Paid", date: "Apr 4, 2026", service: "Wash & Fold" },
-  { id: "PAY-5013", orderId: "ORD-1013", customer: "Ahmed Youssef", method: "Credit Card", amount: 175.0, status: "Paid", date: "Apr 4, 2026", service: "Dry Cleaning" },
-];
-
-const defaultRevenueByDay = [
-  { day: "Mon", revenue: 342 },
-  { day: "Tue", revenue: 520 },
-  { day: "Wed", revenue: 390 },
-  { day: "Thu", revenue: 680 },
-  { day: "Fri", revenue: 410 },
-  { day: "Sat", revenue: 280 },
-  { day: "Sun", revenue: 150 },
-];
-
 const statusConfig: Record<Exclude<PaymentStatus, "All">, { color: string; bg: string; icon: React.ElementType }> = {
   Paid: { color: "#22c55e", bg: "#f0fdf4", icon: CheckCircle2 },
   Pending: { color: "#1D5B70", bg: "#e8f4f8", icon: Clock },
@@ -287,7 +262,7 @@ export function Payments() {
   const [payments, setPayments] = useState<Payment[]>([]);
   const [revenueWeekly, setRevenueWeekly] = useState<{day: string; revenue: number}[]>([]);
   const [commissionInfo, setCommissionInfo] = useState<{ totalRevenue?: number; commissionDue?: number; rate?: number } | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
     async function loadData() {

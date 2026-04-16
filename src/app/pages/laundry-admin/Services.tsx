@@ -10,9 +10,6 @@ import {
   Search,
   Sparkles,
   WashingMachine,
-  Wind,
-  Droplets,
-  Shirt,
   Star,
   X,
   Check,
@@ -35,93 +32,28 @@ interface Service {
   rating: number;
 }
 
-const initialServices: Service[] = [
-  {
-    id: "svc-1",
-    name: "Wash & Fold",
-    description: "Professional washing and neatly folded delivery",
-    price: 15.0,
-    unit: "per bag",
-    category: "Washing",
-    active: true,
-    popular: true,
-    icon: WashingMachine,
-    orders: 138,
-    rating: 4.9,
-  },
-  {
-    id: "svc-2",
-    name: "Dry Cleaning",
-    description: "Expert dry cleaning for delicate and premium garments",
-    price: 35.0,
-    unit: "per piece",
-    category: "Dry Cleaning",
-    active: true,
-    popular: true,
-    icon: Sparkles,
-    orders: 94,
-    rating: 4.8,
-  },
-  {
-    id: "svc-3",
-    name: "Ironing",
-    description: "Crisp and professional ironing for all garment types",
-    price: 4.0,
-    unit: "per piece",
-    category: "Ironing",
-    active: true,
-    popular: false,
-    icon: Shirt,
-    orders: 72,
-    rating: 4.7,
-  },
-  {
-    id: "svc-4",
-    name: "Stain Removal",
-    description: "Specialized treatment for tough and stubborn stains",
-    price: 20.0,
-    unit: "per item",
-    category: "Special Care",
-    active: true,
-    popular: false,
-    icon: Droplets,
-    orders: 41,
-    rating: 4.6,
-  },
-  {
-    id: "svc-5",
-    name: "Curtain & Linen Wash",
-    description: "Large-item laundering for curtains, bed sheets, and linens",
-    price: 25.0,
-    unit: "per set",
-    category: "Washing",
-    active: true,
-    popular: false,
-    icon: Wind,
-    orders: 29,
-    rating: 4.5,
-  },
-  {
-    id: "svc-6",
-    name: "Wash & Iron",
-    description: "Complete washing and ironing package for your clothes",
-    price: 18.0,
-    unit: "per bag",
-    category: "Combo",
-    active: false,
-    popular: false,
-    icon: WashingMachine,
-    orders: 17,
-    rating: 4.4,
-  },
-];
-
-const categories = ["All", "Washing", "Dry Cleaning", "Ironing", "Special Care", "Combo"];
+const categories = ["All", "Washing", "Dry Cleaning", "Ironing", "Special Care"];
 
 interface ServiceModalProps {
   service?: Partial<Service>;
   onClose: () => void;
   onSave: (data: Partial<Service>) => void;
+}
+
+function normalizeService(service: Partial<Service>): Service {
+  return {
+    id: String(service.id ?? `svc-${Date.now()}`),
+    name: service.name ?? "New Service",
+    description: service.description ?? "",
+    price: Number(service.price ?? 0),
+    unit: service.unit ?? "per piece",
+    category: service.category ?? "Washing",
+    active: service.active ?? true,
+    popular: service.popular ?? false,
+    icon: service.icon ?? WashingMachine,
+    orders: Number(service.orders ?? 0),
+    rating: Number(service.rating ?? 0),
+  };
 }
 
 function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
@@ -329,6 +261,7 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
 export function Services() {
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("All");
   const [search, setSearch] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
@@ -344,10 +277,23 @@ export function Services() {
     return matchCat && matchSearch;
   });
 
+  const loadServices = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getServices();
+      setServices(Array.isArray(data) ? data.map(normalizeService) : []);
+    } catch (error) {
+      console.error(error);
+      setError("Could not load services from backend.");
+      setServices([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    getServices().then((data) => {
-      if (data && Array.isArray(data)) setServices(data as Service[]);
-    }).catch(console.error).finally(() => setLoading(false));
+    void loadServices();
   }, []);
 
   const handleToggle = async (id: string) => {
@@ -376,30 +322,21 @@ export function Services() {
 
   const handleSave = async (data: Partial<Service>) => {
     try {
+      setError(null);
       if (editingService) {
-        await updateService(editingService.id, data);
+        const updated = await updateService(editingService.id, data);
         setServices((prev) =>
-          prev.map((s) => (s.id === editingService.id ? { ...s, ...data } : s))
+          prev.map((s) => (s.id === editingService.id ? normalizeService({ ...s, ...data, ...updated, id: editingService.id }) : s))
         );
       } else {
-        const created = await createService(data);
-        const newSvc: Service = {
-          id: created?.id || `svc-${Date.now()}`,
-          icon: WashingMachine,
-          orders: created?.orders || 0,
-          rating: created?.rating || 5.0,
-          name: data.name ?? "New Service",
-          description: data.description ?? "",
-          price: data.price ?? 0,
-          unit: data.unit ?? "per piece",
-          category: data.category ?? "Washing",
-          active: data.active ?? true,
-          popular: data.popular ?? false,
-        };
-        setServices((prev) => [...prev, newSvc]);
+        await createService(data);
+        setSearch("");
+        setActiveCategory(data.category ?? "All");
+        await loadServices();
       }
     } catch (e) {
       console.error(e);
+      setError("Could not save service. Please check the backend response and try again.");
     } finally {
       setModalOpen(false);
       setEditingService(undefined);
@@ -422,6 +359,13 @@ export function Services() {
           <Plus className="w-4 h-4" /> Add Service
         </button>
       </div>
+
+      {/* Filters */}
+      {error && (
+        <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-600">
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
@@ -454,7 +398,7 @@ export function Services() {
       <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
         <AnimatePresence>
           {filtered.map((svc, i) => {
-            const Icon = svc.icon;
+            const Icon = svc.icon ?? WashingMachine;
             return (
               <motion.div
                 key={svc.id}

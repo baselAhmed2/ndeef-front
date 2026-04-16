@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import { usePreferences } from "@/app/context/PreferencesContext";
 import { getProfile, setupProfile, startVerificationSession, uploadCommercialRegister } from "@/app/lib/laundry-admin-client";
 import { LAUNDRY_ADMIN_DIDIT_SIGNUP_URL } from "@/app/lib/laundry-onboarding";
 import { motion, AnimatePresence } from "motion/react";
@@ -50,7 +51,8 @@ function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) =>
 
 export function Settings() {
   const searchParams = useSearchParams();
-  const onboardingMode = searchParams.get("onboarding") === "1";
+  const { language, setLanguage, theme, setTheme } = usePreferences();
+  const onboardingMode = searchParams?.get("onboarding") === "1";
   const [saved, setSaved] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
@@ -106,6 +108,14 @@ export function Settings() {
     }
     loadProf();
   }, []);
+
+  useEffect(() => {
+    setPreferences((current) => ({
+      ...current,
+      language: language === "ar" ? "Arabic" : "English",
+      darkMode: theme === "dark",
+    }));
+  }, [language, theme]);
 
   const handleSave = async () => {
     try {
@@ -642,13 +652,12 @@ export function Settings() {
                     Language
                   </label>
                   <select
-                    value={preferences.language}
-                    onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value === "ar" ? "ar" : "en")}
                     className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20 bg-white"
                   >
-                    <option>English</option>
-                    <option>Arabic</option>
-                    <option>French</option>
+                    <option value="en">English</option>
+                    <option value="ar">Arabic</option>
                   </select>
                 </div>
                 <div>
@@ -710,7 +719,13 @@ export function Settings() {
                       </div>
                       <Toggle
                         value={preferences[item.key]}
-                        onChange={(v) => setPreferences((prev) => ({ ...prev, [item.key]: v }))}
+                        onChange={(v) => {
+                          if (item.key === "darkMode") {
+                            setTheme(v ? "dark" : "light");
+                          }
+
+                          setPreferences((prev) => ({ ...prev, [item.key]: v }));
+                        }}
                       />
                     </div>
                   );

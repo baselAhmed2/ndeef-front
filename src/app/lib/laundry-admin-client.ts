@@ -1,4 +1,4 @@
-import { apiRequest } from "./admin-api";
+import { ApiError, apiRequest } from "./admin-api";
 
 type BackendOrderStatus =
   | "PendingConfirmation"
@@ -16,6 +16,61 @@ type FrontendOrderStatus =
   | "Delivered"
   | "Cancelled";
 
+type BackendIncomingOrder = {
+  id: number;
+  customerName: string;
+  customerPhone?: string | null;
+  pickupLocation?: string | null;
+  deliveryLocation?: string | null;
+  pickupTime?: string | Date | null;
+  status: string;
+  totalPrice: number;
+  createdAt: string;
+  items?: Array<{
+    serviceName?: string | null;
+    quantity?: number | null;
+    subtotal?: number | null;
+  }> | null;
+};
+
+type BackendRecentOrder = {
+  id: number;
+  orderNumber?: string | null;
+  customerName?: string | null;
+  serviceName?: string | null;
+  items?: number | null;
+  total?: number | null;
+  status?: string | null;
+  createdAt?: string | null;
+};
+
+type LaundryNotificationType =
+  | "order"
+  | "payment"
+  | "review"
+  | "alert"
+  | "system";
+
+type BackendNotification = {
+  id: number | string;
+  title?: string | null;
+  message?: string | null;
+  type?: string | number | null;
+  isRead?: boolean | null;
+  createdAt?: string | null;
+  orderId?: number | string | null;
+};
+
+type NotificationsResponse =
+  | BackendNotification[]
+  | {
+      data?: BackendNotification[] | null;
+      pageIndex?: number;
+      pageSize?: number;
+      totalCount?: number;
+      totalPages?: number;
+    };
+
 const DAY_NAMES = [
   "Sunday",
   "Monday",
@@ -26,7 +81,21 @@ const DAY_NAMES = [
   "Saturday",
 ] as const;
 
-function formatDate(value: string | Date, options?: Intl.DateTimeFormatOptions) {
+const DIDIT_VERIFICATION_URL =
+  "https://verify.didit.me/u/ueKcLhvVTo-8x_fXAt0ogw";
+
+function unwrapArray<T>(
+  payload: T[] | { data?: T[] | null } | null | undefined,
+): T[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  return [];
+}
+
+function formatDate(
+  value: string | Date,
+  options?: Intl.DateTimeFormatOptions,
+) {
   const date = value instanceof Date ? value : new Date(value);
   return new Intl.DateTimeFormat("en-US", options).format(date);
 }
@@ -77,24 +146,40 @@ function toBackendOrderStatus(status: string): BackendOrderStatus {
 
 function toServiceCategory(category: string) {
   switch (category) {
+    case "Washing":
+    case "Wash":
+    case "1":
+      return "Wash";
     case "Dry Cleaning":
+    case "DryCleaning":
+    case "2":
       return "DryCleaning";
     case "Ironing":
+    case "Iron":
+    case "3":
       return "Iron";
     case "Special Care":
+    case "Specialty":
+    case "4":
       return "Specialty";
     default:
       return "Wash";
   }
 }
 
-function fromServiceCategory(category: string) {
-  switch (category) {
+function fromServiceCategory(category: string | number | null | undefined) {
+  switch (String(category ?? "")) {
+    case "Wash":
+    case "1":
+      return "Washing";
     case "DryCleaning":
+    case "2":
       return "Dry Cleaning";
     case "Iron":
+    case "3":
       return "Ironing";
     case "Specialty":
+    case "4":
       return "Special Care";
     default:
       return "Washing";
@@ -116,7 +201,12 @@ function clockToTimeSpan(value: string) {
 export interface DashboardSummary {
   revenueData: Array<{ month: string; revenue: number; orders: number }>;
   orderStatusData: Array<{ name: string; value: number; color: string }>;
-  topServices: Array<{ name: string; orders: number; revenue: number; growth: number }>;
+  topServices: Array<{
+    name: string;
+    orders: number;
+    revenue: number;
+    growth: number;
+  }>;
   stats?: {
     totalOrders: number;
     pendingOrders: number;
@@ -127,7 +217,9 @@ export interface DashboardSummary {
   };
 }
 
-export async function getDashboardSummary(): Promise<Partial<DashboardSummary>> {
+export async function getDashboardSummary(): Promise<
+  Partial<DashboardSummary>
+> {
   const summary = await apiRequest<{
     totalOrders: number;
     pendingOrders: number;
@@ -148,10 +240,16 @@ export async function getDashboardSummary(): Promise<Partial<DashboardSummary>> 
   };
 }
 
-export async function getRevenueWeekly(): Promise<Array<{ day: string; revenue: number; orders: number }>> {
-  const points = await apiRequest<Array<{ label: string; revenue: number; orders: number }>>(
-    "/laundry-admin/revenue/weekly",
-  );
+export async function getRevenueWeekly(): Promise<
+  Array<{ day: string; revenue: number; orders: number }>
+> {
+  const payload = await apiRequest<
+    | Array<{ label: string; revenue: number; orders: number }>
+    | {
+        data?: Array<{ label: string; revenue: number; orders: number }> | null;
+      }
+  >("/laundry-admin/revenue/weekly");
+  const points = unwrapArray(payload);
   return points.map((point) => ({
     day: point.label,
     revenue: point.revenue,
@@ -162,9 +260,13 @@ export async function getRevenueWeekly(): Promise<Array<{ day: string; revenue: 
 export async function getRevenueMonthly(
   year: number,
 ): Promise<Array<{ month: string; revenue: number; orders: number }>> {
-  const points = await apiRequest<Array<{ label: string; revenue: number; orders: number }>>(
-    `/laundry-admin/revenue/monthly?year=${year}`,
-  );
+  const payload = await apiRequest<
+    | Array<{ label: string; revenue: number; orders: number }>
+    | {
+        data?: Array<{ label: string; revenue: number; orders: number }> | null;
+      }
+  >(`/laundry-admin/revenue/monthly?year=${year}`);
+  const points = unwrapArray(payload);
   return points.map((point) => ({
     month: point.label,
     revenue: point.revenue,
@@ -174,41 +276,24 @@ export async function getRevenueMonthly(
 
 export async function getIncomingOrders(): Promise<any[]> {
   try {
-    const orders = await apiRequest<
-      Array<{
-        id: number;
-        customerName: string;
-        customerPhone: string;
-        pickupLocation: string;
-        deliveryLocation: string;
-        pickupTime: string;
-        status: string;
-        totalPrice: number;
-        createdAt: string;
-        items: Array<{ serviceName: string; quantity: number; subtotal: number }>;
-      }>
-    >("/laundry-admin/orders/incoming");
-    return orders.map((order) => ({
-      id: String(order.id),
-      customer: order.customerName,
-      phone: order.customerPhone,
-      service: order.items.map((item) => item.serviceName).join(", ") || "Laundry Service",
-      items: order.items.reduce((sum, item) => sum + item.quantity, 0),
-      amount: order.totalPrice,
-      status: toFrontendOrderStatus(order.status),
-      date: formatDate(order.createdAt, { month: "short", day: "numeric", year: "numeric" }),
-      time: formatDate(order.createdAt, { hour: "numeric", minute: "2-digit" }),
-      address: order.deliveryLocation || order.pickupLocation,
-      pickupAddress: order.pickupLocation,
-      deliveryAddress: order.deliveryLocation,
-      createdAt: order.createdAt,
-      pickupTime: order.pickupTime,
-      rawStatus: order.status,
-      rawItems: order.items,
-    }));
+    const payload = await apiRequest<
+      Array<BackendIncomingOrder> | { data?: BackendIncomingOrder[] | null }
+    >("/laundry-admin/orders/incoming", { suppressErrorLog: true });
+    const orders = unwrapArray(payload);
+    return orders.map(mapIncomingOrder);
   } catch (err) {
-    console.warn("Failed incoming orders", err);
-    return [];
+    try {
+      const recentPayload = await apiRequest<
+        Array<BackendRecentOrder> | { data?: BackendRecentOrder[] | null }
+      >("/laundry-admin/orders/recent", { suppressErrorLog: true });
+      return unwrapArray(recentPayload).map(mapRecentOrder);
+    } catch (fallbackErr) {
+      console.warn("Failed to load laundry orders", {
+        primary: err,
+        fallback: fallbackErr,
+      });
+      return [];
+    }
   }
 }
 
@@ -241,7 +326,9 @@ export async function getOrderById(id: string): Promise<any> {
     address: order.deliveryLocation || order.pickupLocation,
     pickupAddress: order.pickupLocation,
     deliveryAddress: order.deliveryLocation,
-    service: order.items.map((item) => item.serviceName).join(", ") || "Laundry Service",
+    service:
+      order.items.map((item) => item.serviceName).join(", ") ||
+      "Laundry Service",
     status: frontendStatus,
     date: formatDateTime(order.createdAt),
     estimatedReady: formatDateTime(order.pickupTime),
@@ -258,22 +345,34 @@ export async function getOrderById(id: string): Promise<any> {
     totalPrice: order.totalPrice,
     totalItems,
     timeline: [
-      { label: "Order Placed", time: formatDateTime(order.createdAt), done: true },
+      {
+        label: "Order Placed",
+        time: formatDateTime(order.createdAt),
+        done: true,
+      },
       {
         label: "Processing",
-        time: frontendStatus === "Pending" ? "Pending" : formatDateTime(order.pickupTime),
+        time:
+          frontendStatus === "Pending"
+            ? "Pending"
+            : formatDateTime(order.pickupTime),
         done: frontendStatus !== "Pending",
         active: frontendStatus === "Processing",
       },
       {
         label: "Ready for Pickup",
-        time: ["Ready", "Delivered"].includes(frontendStatus) ? formatDateTime(order.pickupTime) : "Pending",
+        time: ["Ready", "Delivered"].includes(frontendStatus)
+          ? formatDateTime(order.pickupTime)
+          : "Pending",
         done: ["Ready", "Delivered"].includes(frontendStatus),
         active: frontendStatus === "Ready",
       },
       {
         label: "Delivered",
-        time: frontendStatus === "Delivered" ? formatDateTime(order.pickupTime) : "Pending",
+        time:
+          frontendStatus === "Delivered"
+            ? formatDateTime(order.pickupTime)
+            : "Pending",
         done: frontendStatus === "Delivered",
         active: frontendStatus === "Delivered",
       },
@@ -281,10 +380,13 @@ export async function getOrderById(id: string): Promise<any> {
   };
 }
 
-export async function updateOrderStatus(id: string, status: string): Promise<void> {
+export async function updateOrderStatus(
+  id: string,
+  status: string,
+): Promise<void> {
   await apiRequest(`/laundry-admin/orders/${id}/status`, {
     method: "PUT",
-    body: JSON.stringify({ newStatus: toBackendOrderStatus(status) })
+    body: JSON.stringify({ newStatus: toBackendOrderStatus(status) }),
   });
 }
 
@@ -306,25 +408,58 @@ export interface ServiceDTO {
 }
 
 export async function getServices(): Promise<ServiceDTO[]> {
-  const services = await apiRequest<
-    Array<{ id: number; serviceName: string; category: string; price: number; isAvailable: boolean }>
-  >("/laundry-admin/services");
+  try {
+    const payload = await apiRequest<
+      | Array<{
+          id: number;
+          serviceName: string;
+          category: string;
+          price: number;
+          isAvailable: boolean;
+        }>
+      | {
+          data?: Array<{
+            id: number;
+            serviceName: string;
+            category: string;
+            price: number;
+            isAvailable: boolean;
+          }> | null;
+        }
+    >("/laundry-admin/services");
+    const services = unwrapArray(payload);
 
-  return services.map((service) => ({
-    id: String(service.id),
-    name: service.serviceName,
-    description: "",
-    price: service.price,
-    unit: "per piece",
-    category: fromServiceCategory(service.category),
-    active: service.isAvailable,
-    popular: false,
-    orders: 0,
-    rating: 0,
-  }));
+    return services.map((service) => ({
+      id: String(service.id),
+      name: service.serviceName,
+      description: "",
+      price: service.price,
+      unit: "per piece",
+      category: fromServiceCategory(service.category),
+      active: service.isAvailable,
+      popular: false,
+      orders: 0,
+      rating: 0,
+    }));
+  } catch (error) {
+    if (error instanceof ApiError && error.status >= 500) {
+      console.warn(
+        "Falling back to an empty service catalog after backend failure",
+        {
+          status: error.status,
+          message: error.message,
+        },
+      );
+      return [];
+    }
+
+    throw error;
+  }
 }
 
-export async function createService(data: Partial<ServiceDTO>): Promise<ServiceDTO> {
+export async function createService(
+  data: Partial<ServiceDTO>,
+): Promise<ServiceDTO> {
   const created = await apiRequest<{
     id?: number;
     serviceName?: string;
@@ -346,7 +481,9 @@ export async function createService(data: Partial<ServiceDTO>): Promise<ServiceD
     description: data.description ?? "",
     price: created.price ?? data.price ?? 0,
     unit: data.unit ?? "per piece",
-    category: fromServiceCategory(created.category ?? toServiceCategory(data.category ?? "")),
+    category: fromServiceCategory(
+      created.category ?? toServiceCategory(data.category ?? ""),
+    ),
     active: created.isAvailable ?? data.active ?? true,
     popular: data.popular ?? false,
     orders: 0,
@@ -354,7 +491,10 @@ export async function createService(data: Partial<ServiceDTO>): Promise<ServiceD
   };
 }
 
-export async function updateService(id: string, data: Partial<ServiceDTO>): Promise<ServiceDTO> {
+export async function updateService(
+  id: string,
+  data: Partial<ServiceDTO>,
+): Promise<ServiceDTO> {
   await apiRequest(`/laundry-admin/services/${id}`, {
     method: "PUT",
     body: JSON.stringify({
@@ -362,7 +502,7 @@ export async function updateService(id: string, data: Partial<ServiceDTO>): Prom
       category: data.category ? toServiceCategory(data.category) : undefined,
       price: data.price,
       isAvailable: data.active,
-    })
+    }),
   });
   return {
     id,
@@ -380,30 +520,36 @@ export async function updateService(id: string, data: Partial<ServiceDTO>): Prom
 
 export async function deleteService(id: string): Promise<void> {
   await apiRequest(`/laundry-admin/services/${id}`, {
-    method: "DELETE"
+    method: "DELETE",
   });
 }
 
-export async function uploadServiceImage(formData: FormData): Promise<{ url: string }> {
+export async function uploadServiceImage(
+  formData: FormData,
+): Promise<{ url: string }> {
   // apiRequest defaults to application/json if body is present, so let's use custom fetch for FormData
   const { getStoredAuthToken } = await import("@/app/lib/auth-storage");
   const token = getStoredAuthToken();
   const res = await fetch("/api/backend/laundry-admin/upload-image", {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData
+    body: formData,
   });
   if (!res.ok) throw new Error("Failed to upload image");
   const payload = await res.json();
   return { url: payload.ImageUrl ?? payload.imageUrl ?? payload.url ?? "" };
 }
 
-export async function suggestPrice(serviceDetails: any): Promise<{ suggestedPrice: number }> {
+export async function suggestPrice(
+  serviceDetails: any,
+): Promise<{ suggestedPrice: number }> {
   const query = new URLSearchParams({
     ...serviceDetails,
     category: toServiceCategory(serviceDetails.category ?? ""),
   }).toString();
-  const payload = await apiRequest<any>(`/laundry-admin/suggest-price?${query}`);
+  const payload = await apiRequest<any>(
+    `/laundry-admin/suggest-price?${query}`,
+  );
   return { suggestedPrice: payload?.suggestedPrice ?? payload?.price ?? 0 };
 }
 
@@ -417,13 +563,21 @@ export interface DaySchedule {
 export type WeeklySchedule = Record<string, DaySchedule>;
 
 export async function getSchedule(): Promise<WeeklySchedule> {
-  const payload = await apiRequest<{ days: Array<{ dayOfWeek: number; isOpen: boolean; openTime: string; closeTime: string }> }>(
-    "/laundry-admin/availability/schedule",
-  );
+  const payload = await apiRequest<{
+    days: Array<{
+      dayOfWeek: number;
+      isOpen: boolean;
+      openTime: string;
+      closeTime: string;
+    }>;
+  }>("/laundry-admin/availability/schedule");
 
   const schedule = {} as WeeklySchedule;
   for (const dayName of DAY_NAMES.slice(1).concat(DAY_NAMES[0])) {
-    schedule[dayName] = { enabled: false, slots: [{ start: "08:00", end: "20:00", id: `${dayName}-0` }] };
+    schedule[dayName] = {
+      enabled: false,
+      slots: [{ start: "08:00", end: "20:00", id: `${dayName}-0` }],
+    };
   }
 
   payload.days.forEach((day) => {
@@ -444,30 +598,35 @@ export async function getSchedule(): Promise<WeeklySchedule> {
 }
 
 export async function updateSchedule(data: WeeklySchedule): Promise<void> {
-  const days = (Object.entries(data) as Array<[string, DaySchedule]>).map(([name, value]) => {
-    const dayIndex = DAY_NAMES.indexOf(name as (typeof DAY_NAMES)[number]);
-    const firstSlot = value.slots[0] ?? { start: "08:00", end: "20:00" };
-    return {
-      dayOfWeek: dayIndex,
-      isOpen: value.enabled,
-      openTime: clockToTimeSpan(firstSlot.start),
-      closeTime: clockToTimeSpan(firstSlot.end),
-    };
-  });
+  const days = (Object.entries(data) as Array<[string, DaySchedule]>).map(
+    ([name, value]) => {
+      const dayIndex = DAY_NAMES.indexOf(name as (typeof DAY_NAMES)[number]);
+      const firstSlot = value.slots[0] ?? { start: "08:00", end: "20:00" };
+      return {
+        dayOfWeek: dayIndex,
+        isOpen: value.enabled,
+        openTime: clockToTimeSpan(firstSlot.start),
+        closeTime: clockToTimeSpan(firstSlot.end),
+      };
+    },
+  );
 
   await apiRequest("/laundry-admin/availability/schedule", {
     method: "PUT",
-    body: JSON.stringify({ days })
+    body: JSON.stringify({ days }),
   });
 }
 
 export async function getCapacity(): Promise<any> {
-  const payload = await apiRequest<{ maxOrdersPerDay: number; leadTimeHours: number }>(
-    "/laundry-admin/availability/capacity",
-  );
+  const payload = await apiRequest<{
+    maxOrdersPerDay?: number;
+    leadTimeHours?: number;
+    data?: { maxOrdersPerDay?: number; leadTimeHours?: number } | null;
+  }>("/laundry-admin/availability/capacity");
+  const capacity = payload.data ?? payload;
   return {
-    maxOrders: payload.maxOrdersPerDay,
-    leadTime: payload.leadTimeHours,
+    maxOrders: capacity?.maxOrdersPerDay ?? 0,
+    leadTime: capacity?.leadTimeHours ?? 0,
   };
 }
 
@@ -477,17 +636,23 @@ export async function updateCapacity(data: any): Promise<void> {
     body: JSON.stringify({
       maxOrdersPerDay: data.maxOrders,
       leadTimeHours: data.leadTime,
-    })
+    }),
   });
 }
 
 export async function getClosedDates(): Promise<any[]> {
-  const dates = await apiRequest<Array<{ id: number; date: string; reason?: string }>>(
-    "/laundry-admin/availability/closed-dates",
-  );
+  const payload = await apiRequest<
+    | Array<{ id: number; date: string; reason?: string }>
+    | { data?: Array<{ id: number; date: string; reason?: string }> | null }
+  >("/laundry-admin/availability/closed-dates");
+  const dates = unwrapArray(payload);
   return dates.map((item) => ({
     id: String(item.id),
-    date: formatDate(item.date, { month: "short", day: "numeric", year: "numeric" }),
+    date: formatDate(item.date, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
     name: item.reason || "Closed",
     rawDate: item.date,
   }));
@@ -499,13 +664,13 @@ export async function addClosedDate(data: any): Promise<any> {
     body: JSON.stringify({
       date: data.rawDate ?? data.date,
       reason: data.name ?? data.reason,
-    })
+    }),
   });
 }
 
 export async function removeClosedDate(id: string): Promise<void> {
   await apiRequest(`/laundry-admin/availability/closed-dates/${id}`, {
-    method: "DELETE"
+    method: "DELETE",
   });
 }
 
@@ -513,46 +678,83 @@ export async function removeClosedDate(id: string): Promise<void> {
 // Payments & Commission
 // ---------------------------------------------------------
 
-export async function getCommissionSummary(): Promise<{ totalRevenue: number; commissionDue: number; rate: number; commissionPaid: number; status: string }> {
+export async function getCommissionSummary(): Promise<{
+  totalRevenue: number;
+  commissionDue: number;
+  rate: number;
+  commissionPaid: number;
+  status: string;
+}> {
   const payload = await apiRequest<{
-    totalRevenue: number;
-    commissionRate: number;
-    commissionPaid: number;
-    commissionDue: number;
-    status: string;
+    totalRevenue?: number;
+    commissionRate?: number;
+    commissionPaid?: number;
+    commissionDue?: number;
+    status?: string;
+    data?: {
+      totalRevenue?: number;
+      commissionRate?: number;
+      commissionPaid?: number;
+      commissionDue?: number;
+      status?: string;
+    } | null;
   }>("/laundry-admin/commission/summary");
+  const summary = payload.data ?? payload;
 
   return {
-    totalRevenue: payload.totalRevenue,
-    commissionDue: payload.commissionDue,
-    rate: payload.commissionRate,
-    commissionPaid: payload.commissionPaid,
-    status: payload.status,
+    totalRevenue: summary?.totalRevenue ?? 0,
+    commissionDue: summary?.commissionDue ?? 0,
+    rate: summary?.commissionRate ?? 0,
+    commissionPaid: summary?.commissionPaid ?? 0,
+    status: summary?.status ?? "Pending",
   };
 }
 
-export async function initiateKashier(amount: number, laundryId?: number): Promise<{ url: string }> {
+export async function initiateKashier(
+  amount: number,
+  laundryId?: number,
+): Promise<{ url: string }> {
   const resolvedLaundryId = laundryId ?? (await getProfile()).laundryId;
-  const payload = await apiRequest<any>("/laundry-admin/commission/kashier/initiate", {
-    method: "POST",
-    body: JSON.stringify({ amount, currency: "EGP", laundryId: resolvedLaundryId })
-  });
+  const payload = await apiRequest<any>(
+    "/laundry-admin/commission/kashier/initiate",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        amount,
+        currency: "EGP",
+        laundryId: resolvedLaundryId,
+      }),
+    },
+  );
   return { url: payload?.sessionUrl ?? payload?.url ?? "" };
 }
 
 export async function getPayments(): Promise<any[]> {
-  const payments = await apiRequest<
-    Array<{
-      paymentId: string;
-      orderId: number;
-      customerName: string;
-      serviceName: string;
-      method: string;
-      date: string;
-      amount: number;
-      status: "Paid" | "Pending" | "Refunded";
-    }>
+  const payload = await apiRequest<
+    | Array<{
+        paymentId: string;
+        orderId: number;
+        customerName: string;
+        serviceName: string;
+        method: string;
+        date: string;
+        amount: number;
+        status: "Paid" | "Pending" | "Refunded";
+      }>
+    | {
+        data?: Array<{
+          paymentId: string;
+          orderId: number;
+          customerName: string;
+          serviceName: string;
+          method: string;
+          date: string;
+          amount: number;
+          status: "Paid" | "Pending" | "Refunded";
+        }> | null;
+      }
   >("/laundry-admin/payments");
+  const payments = unwrapArray(payload);
 
   return payments.map((payment) => ({
     id: payment.paymentId,
@@ -561,7 +763,11 @@ export async function getPayments(): Promise<any[]> {
     method: payment.method,
     amount: payment.amount,
     status: payment.status,
-    date: formatDate(payment.date, { month: "short", day: "numeric", year: "numeric" }),
+    date: formatDate(payment.date, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
     service: payment.serviceName,
   }));
 }
@@ -609,21 +815,70 @@ export async function setupProfile(data: any): Promise<void> {
       address: data.address,
       latitude: Number(data.latitude ?? 0),
       longitude: Number(data.longitude ?? 0),
-    })
+    }),
   });
 }
 
+// ---------------------------------------------------------
+// Couriers
+// ---------------------------------------------------------
+
+export interface LaundryCourierDTO {
+  courierId: string;
+  name: string;
+  phoneNumber: string;
+  isAvailable: boolean;
+  completedOrdersCount: number;
+  cancellationCount: number;
+  laundryId?: number | null;
+  laundryName?: string | null;
+}
+
+export async function getLaundryCouriers(): Promise<LaundryCourierDTO[]> {
+  const payload = await apiRequest<
+    LaundryCourierDTO[] | { data?: LaundryCourierDTO[] | null }
+  >("/laundry-admin/couriers");
+  return unwrapArray(payload);
+}
+
+export async function assignCourier(phoneNumber: string): Promise<void> {
+  await apiRequest("/laundry-admin/couriers/assign", {
+    method: "POST",
+    body: JSON.stringify({ phoneNumber: phoneNumber.trim() }),
+  });
+}
+
+export async function unassignCourier(courierId: string): Promise<void> {
+  await apiRequest(
+    `/laundry-admin/couriers/${encodeURIComponent(courierId)}/unassign`,
+    {
+      method: "DELETE",
+    },
+  );
+}
+
 export async function getComplaints(): Promise<any[]> {
-  const complaints = await apiRequest<
-    Array<{
-      id: number;
-      orderId: number;
-      customerName: string;
-      details: string;
-      status: string;
-      createdAt: string;
-    }>
+  const payload = await apiRequest<
+    | Array<{
+        id: number;
+        orderId: number;
+        customerName: string;
+        details: string;
+        status: string;
+        createdAt: string;
+      }>
+    | {
+        data?: Array<{
+          id: number;
+          orderId: number;
+          customerName: string;
+          details: string;
+          status: string;
+          createdAt: string;
+        }> | null;
+      }
   >("/laundry-admin/complaints");
+  const complaints = unwrapArray(payload);
 
   return complaints.map((complaint) => ({
     id: String(complaint.id),
@@ -637,7 +892,11 @@ export async function getComplaints(): Promise<any[]> {
         : complaint.status === "Resolved"
           ? "Resolved"
           : "Open",
-    date: formatDate(complaint.createdAt, { month: "short", day: "numeric", year: "numeric" }),
+    date: formatDate(complaint.createdAt, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
   }));
 }
 
@@ -656,17 +915,20 @@ export async function getExternalAnalytics(): Promise<any> {
   }>("/analytics/laundry");
 
   return {
-    activeUsers: analytics.activeOrders,
-    conversionRate: `${analytics.averageRating.toFixed(1)} / 5`,
-    avgOrderValue: analytics.totalOrders > 0 ? Math.round(analytics.totalRevenue / analytics.totalOrders) : 0,
-    monthlyActive: analytics.todayOrders,
-    history: analytics.monthlyRevenue.map((item) => ({
+    activeOrders: analytics.activeOrders ?? 0,
+    averageRating: `${(analytics.averageRating ?? 0).toFixed(1)} / 5`,
+    avgOrderValue:
+      analytics.totalOrders > 0
+        ? Math.round(analytics.totalRevenue / analytics.totalOrders)
+        : 0,
+    todayOrders: analytics.todayOrders ?? 0,
+    totalRevenue: analytics.totalRevenue ?? 0,
+    history: (analytics.monthlyRevenue ?? []).map((item) => ({
       name: item.month,
-      visitors: item.revenue,
-      orders: 0,
+      revenue: item.revenue,
     })),
-    totalOrders: analytics.totalOrders,
-    mostRequestedService: analytics.mostRequestedService,
+    totalOrders: analytics.totalOrders ?? 0,
+    mostRequestedService: analytics.mostRequestedService ?? "",
   };
 }
 export async function getForecast(): Promise<any> {
@@ -678,20 +940,146 @@ export async function getForecast(): Promise<any> {
     dailyBreakdown: Array<{ day: string; expectedOrders: number }>;
   }>("/analytics/forecast");
 
-  return forecast.dailyBreakdown.map((day) => ({
-    month: day.day,
-    prediction: day.expectedOrders,
-    confidence: [Math.max(day.expectedOrders - 2, 0), day.expectedOrders + 2],
-  }));
+  return {
+    expectedOrdersNextWeek: forecast.expectedOrdersNextWeek,
+    expectedRevenueNextWeek: forecast.expectedRevenueNextWeek,
+    demandLevel: forecast.demandLevel,
+    insights: forecast.insights,
+    dailyBreakdown: (forecast.dailyBreakdown ?? []).map((day) => ({
+      day: day.day,
+      expectedOrders: day.expectedOrders,
+    })),
+  };
 }
 
-export async function uploadCommercialRegister(formData: FormData): Promise<any> {
+export async function startVerificationSession(
+  callbackUrl?: string,
+): Promise<{ url: string }> {
+  const resolvedCallback =
+    callbackUrl ??
+    (typeof window !== "undefined"
+      ? `${window.location.origin}/laundry-admin/verification/success`
+      : undefined);
+
+  try {
+    const query = resolvedCallback
+      ? `?callbackUrl=${encodeURIComponent(resolvedCallback)}`
+      : "";
+    const payload = await apiRequest<any>(`/verification/session${query}`, {
+      method: "POST",
+    });
+    const url =
+      typeof payload === "string"
+        ? payload
+        : (payload?.url ??
+          payload?.Url ??
+          payload?.sessionUrl ??
+          payload?.verificationUrl);
+    return { url: url || DIDIT_VERIFICATION_URL };
+  } catch (error) {
+    console.warn("Falling back to configured Didit URL", error);
+    return { url: DIDIT_VERIFICATION_URL };
+  }
+}
+
+function toFrontendNotificationType(
+  type: string | number | null | undefined,
+): LaundryNotificationType {
+  const normalized = String(type ?? "").toLowerCase();
+
+  if (normalized.includes("payment") || normalized === "4") return "payment";
+  if (normalized.includes("review")) return "review";
+  if (
+    normalized.includes("promotion") ||
+    normalized.includes("system") ||
+    normalized === "5"
+  )
+    return "system";
+  if (normalized.includes("alert") || normalized.includes("warning"))
+    return "alert";
+  if (normalized.includes("order") || ["1", "2", "3"].includes(normalized))
+    return "order";
+
+  return "alert";
+}
+
+function unwrapNotifications(
+  payload: NotificationsResponse,
+): BackendNotification[] {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload.data)) return payload.data;
+  return [];
+}
+
+function mapIncomingOrder(order: BackendIncomingOrder) {
+  const items = order.items ?? [];
+  const createdAt = order.createdAt || new Date().toISOString();
+
+  return {
+    id: String(order.id),
+    customer: order.customerName || "Unknown customer",
+    phone: order.customerPhone ?? "",
+    service:
+      items
+        .map((item) => item.serviceName)
+        .filter(Boolean)
+        .join(", ") || "Laundry Service",
+    items: items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0),
+    amount: Number(order.totalPrice ?? 0),
+    status: toFrontendOrderStatus(order.status),
+    date: formatDate(createdAt, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    time: formatDate(createdAt, { hour: "numeric", minute: "2-digit" }),
+    address: order.deliveryLocation || order.pickupLocation || "",
+    pickupAddress: order.pickupLocation ?? "",
+    deliveryAddress: order.deliveryLocation ?? "",
+    createdAt,
+    pickupTime: order.pickupTime ?? "",
+    rawStatus: order.status,
+    rawItems: items,
+  };
+}
+
+function mapRecentOrder(order: BackendRecentOrder) {
+  const createdAt = order.createdAt || new Date().toISOString();
+  const status = order.status ?? "PendingConfirmation";
+
+  return {
+    id: String(order.id),
+    customer: order.customerName || "Unknown customer",
+    phone: "",
+    service: order.serviceName || "Laundry Service",
+    items: Number(order.items ?? 0),
+    amount: Number(order.total ?? 0),
+    status: toFrontendOrderStatus(status),
+    date: formatDate(createdAt, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }),
+    time: formatDate(createdAt, { hour: "numeric", minute: "2-digit" }),
+    address: "",
+    pickupAddress: "",
+    deliveryAddress: "",
+    createdAt,
+    pickupTime: "",
+    rawStatus: status,
+    rawItems: [],
+  };
+}
+
+export async function uploadCommercialRegister(
+  formData: FormData,
+): Promise<any> {
   const { getStoredAuthToken } = await import("@/app/lib/auth-storage");
   const token = getStoredAuthToken();
   const res = await fetch("/api/backend/verification/commercial-register", {
     method: "POST",
     headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData
+    body: formData,
   });
   if (!res.ok) throw new Error("Failed to upload register");
   return res.json();
@@ -702,43 +1090,49 @@ export async function getVerificationStatus(): Promise<{
   role: string;
   commercialRegisterDocumentUrl: string | null;
 }> {
-  return await apiRequest<{
-    isIdentityVerified: boolean;
-    role: string;
-    commercialRegisterDocumentUrl: string | null;
-  }>("/verification/status");
+  const status = await apiRequest<any>("/verification/status");
+  return {
+    isIdentityVerified: Boolean(status.isIdentityVerified ?? status.isVerified),
+    role: status.role ?? "",
+    commercialRegisterDocumentUrl: status.commercialRegisterDocumentUrl ?? null,
+  };
 }
 
 export async function getLaundryNotifications(): Promise<any[]> {
-  const notifications = await apiRequest<
-    Array<{
-      id: number;
-      title: string;
-      message: string;
-      type: string;
-      isRead: boolean;
-      createdAt: string;
-    }>
-  >("/notifications");
+  const payload = await apiRequest<NotificationsResponse>(
+    "/notifications?PageIndex=1&PageSize=50",
+  );
+  const notifications = unwrapNotifications(payload);
 
   const now = Date.now();
   return notifications.map((notification) => ({
     id: String(notification.id),
-    title: notification.title,
-    message: notification.message,
-    type:
-      notification.type === "PaymentSuccess"
-        ? "payment"
-        : notification.type?.includes("Order")
-          ? "order"
-          : notification.type === "Promotion"
-            ? "system"
-            : "alert",
-    time: formatDate(notification.createdAt, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }),
-    read: notification.isRead,
-    createdAt: notification.createdAt,
-    isRecent: now - new Date(notification.createdAt).getTime() < 86400000,
+    title: notification.title ?? "Notification",
+    message: notification.message ?? "",
+    type: toFrontendNotificationType(notification.type),
+    orderId: notification.orderId ?? null,
+    time: notification.createdAt
+      ? formatDate(notification.createdAt, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : "",
+    read: Boolean(notification.isRead),
+    createdAt: notification.createdAt ?? "",
+    isRecent: notification.createdAt
+      ? now - new Date(notification.createdAt).getTime() < 86400000
+      : false,
   }));
+}
+
+export async function getLaundryUnreadNotificationCount(): Promise<number> {
+  const payload = await apiRequest<{
+    unreadCount?: number;
+    UnreadCount?: number;
+  }>("/notifications/count");
+  return Number(payload.unreadCount ?? payload.UnreadCount ?? 0);
 }
 
 export async function markLaundryNotificationRead(id: string): Promise<void> {

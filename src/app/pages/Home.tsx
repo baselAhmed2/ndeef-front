@@ -83,7 +83,7 @@ export default function Home() {
   const [nearbyPreview, setNearbyPreview] = useState<UiLaundry[]>([]);
 
   useEffect(() => {
-    if (searchParams.get('orderPlaced') !== '1') return;
+    if (searchParams?.get('orderPlaced') !== '1') return;
 
     toast.success('Order placed successfully.');
     router.replace('/');

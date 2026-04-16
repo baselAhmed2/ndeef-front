@@ -76,7 +76,8 @@ function formatMapAddress(latitude: number, longitude: number) {
 }
 
 export default function OrderPage() {
-  const { laundryId } = useParams<{ laundryId: string }>();
+  const params = useParams<{ laundryId: string }>();
+  const laundryId = params?.laundryId ?? "";
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isLoggedIn, isAuthReady, user } = useAuth();
@@ -85,7 +86,7 @@ export default function OrderPage() {
     () =>
       Array.from(
         new Set(
-          (searchParams.get("services") ?? searchParams.get("service") ?? "")
+          (searchParams?.get("services") ?? searchParams?.get("service") ?? "")
             .split(",")
             .map((value) => value.trim())
             .filter(Boolean),

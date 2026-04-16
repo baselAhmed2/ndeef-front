@@ -8,25 +8,19 @@ import {
   getDashboardSummary,
   getRevenueWeekly,
   getIncomingOrders,
-  getOrderById,
-  updateOrderStatus,
   getServices,
   getSchedule,
   getCapacity,
   getCommissionSummary,
   getPayments,
   getProfile,
-  getComplaints,
   getExternalAnalytics,
   getForecast,
   getVerificationStatus,
   getLaundryNotifications,
-  markLaundryNotificationRead,
-  markAllLaundryNotificationsRead,
 } from "./laundry-admin-client";
 
 import {
-  emailLogin,
   googleLogin,
   forgotPasswordApi,
 } from "../services/api";
@@ -85,7 +79,7 @@ export async function testAuthApis(): Promise<ApiTestResult[]> {
 }
 
 // Test Laundry Admin Dashboard APIs
-export async function testDashboardApis(token: string): Promise<ApiTestResult[]> {
+export async function testDashboardApis(_token: string): Promise<ApiTestResult[]> {
   const results: ApiTestResult[] = [];
   
   // Test Dashboard Summary
@@ -182,7 +176,7 @@ export async function testScheduleApis(): Promise<ApiTestResult[]> {
     results.push({
       endpoint: "GET /api/laundry-admin/availability/schedule",
       status: "success",
-      message: "Schedule retrieved successfully",
+      message: `Schedule retrieved successfully (${Object.keys(schedule).length} days)`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {

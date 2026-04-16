@@ -13,6 +13,10 @@ export class ApiError extends Error {
   }
 }
 
+type ApiRequestInit = RequestInit & {
+  suppressErrorLog?: boolean;
+};
+
 function resolveApiBaseUrl() {
   // In the browser we always prefer the local Next.js proxy so requests
   // share the app's origin/session and avoid cross-origin fetch failures.
@@ -31,11 +35,12 @@ function getToken() {
   return getStoredAuthToken();
 }
 
-export async function apiRequest<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const headers = new Headers(init.headers);
+export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Promise<T> {
+  const { suppressErrorLog = false, ...requestInit } = init;
+  const headers = new Headers(requestInit.headers);
   headers.set("Accept", "application/json");
 
-  if (init.body && !headers.has("Content-Type")) {
+  if (requestInit.body && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
 
@@ -47,8 +52,8 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
   let response: Response;
   try {
     response = await fetch(`${resolveApiBaseUrl()}${path}`, {
-      ...init,
-      cache: init.cache ?? "no-store",
+      ...requestInit,
+      cache: requestInit.cache ?? "no-store",
       headers,
     });
   } catch (error) {
@@ -78,13 +83,15 @@ export async function apiRequest<T>(path: string, init: RequestInit = {}): Promi
       }
     }
 
-    console.error(`API Error ${response.status}:`, {
-      url: response.url,
-      status: response.status,
-      statusText: response.statusText,
-      body: errorBody,
-      message,
-    });
+    if (!suppressErrorLog) {
+      console.warn(`API Error ${response.status}:`, {
+        url: response.url,
+        status: response.status,
+        statusText: response.statusText,
+        body: errorBody,
+        message,
+      });
+    }
 
     throw new ApiError(message, response.status);
   }

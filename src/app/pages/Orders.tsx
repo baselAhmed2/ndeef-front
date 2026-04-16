@@ -131,7 +131,7 @@ export default function Orders() {
   }, [isAuthReady, isLoggedIn, user?.token]);
 
   useEffect(() => {
-    const notice = searchParams.get("notice");
+    const notice = searchParams?.get("notice");
     if (!notice) return;
 
     if (notice === "cancelled") toast.success("Order cancelled successfully.");

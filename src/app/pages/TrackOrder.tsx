@@ -120,7 +120,8 @@ function TimelineStep({
 }
 
 export default function TrackOrder() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = params?.id ?? "";
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user, isAuthReady, isLoggedIn } = useAuth();
@@ -168,7 +169,7 @@ export default function TrackOrder() {
   }, [id, isAuthReady, isLoggedIn, user?.token]);
 
   useEffect(() => {
-    if (searchParams.get("notice") === "placed") {
+    if (searchParams?.get("notice") === "placed") {
       router.replace(`/track-order/${id}`);
     }
   }, [id, router, searchParams]);

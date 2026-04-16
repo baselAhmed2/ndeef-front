@@ -2,95 +2,63 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import { createVerificationSession, getVerificationStatus } from "@/app/services/api";
+import { startVerificationSession } from "@/app/lib/laundry-admin-client";
 
 export default function VerificationPage() {
   const router = useRouter();
   const { user, isLoggedIn, isAuthReady } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!isAuthReady) return;
 
     if (!isLoggedIn || !user) {
-      router.push("/login");
+      router.push("/login?redirect=/laundry-admin/verification");
       return;
     }
 
-    // Check if user is LaundryAdmin
-    if (user.role !== "LaundryAdmin" && user.role !== "2") {
+    if (user.role !== "LaundryAdmin" && user.role !== "3") {
       router.push("/");
       return;
     }
 
-    const initVerification = async () => {
+    async function redirectToDidit() {
       try {
-        // First check if already verified
-        const statusRes = await getVerificationStatus();
-        if (statusRes.isSuccess && statusRes.data?.isVerified) {
-          // Already verified, go to dashboard
-          router.push("/laundry-admin");
-          return;
-        }
-
-        // Create verification session
         const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
-        const sessionRes = await createVerificationSession(redirectUrl);
-
-        if (sessionRes.isSuccess && sessionRes.data?.url) {
-          // Redirect to Didit verification URL
-          window.location.href = sessionRes.data.url;
-        } else {
-          setError(sessionRes.error || "Failed to create verification session");
-          setIsLoading(false);
-        }
+        const session = await startVerificationSession(redirectUrl);
+        window.location.href = session.url;
       } catch (err) {
-        console.error("Verification error:", err);
-        setError("An unexpected error occurred. Please try again.");
-        setIsLoading(false);
+        const message = err instanceof Error ? err.message : "Could not start verification.";
+        setError(message);
       }
-    };
+    }
 
-    initVerification();
+    redirectToDidit();
   }, [isLoggedIn, isAuthReady, user, router]);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            جاري تحضير التحقق من الهوية...
-          </h2>
-          <p className="text-gray-600">
-            سيتم توجيهك إلى صفحة التحقق الآمنة خلال ثوانٍ
-          </p>
+  return (
+    <div className="flex min-h-[70vh] items-center justify-center bg-gray-50 px-4">
+      <div className="max-w-md rounded-[2rem] border border-gray-100 bg-white p-8 text-center shadow-xl shadow-gray-200/50">
+        <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-3xl bg-[#1D5B70]/10 text-[#1D5B70]">
+          {error ? <ShieldCheck className="h-8 w-8" /> : <Loader2 className="h-8 w-8 animate-spin" />}
         </div>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-red-500 text-5xl mb-4">⚠️</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            حدث خطأ
-          </h2>
-          <p className="text-gray-600 mb-6">{error}</p>
+        <h2 className="text-xl font-black text-gray-950">
+          {error ? "Verification could not start" : "Preparing identity verification"}
+        </h2>
+        <p className="mt-2 text-sm leading-6 text-gray-500">
+          {error || "You will be redirected to the secure Didit verification page in a moment."}
+        </p>
+        {error && (
           <button
             onClick={() => window.location.reload()}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+            className="mt-6 rounded-2xl bg-[#1D5B70] px-5 py-3 text-sm font-bold text-white transition hover:bg-[#17495a]"
           >
-            إعادة المحاولة
+            Try Again
           </button>
-        </div>
+        )}
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }

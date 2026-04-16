@@ -1,5 +1,9 @@
+"use client";
+
+import { useEffect, useState } from 'react';
 import { MapPin, Search } from 'lucide-react';
 import { NotificationBadge } from './NotificationBadge';
+import { apiRequest } from '../lib/admin-api';
 
 interface TopBarProps {
   showSearch?: boolean;
@@ -7,6 +11,28 @@ interface TopBarProps {
 }
 
 export function TopBar({ showSearch = true, title }: TopBarProps) {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    let active = true;
+
+    async function loadUnreadCount() {
+      try {
+        const response = await apiRequest<{ unreadCount?: number; UnreadCount?: number }>('/notifications/count');
+        if (active) setUnreadCount(Number(response.unreadCount ?? response.UnreadCount ?? 0));
+      } catch (error) {
+        console.error('Failed to load notification count', error);
+        if (active) setUnreadCount(0);
+      }
+    }
+
+    void loadUnreadCount();
+
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <div className="relative">
       {/* Clean Teal Background */}
@@ -19,7 +45,7 @@ export function TopBar({ showSearch = true, title }: TopBarProps) {
         {title ? (
           <div className="flex items-center justify-between">
             <h1 className="font-semibold text-xl tracking-tight">{title}</h1>
-            <NotificationBadge count={2} />
+            <NotificationBadge count={unreadCount} />
           </div>
         ) : (
           <>
@@ -33,7 +59,7 @@ export function TopBar({ showSearch = true, title }: TopBarProps) {
                   <p className="text-xs text-white/70 font-normal">Home - University Street</p>
                 </div>
               </div>
-              <NotificationBadge count={2} />
+              <NotificationBadge count={unreadCount} />
             </div>
             
             {showSearch && (

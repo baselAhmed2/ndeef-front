@@ -27,6 +27,10 @@ function normalizeRole(role: ChatRole) {
   return role === "user" ? "user" : "assistant";
 }
 
+function replaceAllCompat(text: string, from: string, to: string) {
+  return text.split(from).join(to);
+}
+
 function isTableSeparatorLine(line: string) {
   const trimmed = line.trim();
   if (!trimmed.startsWith("|")) return false;
@@ -95,14 +99,15 @@ function normalizeArabicSpacing(text: string) {
   let normalized = text;
 
   for (const [from, to] of phraseReplacements) {
-    normalized = normalized.replaceAll(from, to);
+    normalized = replaceAllCompat(normalized, from, to);
   }
 
+  normalized = replaceAllCompat(normalized, "\u0627\u062e\u0631\u0637\u0644\u0628\u0631\u0642\u0645", "\u0627\u062e\u0631 \u0637\u0644\u0628 \u0631\u0642\u0645 ");
+  normalized = replaceAllCompat(normalized, "\u0648\u0645\u0648\u062c\u0648\u062f\u0641\u064a\u062d\u0627\u0644\u0629", "\u0648\u0645\u0648\u062c\u0648\u062f \u0641\u064a \u062d\u0627\u0644\u0629 ");
+  normalized = replaceAllCompat(normalized, "\u0641\u064a\u0645\u063a\u0633\u0644\u0629", "\u0641\u064a \u0645\u063a\u0633\u0644\u0629 ");
+  normalized = replaceAllCompat(normalized, "\u0628\u0633\u0639\u0631", "\u0628\u0633\u0639\u0631 ");
+
   normalized = normalized
-    .replaceAll("\u0627\u062e\u0631\u0637\u0644\u0628\u0631\u0642\u0645", "\u0627\u062e\u0631 \u0637\u0644\u0628 \u0631\u0642\u0645 ")
-    .replaceAll("\u0648\u0645\u0648\u062c\u0648\u062f\u0641\u064a\u062d\u0627\u0644\u0629", "\u0648\u0645\u0648\u062c\u0648\u062f \u0641\u064a \u062d\u0627\u0644\u0629 ")
-    .replaceAll("\u0641\u064a\u0645\u063a\u0633\u0644\u0629", "\u0641\u064a \u0645\u063a\u0633\u0644\u0629 ")
-    .replaceAll("\u0628\u0633\u0639\u0631", "\u0628\u0633\u0639\u0631 ")
     .replace(/([.!؟،,:])(?=\S)/g, "$1 ")
     .replace(/(\d)(?=[\u0600-\u06FF])/g, "$1 ")
     .replace(/([()])(?=\S)/g, "$1 ")

@@ -1,93 +1,45 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { getOrderById, updateOrderStatus } from "@/app/lib/laundry-admin-client";
-import { useRouter, useParams } from "next/navigation";
-import { motion, AnimatePresence } from "motion/react";
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import {
+  AlertTriangle,
   ArrowLeft,
-  MapPin,
-  Phone,
-  Mail,
-  Clock,
   CheckCircle2,
+  Clock,
   Loader2,
+  MapPin,
   Package,
+  Phone,
   Truck,
   XCircle,
-  Printer,
-  MessageSquare,
-  AlertTriangle,
-  X,
-  CheckCheck,
 } from "lucide-react";
+import { getOrderById, updateOrderStatus } from "@/app/lib/laundry-admin-client";
 
-const orderData: Record<string, {
+interface OrderItem {
+  name: string;
+  qty: number;
+  price: number;
+  subtotal?: number;
+}
+
+interface AdminOrder {
   id: string;
   customer: string;
   phone: string;
-  email: string;
   address: string;
+  pickupAddress?: string;
+  deliveryAddress?: string;
   service: string;
   status: string;
   date: string;
   estimatedReady: string;
-  items: { name: string; qty: number; price: number }[];
-  notes: string;
-  timeline: { label: string; time: string; done: boolean; active?: boolean }[];
-}> = {
-  "ORD-1024": {
-    id: "ORD-1024",
-    customer: "Sarah Johnson",
-    phone: "+1 555-0101",
-    email: "sarah.j@email.com",
-    address: "123 Oak Street, Apt 4B, New York, NY 10001",
-    service: "Wash & Fold",
-    status: "Delivered",
-    date: "Apr 7, 2026 — 09:15 AM",
-    estimatedReady: "Apr 8, 2026 — 02:00 PM",
-    items: [
-      { name: "Shirts", qty: 3, price: 9.0 },
-      { name: "Pants", qty: 2, price: 10.0 },
-      { name: "Undergarments (bag)", qty: 1, price: 8.0 },
-    ],
-    notes: "Please use fragrance-free detergent.",
-    timeline: [
-      { label: "Order Placed", time: "Apr 7 – 09:15 AM", done: true },
-      { label: "Pickup Confirmed", time: "Apr 7 – 10:00 AM", done: true },
-      { label: "Laundry Received", time: "Apr 7 – 11:30 AM", done: true },
-      { label: "Processing", time: "Apr 7 – 01:00 PM", done: true },
-      { label: "Ready for Delivery", time: "Apr 8 – 10:00 AM", done: true },
-      { label: "Delivered", time: "Apr 8 – 01:45 PM", done: true },
-    ],
-  },
-  "ORD-1023": {
-    id: "ORD-1023",
-    customer: "Mohammed Al-Rashid",
-    phone: "+966 555-0102",
-    email: "m.alrashid@email.com",
-    address: "45 Palm Avenue, Villa 7, Riyadh, KSA",
-    service: "Dry Cleaning",
-    status: "Ready",
-    date: "Apr 7, 2026 — 08:30 AM",
-    estimatedReady: "Apr 8, 2026 — 06:00 PM",
-    items: [
-      { name: "Suits", qty: 2, price: 35.0 },
-      { name: "Dress Shirts", qty: 3, price: 15.0 },
-    ],
-    notes: "Handle with extra care — premium fabric.",
-    timeline: [
-      { label: "Order Placed", time: "Apr 7 – 08:30 AM", done: true },
-      { label: "Pickup Confirmed", time: "Apr 7 – 09:15 AM", done: true },
-      { label: "Laundry Received", time: "Apr 7 – 10:00 AM", done: true },
-      { label: "Processing", time: "Apr 7 – 12:00 PM", done: true },
-      { label: "Ready for Delivery", time: "Apr 8 – 09:30 AM", done: true, active: true },
-      { label: "Delivered", time: "Pending", done: false },
-    ],
-  },
-};
-
-const defaultOrder = orderData["ORD-1024"];
+  items: OrderItem[];
+  notes?: string;
+  totalPrice?: number;
+  timeline?: Array<{ label: string; time: string; done: boolean; active?: boolean }>;
+}
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
   Delivered: { color: "#22c55e", bg: "#f0fdf4", icon: CheckCircle2 },
@@ -97,465 +49,291 @@ const statusConfig: Record<string, { color: string; bg: string; icon: React.Elem
   Cancelled: { color: "#ef4444", bg: "#fef2f2", icon: XCircle },
 };
 
+const statusActions = ["Processing", "Ready", "Delivered", "Cancelled"];
+
+const currency = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "EGP",
+  maximumFractionDigits: 2,
+});
+
 export function OrderDetailsNew() {
   const params = useParams();
-  const id = params?.id as string;
   const router = useRouter();
-  const initialOrder = (id && orderData[id]) ? orderData[id] : { ...defaultOrder, id: id || "ORD-????" };
-
-  const [order, setOrder] = useState<any>(initialOrder);
-  const [currentStatus, setCurrentStatus] = useState(initialOrder.status);
-  const [showCancelModal, setShowCancelModal] = useState(false);
-  const [smsToast, setSmsToast] = useState(false);
-  const [printToast, setPrintToast] = useState(false);
-  const [cancelled, setCancelled] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const rawId = params?.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId ?? "";
+  const [order, setOrder] = useState<AdminOrder | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!id) return;
     async function loadOrder() {
+      if (!id) {
+        setError("Missing order id.");
+        setLoading(false);
+        return;
+      }
+
       try {
-        const data = await getOrderById(id);
-        if (data) {
-          setOrder(data);
-          setCurrentStatus(data.status || initialOrder.status);
-          if (data.status === "Cancelled") setCancelled(true);
-        }
+        setLoading(true);
+        setError("");
+        setOrder(await getOrderById(id));
       } catch (err) {
-        console.error("Failed to load order", err);
+        const message = err instanceof Error ? err.message : "Failed to load order.";
+        setError(message);
+      } finally {
+        setLoading(false);
       }
     }
-    loadOrder();
-  }, [id, initialOrder.status]);
 
-  const cfg = statusConfig[currentStatus] ?? statusConfig["Pending"];
-  const StatusIcon = cfg.icon;
+    loadOrder();
+  }, [id]);
 
   const handleStatusChange = async (status: string) => {
+    if (!order) return;
+
     try {
-      setIsUpdating(true);
+      setUpdating(true);
+      setError("");
       await updateOrderStatus(order.id, status);
-      setCurrentStatus(status);
-      setOrder((prev: any) => ({ ...prev, status }));
-      if (status === "Cancelled") setCancelled(true);
-    } catch (e) {
-      console.error(e);
+      setOrder({ ...order, status });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to update order.";
+      setError(message);
     } finally {
-      setIsUpdating(false);
+      setUpdating(false);
     }
   };
 
-  const handleMarkReady = async () => {
-    await handleStatusChange("Ready");
-  };
+  if (loading) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader2 className="mr-2 h-6 w-6 animate-spin text-[#1D5B70]" />
+        <span className="text-sm font-medium text-gray-500">Loading order...</span>
+      </div>
+    );
+  }
 
-  const handleSendSms = () => {
-    setSmsToast(true);
-    setTimeout(() => setSmsToast(false), 3000);
-  };
-
-  const handlePrint = () => {
-    setPrintToast(true);
-    setTimeout(() => setPrintToast(false), 2000);
-    window.print();
-  };
-
-  const handleCancelConfirm = async () => {
-    await handleStatusChange("Cancelled");
-    setShowCancelModal(false);
-  };
-
-  const subtotal = order.items.reduce((acc: number, item: any) => acc + item.qty * item.price, 0);
-  const tax = subtotal * 0.1;
-  const total = subtotal + tax;
-
-  return (
-    <div className="p-6 space-y-5">
-      {/* SMS Toast */}
-      <AnimatePresence>
-        {smsToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-4 right-4 z-50 flex items-center gap-3 bg-white border border-green-200 shadow-xl rounded-2xl px-4 py-3"
-          >
-            <div className="w-8 h-8 rounded-xl bg-green-50 flex items-center justify-center">
-              <CheckCheck className="w-4 h-4 text-green-500" />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-gray-900">SMS Sent!</p>
-              <p className="text-xs text-gray-400">Update sent to {order.customer}</p>
-            </div>
-            <button onClick={() => setSmsToast(false)} className="ml-2 text-gray-300 hover:text-gray-500">
-              <X className="w-4 h-4" />
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Print Toast */}
-      <AnimatePresence>
-        {printToast && (
-          <motion.div
-            initial={{ opacity: 0, y: -20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -20, scale: 0.95 }}
-            className="fixed top-4 right-4 z-50 flex items-center gap-3 bg-white border border-blue-200 shadow-xl rounded-2xl px-4 py-3"
-          >
-            <div className="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center">
-              <Printer className="w-4 h-4 text-blue-500" />
-            </div>
-            <p className="text-sm font-semibold text-gray-900">Printing...</p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Cancel Confirmation Modal */}
-      <AnimatePresence>
-        {showCancelModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => setShowCancelModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0, y: 16 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.95, opacity: 0, y: 16 }}
-              transition={{ duration: 0.2 }}
-              className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 relative"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                onClick={() => setShowCancelModal(false)}
-                className="absolute top-4 right-4 w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:bg-gray-100"
-              >
-                <X className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-2xl bg-red-50 flex items-center justify-center">
-                  <AlertTriangle className="w-6 h-6 text-red-500" />
-                </div>
-                <div>
-                  <h3 className="font-semibold text-gray-900">Cancel Order?</h3>
-                  <p className="text-xs text-gray-400">{order.id}</p>
-                </div>
-              </div>
-              <p className="text-sm text-gray-600 mb-5">
-                Are you sure you want to cancel this order? This action cannot be undone and the customer will be notified.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setShowCancelModal(false)}
-                  disabled={isUpdating}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50"
-                >
-                  Keep Order
-                </button>
-                <button
-                  onClick={handleCancelConfirm}
-                  disabled={isUpdating}
-                  className="flex-1 px-4 py-2.5 text-sm font-medium rounded-xl bg-red-500 text-white hover:bg-red-600 transition-all disabled:opacity-50"
-                >
-                  {isUpdating ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Cancel Order"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Back + Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-        className="flex items-center justify-between"
-      >
+  if (error && !order) {
+    return (
+      <div className="p-6">
         <button
           onClick={() => router.push("/laundry-admin/orders")}
-          className="flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-800 transition-colors"
+          className="mb-4 flex items-center gap-2 text-sm font-medium text-gray-500 hover:text-gray-800"
         >
-          <ArrowLeft className="w-4 h-4" /> Back to Orders
+          <ArrowLeft className="h-4 w-4" /> Back to Orders
         </button>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={handlePrint}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all"
-          >
-            <Printer className="w-4 h-4" /> Print
-          </button>
-          <button
-            onClick={handleSendSms}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90"
-            style={{ backgroundColor: "#EBA050" }}
-          >
-            <MessageSquare className="w-4 h-4" /> Contact Customer
-          </button>
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-5 text-sm font-medium text-red-700">
+          {error}
         </div>
-      </motion.div>
+      </div>
+    );
+  }
 
-      {/* Order ID + Status */}
-      <motion.div
+  if (!order) return null;
+
+  const cfg = statusConfig[order.status] ?? statusConfig.Pending;
+  const StatusIcon = cfg.icon;
+  const subtotal = order.items.reduce(
+    (sum, item) => sum + (item.subtotal ?? item.qty * item.price),
+    0,
+  );
+  const total = order.totalPrice ?? subtotal;
+
+  return (
+    <div className="space-y-5 p-6">
+      <button
+        onClick={() => router.push("/laundry-admin/orders")}
+        className="flex items-center gap-2 text-sm font-medium text-gray-500 transition hover:text-gray-800"
+      >
+        <ArrowLeft className="h-4 w-4" /> Back to Orders
+      </button>
+
+      {error && (
+        <div className="rounded-2xl border border-red-100 bg-red-50 p-4 text-sm font-medium text-red-700">
+          {error}
+        </div>
+      )}
+
+      <motion.section
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3, delay: 0.05 }}
-        className="bg-white rounded-2xl border border-gray-100 p-5"
+        className="rounded-2xl border border-gray-100 bg-white p-5"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <div className="flex items-center gap-3">
               <h2 className="text-xl font-bold text-gray-900">{order.id}</h2>
-                <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium"
-                  style={{ color: cfg.color, backgroundColor: cfg.bg }}
-                >
-                  <StatusIcon className="w-3.5 h-3.5" />
-                {currentStatus}
-                </span>
+              <span
+                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-sm font-medium"
+                style={{ color: cfg.color, backgroundColor: cfg.bg }}
+              >
+                <StatusIcon className="h-3.5 w-3.5" />
+                {order.status}
+              </span>
             </div>
-            <p className="text-gray-400 text-sm mt-1">Placed on {order.date}</p>
+            <p className="mt-1 text-sm text-gray-400">Placed on {order.date}</p>
           </div>
-          <div className="text-right">
+          <div className="text-left sm:text-right">
             <p className="text-xs text-gray-400">Estimated Ready</p>
             <p className="text-sm font-semibold text-gray-700">{order.estimatedReady}</p>
           </div>
         </div>
 
-        <div className="mt-4 pt-4 border-t border-gray-50 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-medium text-gray-500 mr-1">Update Status:</span>
-          {["Processing", "Ready", "Delivered", "Cancelled"].map((s: any) => (
-            <motion.button
-              key={s}
-              whileTap={{ scale: 0.96 }}
-              disabled={isUpdating}
-              onClick={() => {
-                if (s === "Cancelled") {
-                  setShowCancelModal(true);
-                  return;
-                }
-                handleStatusChange(s);
-              }}
-              className={`px-3 py-1 text-xs font-medium rounded-lg border transition-all disabled:opacity-50 ${
-                currentStatus === s
-                  ? "text-white border-transparent"
-                  : "text-gray-500 border-gray-200 hover:border-gray-300 hover:bg-gray-50"
+        <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-50 pt-4">
+          <span className="mr-1 text-xs font-medium text-gray-500">Update Status:</span>
+          {statusActions.map((status) => (
+            <button
+              key={status}
+              disabled={updating || order.status === status}
+              onClick={() => handleStatusChange(status)}
+              className={`rounded-lg border px-3 py-1 text-xs font-medium transition disabled:opacity-50 ${
+                order.status === status
+                  ? "border-transparent text-white"
+                  : "border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"
               }`}
-              style={currentStatus === s ? { backgroundColor: statusConfig[s as keyof typeof statusConfig]?.color } : {}}
+              style={
+                order.status === status
+                  ? { backgroundColor: statusConfig[status]?.color ?? "#1D5B70" }
+                  : {}
+              }
             >
-              {s}
-            </motion.button>
+              {updating && order.status !== status ? "Updating..." : status}
+            </button>
           ))}
         </div>
-      </motion.div>
+      </motion.section>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Left Column */}
-        <div className="lg:col-span-2 space-y-5">
-          {/* Items */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
-            className="bg-white rounded-2xl border border-gray-100 overflow-hidden"
-          >
-            <div className="px-5 py-4 border-b border-gray-50">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
+        <section className="space-y-5 lg:col-span-2">
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white">
+            <div className="border-b border-gray-50 px-5 py-4">
               <h3 className="font-semibold text-gray-900">Order Items</h3>
-              <p className="text-xs text-gray-400 mt-0.5">{order.service} · {order.items.reduce((a: number, i: any) => a + i.qty, 0)} items total</p>
+              <p className="mt-0.5 text-xs text-gray-400">{order.service}</p>
             </div>
             <div className="divide-y divide-gray-50">
-              {order.items.map((item: any, i: number) => (
-                <div key={i} className="flex items-center justify-between px-5 py-3.5">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-xs font-bold text-gray-500">
-                      {item.qty}×
+              {order.items.length > 0 ? (
+                order.items.map((item, index) => (
+                  <div key={`${item.name}-${index}`} className="flex items-center justify-between px-5 py-3.5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100 text-xs font-bold text-gray-500">
+                        {item.qty}x
+                      </div>
+                      <span className="text-sm font-medium text-gray-800">{item.name}</span>
                     </div>
-                    <span className="text-sm font-medium text-gray-800">{item.name}</span>
+                    <div className="text-right">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {currency.format(item.subtotal ?? item.qty * item.price)}
+                      </p>
+                      <p className="text-xs text-gray-400">{currency.format(item.price)} each</p>
+                    </div>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm font-semibold text-gray-900">${(item.qty * item.price).toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">${item.price.toFixed(2)} each</p>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <div className="px-5 py-8 text-center text-sm text-gray-400">No item details available</div>
+              )}
             </div>
-            <div className="px-5 py-4 bg-gray-50/50 space-y-2">
+            <div className="space-y-2 bg-gray-50/50 px-5 py-4">
               <div className="flex justify-between text-sm text-gray-600">
-                <span>Subtotal</span><span>${subtotal.toFixed(2)}</span>
+                <span>Subtotal</span>
+                <span>{currency.format(subtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>Tax (10%)</span><span>${tax.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between text-sm font-bold text-gray-900 pt-2 border-t border-gray-200">
+              <div className="flex justify-between border-t border-gray-200 pt-2 text-sm font-bold text-gray-900">
                 <span>Total</span>
-                <span style={{ color: "#1D5B70" }}>${total.toFixed(2)}</span>
+                <span className="text-[#1D5B70]">{currency.format(total)}</span>
               </div>
             </div>
+          </div>
 
-            {order.notes && (
-              <div className="px-5 py-3.5 border-t border-gray-50">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Customer Notes</p>
-                <p className="text-sm text-gray-600 italic">"{order.notes}"</p>
-              </div>
-            )}
-          </motion.div>
-
-          {/* Timeline */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.15 }}
-            className="bg-white rounded-2xl border border-gray-100 p-5"
-          >
-            <h3 className="font-semibold text-gray-900 mb-4">Order Timeline</h3>
-            <div className="relative">
-              <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-100" />
+          <div className="rounded-2xl border border-gray-100 bg-white p-5">
+            <h3 className="mb-4 font-semibold text-gray-900">Order Timeline</h3>
+            {order.timeline?.length ? (
               <div className="space-y-4">
-                {order.timeline.map((step: any, i: number) => (
-                  <div key={i} className="flex items-start gap-4 relative">
+                {order.timeline.map((step, index) => (
+                  <div key={`${step.label}-${index}`} className="flex items-start gap-3">
                     <div
-                      className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 z-10 border-2"
-                      style={{
-                        backgroundColor: step.done ? (step.active ? "#EBA050" : "#1D5B70") : "white",
-                        borderColor: step.done ? (step.active ? "#EBA050" : "#1D5B70") : "#e2e8f0",
-                      }}
+                      className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full"
+                      style={{ backgroundColor: step.done ? "#1D5B70" : "#f1f5f9" }}
                     >
                       {step.done ? (
-                        <CheckCircle2 className="w-4 h-4 text-white" />
+                        <CheckCircle2 className="h-4 w-4 text-white" />
                       ) : (
-                        <div className="w-2 h-2 rounded-full bg-gray-300" />
+                        <Clock className="h-4 w-4 text-gray-400" />
                       )}
                     </div>
-                    <div className="flex-1 pt-1">
-                      <p className={`text-sm font-medium ${step.done ? "text-gray-900" : "text-gray-400"}`}>
-                        {step.label}
-                        {step.active && (
-                          <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full text-white" style={{ backgroundColor: "#EBA050" }}>
-                            Current
-                          </span>
-                        )}
-                      </p>
-                      <p className="text-xs text-gray-400 mt-0.5">{step.time}</p>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{step.label}</p>
+                      <p className="text-xs text-gray-400">{step.time}</p>
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
-          </motion.div>
-        </div>
+            ) : (
+              <p className="text-sm text-gray-400">No timeline details available</p>
+            )}
+          </div>
+        </section>
 
-        {/* Right Column */}
-        <div className="space-y-5">
-          {/* Customer Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
-            className="bg-white rounded-2xl border border-gray-100 p-5"
-          >
-            <h3 className="font-semibold text-gray-900 mb-4">Customer Details</h3>
-            <div className="flex items-center gap-3 mb-4">
-              <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center text-white text-lg font-bold"
-                style={{ backgroundColor: "#1D5B70" }}
-              >
-                {order.customer[0]}
+        <aside className="space-y-5">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5">
+            <h3 className="mb-4 font-semibold text-gray-900">Customer Details</h3>
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#1D5B70] text-lg font-bold text-white">
+                {order.customer[0] ?? "C"}
               </div>
               <div>
                 <p className="font-semibold text-gray-900">{order.customer}</p>
-                <p className="text-xs text-gray-400">Regular Customer</p>
+                <p className="text-xs text-gray-400">Backend customer</p>
               </div>
             </div>
             <div className="space-y-3">
               <div className="flex items-start gap-2.5 text-sm">
-                <Phone className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                <span className="text-gray-700">{order.phone}</span>
+                <Phone className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                <span className="text-gray-700">{order.phone || "N/A"}</span>
               </div>
               <div className="flex items-start gap-2.5 text-sm">
-                <Mail className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                <span className="text-gray-700 break-all">{order.email}</span>
-              </div>
-              <div className="flex items-start gap-2.5 text-sm">
-                <MapPin className="w-4 h-4 text-gray-400 mt-0.5 shrink-0" />
-                <span className="text-gray-700">{order.address}</span>
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" />
+                <span className="text-gray-700">{order.address || "N/A"}</span>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Service Info */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.25 }}
-            className="bg-white rounded-2xl border border-gray-100 p-5"
-          >
-            <h3 className="font-semibold text-gray-900 mb-4">Service Info</h3>
-            <div className="space-y-3">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Service Type</span>
-                <span className="font-medium text-gray-800">{order.service}</span>
+          <div className="rounded-2xl border border-gray-100 bg-white p-5">
+            <h3 className="mb-4 font-semibold text-gray-900">Delivery</h3>
+            <div className="space-y-3 text-sm">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Pickup</p>
+                <p className="mt-1 text-gray-700">{order.pickupAddress || "N/A"}</p>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Total Items</span>
-                <span className="font-medium text-gray-800">{order.items.reduce((a: number, i: any) => a + i.qty, 0)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Payment</span>
-                <span className="font-medium text-green-600">Paid</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Method</span>
-                <span className="font-medium text-gray-800">Credit Card</span>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Delivery</p>
+                <p className="mt-1 text-gray-700">{order.deliveryAddress || order.address || "N/A"}</p>
               </div>
             </div>
-          </motion.div>
+          </div>
 
-          {/* Quick Actions */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-            className="bg-white rounded-2xl border border-gray-100 p-5"
-          >
-            <h3 className="font-semibold text-gray-900 mb-3">Quick Actions</h3>
-            <div className="space-y-2">
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleMarkReady}
-                disabled={currentStatus === "Ready" || currentStatus === "Delivered" || currentStatus === "Cancelled" || isUpdating}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
-                style={{ backgroundColor: currentStatus === "Ready" ? "#22c55e" : "#1D5B70" }}
-              >
-                {isUpdating ? <Loader2 className="w-4 h-4 animate-spin" /> : (currentStatus === "Ready" ? <CheckCircle2 className="w-4 h-4" /> : <Truck className="w-4 h-4" />)}
-                {currentStatus === "Ready" ? "Order is Ready ✓" : (isUpdating ? "Updating..." : "Mark as Ready")}
-              </motion.button>
-              <motion.button
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSendSms}
-                className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90"
-                style={{ backgroundColor: "#EBA050" }}
-              >
-                <MessageSquare className="w-4 h-4" /> Send SMS Update
-              </motion.button>
-              {!cancelled ? (
-                <motion.button
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => setShowCancelModal(true)}
-                  className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-all"
-                >
-                  <XCircle className="w-4 h-4" /> Cancel Order
-                </motion.button>
-              ) : (
-                <div className="w-full flex items-center gap-2 px-4 py-2.5 text-sm font-medium rounded-xl border border-gray-200 text-gray-400 bg-gray-50">
-                  <XCircle className="w-4 h-4" /> Order Cancelled
-                </div>
-              )}
+          <div className="rounded-2xl border border-orange-100 bg-orange-50 p-5">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#EBA050]" />
+              <div>
+                <h3 className="font-semibold text-gray-900">Status Sync</h3>
+                <p className="mt-1 text-sm leading-6 text-gray-600">
+                  Status updates are sent directly to the backend order endpoint.
+                </p>
+              </div>
             </div>
-          </motion.div>
-        </div>
+          </div>
+
+          <button
+            onClick={() => handleStatusChange("Ready")}
+            disabled={updating || order.status === "Ready" || order.status === "Delivered"}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1D5B70] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#17495a] disabled:opacity-50"
+          >
+            {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
+            Mark as Ready
+          </button>
+        </aside>
       </div>
     </div>
   );

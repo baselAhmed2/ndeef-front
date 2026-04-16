@@ -18,7 +18,9 @@ interface Order {
 }
 
 export default function OrderDetails() {
-  const { id } = useParams();
+  const params = useParams();
+  const rawId = params?.id;
+  const id = Array.isArray(rawId) ? rawId[0] : rawId ?? "";
   const router = useRouter();
   const [order, setOrder] = useState<Order | null>(null);
 
