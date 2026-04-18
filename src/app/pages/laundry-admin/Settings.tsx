@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { usePreferences } from "@/app/context/PreferencesContext";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -80,6 +80,7 @@ function readFileAsDataUrl(file: File) {
 }
 
 export function Settings() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { language, setLanguage, theme, setTheme } = usePreferences();
   const { user, updateUser } = useAuth();
@@ -344,6 +345,14 @@ export function Settings() {
       console.error(error);
       setPasswordMessage(error instanceof Error ? error.message : "Failed to change password.");
     }
+  };
+
+  const handleForgotPassword = () => {
+    const email = profile.email.trim() || user?.email?.trim() || "";
+    const target = email
+      ? `/forgot-password?email=${encodeURIComponent(email)}`
+      : "/forgot-password";
+    router.push(target);
   };
 
   const tabs = [
@@ -652,8 +661,16 @@ export function Settings() {
                     {passwordMessage}
                   </div>
                 )}
-                <div className="flex justify-end">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <button
+                    type="button"
+                    onClick={handleForgotPassword}
+                    className="text-sm font-medium text-[#1D5B70] hover:underline text-left"
+                  >
+                    Forgot current password?
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleChangePassword}
                     className="px-4 py-2 text-sm font-medium rounded-xl text-white transition-all hover:opacity-90"
                     style={{ backgroundColor: "#1D5B70" }}

@@ -1062,23 +1062,32 @@ export async function getComplaints(): Promise<any[]> {
   return complaints.map((complaint) => ({
     id: String(complaint.id),
     orderId: complaint.orderId ? String(complaint.orderId) : undefined,
-    customerName: complaint.customerName,
+    customerName: complaint.customerName || "Unknown customer",
     customerPhone: complaint.customerPhone ?? "",
     customerEmail: complaint.customerEmail ?? "",
-    subject: complaint.details,
-    description: complaint.details,
-    status:
-      complaint.status === "InProgress"
-        ? "In Progress"
-        : complaint.status === "Resolved"
-          ? "Resolved"
-          : "Open",
+    subject: complaint.details || "Customer complaint",
+    description: complaint.details || "No complaint details provided.",
+    status: mapComplaintStatusToUiStatus(complaint.status),
     date: formatDate(complaint.createdAt, {
       month: "short",
       day: "numeric",
       year: "numeric",
     }),
   }));
+}
+
+function mapComplaintStatusToUiStatus(status: string | null | undefined) {
+  const normalized = String(status ?? "").trim().toLowerCase();
+
+  if (normalized === "inprogress" || normalized === "in progress" || normalized === "2") {
+    return "In Progress";
+  }
+
+  if (normalized === "resolved" || normalized === "3") {
+    return "Resolved";
+  }
+
+  return "Open";
 }
 
 function toComplaintStatus(status: string) {

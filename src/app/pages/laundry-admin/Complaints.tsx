@@ -62,7 +62,11 @@ export function Complaints() {
   const filtered = complaints.filter((c) => {
     const matchesSearch =
       c.subject.toLowerCase().includes(search.toLowerCase()) ||
-      c.customerName.toLowerCase().includes(search.toLowerCase());
+      c.customerName.toLowerCase().includes(search.toLowerCase()) ||
+      (c.description ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.orderId ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.customerEmail ?? "").toLowerCase().includes(search.toLowerCase()) ||
+      (c.customerPhone ?? "").toLowerCase().includes(search.toLowerCase());
     const matchesTab = activeFilter === "All" || c.status === activeFilter;
     return matchesSearch && matchesTab;
   });
