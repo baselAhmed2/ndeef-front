@@ -1,0 +1,143 @@
+// ============================================================
+// DIDIT WEBHOOK HANDLER - ضيفه في Backend VerificationController.cs
+// ============================================================
+
+using Microsoft.AspNetCore.Mvc;
+
+[ApiController]
+[Route("api/verification")]
+public class VerificationController : ControllerBase
+{
+    private readonly IConfiguration _config;
+    
+    public VerificationController(IConfiguration config)
+    {
+        _config = config;
+    }
+
+    /// <summary>
+    /// GET /api/verification/webhook?sessionId=xxx&status=Approved
+    /// Didit بيرجع هنا بعد ما يخلص → نعمل redirect للـ Frontend
+    /// </summary>
+    [HttpGet("webhook")]
+    public IActionResult DiditCallback(
+        [FromQuery] string sessionId, 
+        [FromQuery] string session_id,
+        [FromQuery] string status)
+    {
+        // Use either sessionId or session_id
+        var actualSessionId = sessionId ?? session_id;
+        
+        // Frontend URL
+        var frontendUrl = _config["FrontendUrl"] ?? "https://ndeefapp.runasp.net";
+        
+        // Build redirect URL to Frontend success page
+        var redirectUrl = $"{frontendUrl}/laundry-admin/verification/success";
+        
+        // Add query params
+        if (!string.IsNullOrEmpty(actualSessionId))
+        {
+            redirectUrl += $"?sessionId={Uri.EscapeDataString(actualSessionId)}";
+            if (!string.IsNullOrEmpty(status))
+            {
+                redirectUrl += $"&status={Uri.EscapeDataString(status)}";
+            }
+        }
+        
+        // IMPORTANT: Redirect to Frontend, don't return JSON!
+        return Redirect(redirectUrl);
+    }
+
+    /// <summary>
+    /// POST /api/verification/webhook
+    /// Didit بيبعت webhook notification هنا (server-to-server)
+    /// </summary>
+    [HttpPost("webhook")]
+    public async Task<IActionResult> DiditWebhook([FromBody] DiditWebhookPayload payload)
+    {
+        try
+        {
+            // Process webhook (update user verification status in DB)
+            // ... your webhook logic here ...
+            
+            Console.WriteLine($"[Webhook] Session: {payload.SessionId}, Status: {payload.Status}");
+            
+            return Ok(new { received = true, processed = true });
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[Webhook Error]: {ex.Message}");
+            return StatusCode(500, new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// POST /api/verification/create-session
+    /// </summary>
+    [HttpPost("create-session")]
+    public async Task<IActionResult> CreateSession([FromBody] CreateSessionRequest request)
+    {
+        try
+        {
+            var diditApiKey = _config["Didit:ApiKey"];
+            var workflowId = _config["Didit:WorkflowId"];
+            
+            // Your callback URL - THIS IS IMPORTANT!
+            // Didit will redirect here after verification
+            var callbackUrl = request?.CallbackUrl 
+                ?? "https://ndeefapp.runasp.net/api/verification/webhook";
+            
+            // Call Didit API
+            using var client = new HttpClient();
+            client.DefaultRequestHeaders.Add("x-api-key", diditApiKey);
+            
+            var body = new
+            {
+                workflow_id = workflowId,
+                callback = callbackUrl,
+                callback_method = "both",  // "initiator", "completer", or "both"
+                vendor_data = request?.UserId ?? User.Identity?.Name
+            };
+            
+            var response = await client.PostAsJsonAsync(
+                "https://verification.didit.me/v3/session/", 
+                body);
+            
+            var result = await response.Content.ReadFromJsonAsync<DiditSessionResponse>();
+            
+            return Ok(new
+            {
+                sessionId = result.session_id,
+                sessionToken = result.session_token,
+                url = result.verification_url,
+                status = result.status
+            });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = ex.Message });
+        }
+    }
+}
+
+// DTOs
+public class DiditSessionResponse
+{
+    public string session_id { get; set; }
+    public string session_token { get; set; }
+    public string verification_url { get; set; }
+    public string status { get; set; }
+}
+
+public class DiditWebhookPayload
+{
+    public string SessionId { get; set; }
+    public string Status { get; set; }
+    public string VendorData { get; set; }
+}
+
+public class CreateSessionRequest
+{
+    public string CallbackUrl { get; set; }
+    public string UserId { get; set; }
+}

@@ -16,12 +16,13 @@ import {
   User,
   Store,
   Check,
+  Truck,
 
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 // Note: laundry-admin-client functions are dynamically imported in resolveLaundryAdminLoginPath
-type AccountType = "Customer" | "LaundryAdmin";
+type AccountType = "Customer" | "LaundryAdmin" | "Courier";
 
 function SegmentedControl({
   value,
@@ -33,6 +34,7 @@ function SegmentedControl({
   const options: { key: AccountType; label: string; icon: React.ElementType }[] = [
     { key: "Customer", label: "Customer", icon: User },
     { key: "LaundryAdmin", label: "Laundry Owner", icon: Store },
+    { key: "Courier", label: "Courier", icon: Truck },
   ];
   return (
     <div className="flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
@@ -66,6 +68,7 @@ function SegmentedControl({
 
 function resolvePostLoginPath(role?: string, from?: string) {
   const normalizedRole = (role ?? "").toLowerCase();
+  if (normalizedRole.includes("courier")) return "/courier";
   if (normalizedRole.includes("laundryadmin")) return "/laundry-admin";
   if (normalizedRole.includes("admin")) return "/admin";
   if (from && from !== "/") return from;
@@ -99,7 +102,7 @@ export default function Login() {
     "idle",
   );
   const [accountType, setAccountType] = useState<AccountType>(
-    initialRole === "LaundryAdmin" ? "LaundryAdmin" : "Customer",
+    initialRole === "LaundryAdmin" ? "LaundryAdmin" : initialRole === "Courier" ? "Courier" : "Customer",
   );
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -126,12 +129,21 @@ export default function Login() {
     if (result.ok) {
       const resolvedRole = (result.user?.role ?? "").toLowerCase();
       const isLaundryAdmin = resolvedRole.includes("laundryadmin");
+      const isCourier = resolvedRole.includes("courier");
 
       if (accountType === "LaundryAdmin" && !isLaundryAdmin) {
         setLoading(false);
         setLoginPhase("idle");
         setLoginProgress("");
         setError("Account type mismatch: This email is registered as a Customer, not a Laundry Owner.");
+        return;
+      }
+
+      if (accountType === "Courier" && !isCourier) {
+        setLoading(false);
+        setLoginPhase("idle");
+        setLoginProgress("");
+        setError("Account type mismatch: This email is not registered as a Courier.");
         return;
       }
 

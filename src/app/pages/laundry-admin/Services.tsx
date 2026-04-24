@@ -329,10 +329,16 @@ export function Services() {
     const svc = services.find((s) => s.id === id);
     if (!svc) return;
     try {
+      setLoading(true);
       await updateService(id, { active: !svc.active });
       setServices((prev) => prev.map((s) => (s.id === id ? { ...s, active: !s.active } : s)));
     } catch (e) {
-      console.error(e);
+      console.error("Failed to toggle service:", e);
+      setError(e instanceof Error ? e.message : "Failed to update service status. Please try again.");
+      // Revert the UI change since the backend update failed
+      // The UI will refresh on the next successful load
+    } finally {
+      setLoading(false);
     }
   };
 

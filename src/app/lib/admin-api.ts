@@ -72,23 +72,25 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
       // Clone the response to read the body without consuming it
       const clonedResponse = response.clone();
       errorBody = await clonedResponse.text();
-      
+
       // Try to parse as JSON
-      const payload = JSON.parse(errorBody) as { message?: string; Message?: string; title?: string };
-      message = payload.Message || payload.message || payload.title || message;
+      const payload = JSON.parse(errorBody) as { message?: string; Message?: string; title?: string; detail?: string; stackTrace?: string };
+      message = payload.Message || payload.message || payload.title || payload.detail || message;
     } catch {
       // Not JSON, use text if available
       if (errorBody) {
-        message = `${message}: ${errorBody.substring(0, 200)}`;
+        message = `${message}: ${errorBody.substring(0, 500)}`;
       }
     }
 
     if (!suppressErrorLog) {
-      console.warn(`API Error ${response.status}:`, {
+      console.error(`[API Error] ${response.status}:`, {
         url: response.url,
+        method: init.method || 'GET',
         status: response.status,
         statusText: response.statusText,
-        body: errorBody,
+        requestBody: init.body ? String(init.body).substring(0, 500) : undefined,
+        responseBody: errorBody?.substring(0, 1000),
         message,
       });
     }

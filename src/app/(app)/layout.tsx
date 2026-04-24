@@ -34,16 +34,26 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   
   const role = user?.role || "";
   const isLaundryAdmin = isLoggedIn && role.toLowerCase().includes("laundryadmin");
+  const isCourier = isLoggedIn && role.toLowerCase().includes("courier");
 
   useEffect(() => {
     if (!isAuthReady) return;
 
-    // Redirect admins from auth pages or user sections
     if (isLaundryAdmin) {
       if (!currentPath.startsWith("/laundry-admin")) {
         // Only redirect if NOT specifically requested a different user page via 'from' (rare for admin)
         if (!fromParam || fromParam === "/" || fromParam === currentPath) {
           router.replace("/laundry-admin");
+        }
+      }
+      return;
+    }
+
+    // Redirect couriers
+    if (isCourier) {
+      if (!currentPath.startsWith("/courier")) {
+        if (!fromParam || fromParam === "/" || fromParam === currentPath) {
+          router.replace("/courier");
         }
       }
       return;
@@ -67,7 +77,18 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
-  const shouldShowTopNav = (!isAuthPage || !!fromParam) && !isLaundryAdmin;
+  if (isCourier && !currentPath.startsWith("/courier")) {
+    return (
+      <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-[3px] border-gray-100 border-t-[#EBA050] rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-[#EBA050] tracking-widest uppercase opacity-80">Ndeef Courier</p>
+        </div>
+      </div>
+    );
+  }
+
+  const shouldShowTopNav = (!isAuthPage || !!fromParam) && !isLaundryAdmin && !isCourier;
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">

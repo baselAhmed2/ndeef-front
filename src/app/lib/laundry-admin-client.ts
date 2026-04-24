@@ -65,12 +65,12 @@ type BackendNotification = {
 type NotificationsResponse =
   | BackendNotification[]
   | {
-      data?: BackendNotification[] | null;
-      pageIndex?: number;
-      pageSize?: number;
-      totalCount?: number;
-      totalPages?: number;
-    };
+    data?: BackendNotification[] | null;
+    pageIndex?: number;
+    pageSize?: number;
+    totalCount?: number;
+    totalPages?: number;
+  };
 
 const DAY_NAMES = [
   "Sunday",
@@ -271,8 +271,8 @@ export async function getRevenueWeekly(): Promise<
   const payload = await apiRequest<
     | Array<{ label: string; revenue: number; orders: number }>
     | {
-        data?: Array<{ label: string; revenue: number; orders: number }> | null;
-      }
+      data?: Array<{ label: string; revenue: number; orders: number }> | null;
+    }
   >("/laundry-admin/revenue/weekly");
   const points = unwrapArray(payload);
   return points.map((point) => ({
@@ -289,8 +289,8 @@ export async function getRevenueMonthly(
     const payload = await apiRequest<
       | Array<{ label: string; revenue: number; orders: number }>
       | {
-          data?: Array<{ label: string; revenue: number; orders: number }> | null;
-        }
+        data?: Array<{ label: string; revenue: number; orders: number }> | null;
+      }
     >(`/laundry-admin/revenue/monthly?year=${year}`);
     const points = unwrapArray(payload);
     return points.map((point) => ({
@@ -485,21 +485,21 @@ export async function getServices(): Promise<ServiceDTO[]> {
   try {
     const payload = await apiRequest<
       | Array<{
+        id: number;
+        serviceName: string;
+        category: string;
+        price: number;
+        isAvailable: boolean;
+      }>
+      | {
+        data?: Array<{
           id: number;
           serviceName: string;
           category: string;
           price: number;
           isAvailable: boolean;
-        }>
-      | {
-          data?: Array<{
-            id: number;
-            serviceName: string;
-            category: string;
-            price: number;
-            isAvailable: boolean;
-          }> | null;
-        }
+        }> | null;
+      }
     >("/laundry-admin/services");
     const services = unwrapArray(payload);
 
@@ -538,6 +538,7 @@ export async function createService(
     serviceName: data.name,
     category: toServiceCategory(data.category ?? ""),
     price: data.price ?? 0,
+    isAvailable: data.active ?? true,
   };
 
   let created: {
@@ -596,23 +597,35 @@ export async function updateService(
   id: string,
   data: Partial<ServiceDTO>,
 ): Promise<ServiceDTO> {
-  await apiRequest(`/laundry-admin/services/${id}`, {
+  // Build body with only the fields that were actually provided
+  // Avoids sending price=undefined (stripped by JSON.stringify) or invalid values
+  const body: Record<string, unknown> = {};
+  if (data.name !== undefined) body.serviceName = data.name;
+  if (data.category !== undefined) body.category = toServiceCategory(data.category);
+  if (data.price !== undefined && data.price > 0) body.price = data.price;
+  if (data.active !== undefined) body.isAvailable = data.active;
+
+  // Send update to backend and parse the response
+  const updated = await apiRequest<{
+    id?: number;
+    serviceName?: string;
+    category?: string;
+    price?: number;
+    isAvailable?: boolean;
+  }>(`/laundry-admin/services/${id}`, {
     method: "PUT",
-    body: JSON.stringify({
-      serviceName: data.name,
-      category: data.category ? toServiceCategory(data.category) : undefined,
-      price: data.price,
-      isAvailable: data.active,
-    }),
+    body: JSON.stringify(body),
   });
+
+  // Return merged data - use backend response if available, otherwise fall back to input
   return {
-    id,
-    name: data.name ?? "",
+    id: String(updated?.id ?? id),
+    name: updated?.serviceName ?? data.name ?? "",
     description: data.description ?? "",
-    price: data.price ?? 0,
+    price: updated?.price ?? data.price ?? 0,
     unit: data.unit ?? "per piece",
-    category: data.category ?? "Washing",
-    active: data.active ?? true,
+    category: fromServiceCategory(updated?.category ?? toServiceCategory(data.category ?? "")),
+    active: updated?.isAvailable ?? data.active ?? true,
     popular: data.popular ?? false,
     orders: data.orders ?? 0,
     rating: data.rating ?? 0,
@@ -706,18 +719,20 @@ export async function getSchedule(): Promise<WeeklySchedule> {
     };
   }
 
-  payload.days.forEach((day) => {
+  payload.days?.forEach((day) => {
     const dayName = DAY_NAMES[day.dayOfWeek];
-    schedule[dayName] = {
-      enabled: day.isOpen,
-      slots: [
-        {
-          start: timeSpanToClock(day.openTime),
-          end: timeSpanToClock(day.closeTime),
-          id: `${dayName}-0`,
-        },
-      ],
-    };
+    if (dayName) {
+      schedule[dayName] = {
+        enabled: day.isOpen,
+        slots: [
+          {
+            start: timeSpanToClock(day.openTime),
+            end: timeSpanToClock(day.closeTime),
+            id: `${dayName}-0`,
+          },
+        ],
+      };
+    }
   });
 
   return schedule;
@@ -877,6 +892,17 @@ export async function initiateKashier(
 export async function getPayments(): Promise<any[]> {
   const payload = await apiRequest<
     | Array<{
+      paymentId: string;
+      orderId: number;
+      customerName: string;
+      serviceName: string;
+      method: string;
+      date: string;
+      amount: number;
+      status: "Paid" | "Pending" | "Refunded";
+    }>
+    | {
+      data?: Array<{
         paymentId: string;
         orderId: number;
         customerName: string;
@@ -885,19 +911,8 @@ export async function getPayments(): Promise<any[]> {
         date: string;
         amount: number;
         status: "Paid" | "Pending" | "Refunded";
-      }>
-    | {
-        data?: Array<{
-          paymentId: string;
-          orderId: number;
-          customerName: string;
-          serviceName: string;
-          method: string;
-          date: string;
-          amount: number;
-          status: "Paid" | "Pending" | "Refunded";
-        }> | null;
-      }
+      }> | null;
+    }
   >("/laundry-admin/payments");
   const payments = unwrapArray(payload);
 
@@ -1034,28 +1049,28 @@ export async function unassignCourier(courierId: string): Promise<void> {
 
 export async function getComplaints(): Promise<any[]> {
   const payload = await apiRequest<
-      | Array<{
-          id: number;
-          orderId: number;
-          customerName: string;
-          customerPhone?: string;
-          customerEmail?: string;
-          details: string;
-          status: string;
-          createdAt: string;
-        }>
-      | {
-          data?: Array<{
-            id: number;
-            orderId: number;
-            customerName: string;
-            customerPhone?: string;
-            customerEmail?: string;
-            details: string;
-            status: string;
-            createdAt: string;
-          }> | null;
-      }
+    | Array<{
+      id: number;
+      orderId: number;
+      customerName: string;
+      customerPhone?: string;
+      customerEmail?: string;
+      details: string;
+      status: string;
+      createdAt: string;
+    }>
+    | {
+      data?: Array<{
+        id: number;
+        orderId: number;
+        customerName: string;
+        customerPhone?: string;
+        customerEmail?: string;
+        details: string;
+        status: string;
+        createdAt: string;
+      }> | null;
+    }
   >("/laundry-admin/complaints");
   const complaints = unwrapArray(payload);
 
@@ -1399,11 +1414,11 @@ export async function getLaundryNotifications(): Promise<any[]> {
     orderId: notification.orderId ?? null,
     time: notification.createdAt
       ? formatDate(notification.createdAt, {
-          month: "short",
-          day: "numeric",
-          hour: "numeric",
-          minute: "2-digit",
-        })
+        month: "short",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+      })
       : "",
     read: Boolean(notification.isRead),
     createdAt: notification.createdAt ?? "",
