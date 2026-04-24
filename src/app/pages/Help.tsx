@@ -4,6 +4,8 @@ import Link from 'next/link';
 import { ArrowLeft, MessageCircle, Mail, Phone, ChevronRight } from 'lucide-react';
 import { useState } from "react";
 import { ChatWidget } from "@/app/components/chat/ChatWidget";
+import { VoiceCallWidget } from "@/app/components/chat/VoiceCallWidget";
+import { Headset } from "lucide-react";
 
 const faqItems = [
   {
@@ -26,6 +28,7 @@ const faqItems = [
 
 export default function Help() {
   const [chatOpen, setChatOpen] = useState(false);
+  const [voiceCallOpen, setVoiceCallOpen] = useState(false);
   return (
     <div className="min-h-screen bg-white" dir="ltr">
       <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-8 lg:px-12 py-4 z-10">
@@ -52,6 +55,21 @@ export default function Help() {
               <div className="flex-1 text-left">
                 <h3 className="text-gray-900 font-medium text-base md:text-lg">Live Chat</h3>
                 <p className="text-sm md:text-base text-gray-600">Chat with our support team</p>
+              </div>
+              <ChevronRight size={20} className="text-gray-400 shrink-0" strokeWidth={2} />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setVoiceCallOpen(true)}
+              className="w-full bg-white border border-gray-200 rounded-2xl p-4 md:p-5 flex items-center gap-4 hover:shadow-md transition-shadow"
+            >
+              <div className="w-12 h-12 md:w-14 md:h-14 bg-[#1D6076]/10 rounded-xl flex items-center justify-center shrink-0">
+                <Headset size={20} className="text-[#1D6076] md:w-6 md:h-6" strokeWidth={2} />
+              </div>
+              <div className="flex-1 text-left">
+                <h3 className="text-gray-900 font-medium text-base md:text-lg">Call AI Assistant</h3>
+                <p className="text-sm md:text-base text-gray-600">Speak directly with Nody</p>
               </div>
               <ChevronRight size={20} className="text-gray-400 shrink-0" strokeWidth={2} />
             </button>
@@ -100,6 +118,7 @@ export default function Help() {
       </div>
 
       {chatOpen && <ChatWidget onClose={() => setChatOpen(false)} />}
+      {voiceCallOpen && <VoiceCallWidget onClose={() => setVoiceCallOpen(false)} />}
     </div>
   );
 }

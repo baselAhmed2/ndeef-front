@@ -11,4 +11,5 @@ build/
 # IDE
 .vs/
 .vscode/
-
+.next
+node_modules
