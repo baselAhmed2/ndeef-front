@@ -45,15 +45,6 @@ const defaultSchedule: WeekSchedule = {
 
 const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
-const timeOptions: string[] = [];
-for (let h = 6; h <= 23; h++) {
-  for (let m = 0; m < 60; m += 30) {
-    const hh = h.toString().padStart(2, "0");
-    const mm = m.toString().padStart(2, "0");
-    timeOptions.push(`${hh}:${mm}`);
-  }
-}
-
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
     <button
@@ -88,18 +79,6 @@ function toDateInputValue(value: string) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
-}
-
-function getSlotDurationLabel(slot: TimeSlot) {
-  const [openHour, openMinute] = slot.start.split(":").map(Number);
-  const [closeHour, closeMinute] = slot.end.split(":").map(Number);
-  const diff = closeHour * 60 + closeMinute - (openHour * 60 + openMinute);
-
-  if (diff <= 0) return "Invalid";
-
-  const hours = Math.floor(diff / 60);
-  const minutes = diff % 60;
-  return `${hours}h${minutes > 0 ? ` ${minutes}m` : ""}`;
 }
 
 export function Availability() {
@@ -162,31 +141,7 @@ export function Availability() {
     }));
   };
 
-  const updateSlot = (day: string, index: number, field: "start" | "end", value: string) => {
-    setSchedule((prev) => {
-      const slots = [...prev[day].slots];
-      slots[index] = { ...slots[index], [field]: value };
-      return { ...prev, [day]: { ...prev[day], slots } };
-    });
-  };
-
-  const validateSchedule = () => {
-    for (const day of days) {
-      const slot = schedule[day].slots[0];
-      if (schedule[day].enabled && slot.start >= slot.end) {
-        return `${day} must have an opening time before its closing time.`;
-      }
-    }
-    return "";
-  };
-
   const handleSave = async () => {
-    const validationError = validateSchedule();
-    if (validationError) {
-      setSaveError(validationError);
-      return;
-    }
-
     try {
       setIsSaving(true);
       setSaveError("");
@@ -199,7 +154,7 @@ export function Availability() {
         setInfoMessage("Availability updated successfully.");
       } catch (capacityError) {
         console.error("Capacity settings failed to save", capacityError);
-        setInfoMessage("Working hours were saved, but capacity settings could not be updated.");
+        setInfoMessage("Available days were saved, but capacity settings could not be updated.");
         setSaveError(
           capacityError instanceof Error
             ? `Capacity settings could not be updated: ${capacityError.message}`
@@ -276,8 +231,8 @@ export function Availability() {
     <div className="p-6 space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="font-semibold text-gray-900">Availability & Hours</h2>
-          <p className="mt-0.5 text-xs text-gray-400">Set your working schedule and capacity</p>
+          <h2 className="font-semibold text-gray-900">Availability</h2>
+          <p className="mt-0.5 text-xs text-gray-400">Set your available days and capacity</p>
         </div>
         <button
           type="button"
@@ -323,7 +278,7 @@ export function Availability() {
       >
         <div className="flex items-center gap-2 border-b border-gray-50 px-5 py-4">
           <Clock className="h-4 w-4" style={{ color: "#1D5B70" }} />
-          <h3 className="font-semibold text-gray-900">Weekly Schedule</h3>
+          <h3 className="font-semibold text-gray-900">Available Days</h3>
         </div>
         <div className="divide-y divide-gray-50">
           {days.map((day, index) => {
@@ -346,34 +301,17 @@ export function Availability() {
                   </span>
                 </div>
 
-                {dayData.enabled ? (
-                  <div className="flex flex-1 flex-wrap items-center gap-3">
-                    {dayData.slots.map((slot, slotIndex) => (
-                      <div key={`${day}-${slotIndex}`} className="flex items-center gap-2">
-                        <select
-                          value={slot.start}
-                          onChange={(event) => updateSlot(day, slotIndex, "start", event.target.value)}
-                          className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
-                        >
-                          {timeOptions.map((time) => <option key={`${day}-start-${time}`}>{time}</option>)}
-                        </select>
-                        <span className="text-xs font-medium text-gray-400">to</span>
-                        <select
-                          value={slot.end}
-                          onChange={(event) => updateSlot(day, slotIndex, "end", event.target.value)}
-                          className="h-9 rounded-xl border border-gray-200 bg-white px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
-                        >
-                          {timeOptions.map((time) => <option key={`${day}-end-${time}`}>{time}</option>)}
-                        </select>
-                        <span className="rounded-lg bg-gray-100 px-2 py-1 text-xs text-gray-400">
-                          {getSlotDurationLabel(slot)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="text-xs italic text-gray-400">Closed</span>
-                )}
+                <div className="flex flex-1 items-center">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-medium ${
+                      dayData.enabled
+                        ? "bg-[#1D5B70]/10 text-[#1D5B70]"
+                        : "bg-gray-100 text-gray-400"
+                    }`}
+                  >
+                    {dayData.enabled ? "Available" : "Closed"}
+                  </span>
+                </div>
               </motion.div>
             );
           })}

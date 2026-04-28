@@ -82,6 +82,19 @@ const DAY_NAMES = [
   "Saturday",
 ] as const;
 
+const DEFAULT_AVAILABILITY_SLOTS: Record<
+  (typeof DAY_NAMES)[number],
+  { start: string; end: string }
+> = {
+  Sunday: { start: "10:00", end: "14:00" },
+  Monday: { start: "08:00", end: "20:00" },
+  Tuesday: { start: "08:00", end: "20:00" },
+  Wednesday: { start: "08:00", end: "20:00" },
+  Thursday: { start: "08:00", end: "20:00" },
+  Friday: { start: "09:00", end: "18:00" },
+  Saturday: { start: "10:00", end: "16:00" },
+};
+
 function unwrapArray<T>(
   payload: T[] | { data?: T[] | null } | null | undefined,
 ): T[] {
@@ -184,12 +197,8 @@ function fromServiceCategory(category: string | number | null | undefined) {
   }
 }
 
-function timeSpanToClock(value: string) {
-  return value.slice(0, 5);
-}
-
-function clockToTimeSpan(value: string) {
-  return value.length === 5 ? `${value}:00` : value;
+function getDefaultAvailabilitySlot(dayName: (typeof DAY_NAMES)[number]) {
+  return DEFAULT_AVAILABILITY_SLOTS[dayName];
 }
 
 // ---------------------------------------------------------
@@ -442,6 +451,23 @@ export interface ServiceDTO {
   icon?: any; // Will be mapped to Lucide component in the UI
   orders: number;
   rating: number;
+  isCatalogItem?: boolean;
+  recommendedPrice?: number | null;
+  currentPrice?: number | null;
+  existingServiceId?: string | null;
+}
+
+export interface ServiceCatalogDTO {
+  serviceName: string;
+  category: string;
+  isAdded: boolean;
+  existingServiceId: number | null;
+  currentPrice: number | null;
+  isAvailable: boolean | null;
+  suggestedMinPrice?: number | null;
+  suggestedMaxPrice?: number | null;
+  recommendedPrice?: number | null;
+  suggestionReasoning?: string | null;
 }
 
 function isMissingLaundryError(error: unknown) {
@@ -699,40 +725,55 @@ export interface DaySchedule {
 }
 export type WeeklySchedule = Record<string, DaySchedule>;
 
+async function updateLaundryAvailabilityStatus(
+  schedule: WeeklySchedule,
+): Promise<void> {
+  const hasOpenDay = Object.values(schedule).some((day) => day.enabled);
+
+  await withLaundryRecovery(() =>
+    apiRequest("/laundry-admin/availability", {
+      method: "PUT",
+      body: JSON.stringify({
+        availability: hasOpenDay ? 1 : 2,
+      }),
+    }),
+  );
+}
+
 export async function getSchedule(): Promise<WeeklySchedule> {
   const payload = await withLaundryRecovery(() =>
     apiRequest<{
       days: Array<{
         dayOfWeek: number;
         isOpen: boolean;
-        openTime: string;
-        closeTime: string;
       }>;
     }>("/laundry-admin/availability/schedule"),
   );
 
   const schedule = {} as WeeklySchedule;
   for (const dayName of DAY_NAMES.slice(1).concat(DAY_NAMES[0])) {
+    const slot = getDefaultAvailabilitySlot(dayName);
     schedule[dayName] = {
       enabled: false,
-      slots: [{ start: "08:00", end: "20:00", id: `${dayName}-0` }],
+      slots: [{ start: slot.start, end: slot.end, id: `${dayName}-0` }],
     };
   }
 
   payload.days?.forEach((day) => {
     const dayName = DAY_NAMES[day.dayOfWeek];
-    if (dayName) {
-      schedule[dayName] = {
-        enabled: day.isOpen,
-        slots: [
-          {
-            start: timeSpanToClock(day.openTime),
-            end: timeSpanToClock(day.closeTime),
-            id: `${dayName}-0`,
-          },
-        ],
-      };
-    }
+    if (!dayName) return;
+
+    const slot = getDefaultAvailabilitySlot(dayName);
+    schedule[dayName] = {
+      enabled: day.isOpen,
+      slots: [
+        {
+          start: slot.start,
+          end: slot.end,
+          id: `${dayName}-0`,
+        },
+      ],
+    };
   });
 
   return schedule;
@@ -742,12 +783,9 @@ export async function updateSchedule(data: WeeklySchedule): Promise<void> {
   const days = (Object.entries(data) as Array<[string, DaySchedule]>).map(
     ([name, value]) => {
       const dayIndex = DAY_NAMES.indexOf(name as (typeof DAY_NAMES)[number]);
-      const firstSlot = value.slots[0] ?? { start: "08:00", end: "20:00" };
       return {
         dayOfWeek: dayIndex,
         isOpen: value.enabled,
-        openTime: clockToTimeSpan(firstSlot.start),
-        closeTime: clockToTimeSpan(firstSlot.end),
       };
     },
   );
@@ -758,6 +796,8 @@ export async function updateSchedule(data: WeeklySchedule): Promise<void> {
       body: JSON.stringify({ days }),
     }),
   );
+
+  await updateLaundryAvailabilityStatus(data);
 }
 
 export async function getCapacity(): Promise<any> {
@@ -1007,6 +1047,34 @@ export async function saveLaundryProfile(data: any): Promise<void> {
 
     throw error;
   }
+}
+
+export async function getServiceCatalog(
+  includeSuggestedPrice = true,
+): Promise<ServiceCatalogDTO[]> {
+  const payload = await apiRequest<
+    ServiceCatalogDTO[] | { data?: ServiceCatalogDTO[] | null }
+  >(
+    `/laundry-admin/services/catalog?includeSuggestedPrice=${includeSuggestedPrice ? "true" : "false"}`,
+  );
+
+  return unwrapArray(payload).map((item) => ({
+    serviceName: item.serviceName,
+    category: fromServiceCategory(item.category),
+    isAdded: Boolean(item.isAdded),
+    existingServiceId: item.existingServiceId ?? null,
+    currentPrice:
+      typeof item.currentPrice === "number" ? item.currentPrice : null,
+    isAvailable:
+      typeof item.isAvailable === "boolean" ? item.isAvailable : null,
+    suggestedMinPrice:
+      typeof item.suggestedMinPrice === "number" ? item.suggestedMinPrice : null,
+    suggestedMaxPrice:
+      typeof item.suggestedMaxPrice === "number" ? item.suggestedMaxPrice : null,
+    recommendedPrice:
+      typeof item.recommendedPrice === "number" ? item.recommendedPrice : null,
+    suggestionReasoning: item.suggestionReasoning ?? null,
+  }));
 }
 
 // ---------------------------------------------------------

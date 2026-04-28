@@ -274,6 +274,16 @@ export default function Login() {
             </p>
           )}
 
+          {accountType === "Courier" && (
+            <p className="text-xs text-gray-500 mt-3 mb-1">
+              Couriers sign in here with their regular account.
+              New here?{" "}
+              <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium hover:underline">
+                Create a courier account
+              </Link>
+            </p>
+          )}
+
           {/* Error */}
           <AnimatePresence mode="wait">
             {error && (
@@ -531,20 +541,31 @@ export default function Login() {
                       <Loader2 size={18} className="animate-spin" />
                       <span>{loginProgress || (loginPhase === "checking" ? "Checking setup…" : "Signing in…")}</span>
                     </motion.div>
-                  ) : accountType === "LaundryAdmin" ? (
-                    <motion.div
-                      key="laundry"
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      className="flex items-center gap-2 relative z-10"
-                    >
-                      <Store size={18} />
-                      <span>Sign In as Laundry Owner</span>
-                    </motion.div>
-                  ) : (
-                    <motion.span
-                      key="signin"
+                    ) : accountType === "LaundryAdmin" ? (
+                      <motion.div
+                        key="laundry"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="flex items-center gap-2 relative z-10"
+                      >
+                        <Store size={18} />
+                        <span>Sign In as Laundry Owner</span>
+                      </motion.div>
+                    ) : accountType === "Courier" ? (
+                      <motion.div
+                        key="courier"
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="flex items-center gap-2 relative z-10"
+                      >
+                        <Truck size={18} />
+                        <span>Sign In as Courier</span>
+                      </motion.div>
+                    ) : (
+                      <motion.span
+                        key="signin"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -10 }}
@@ -578,6 +599,13 @@ export default function Login() {
                 New laundry owner?{" "}
                 <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium hover:underline">
                   Create an account
+                </Link>
+              </>
+            ) : accountType === "Courier" ? (
+              <>
+                Need a courier account?{" "}
+                <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium hover:underline">
+                  Sign up
                 </Link>
               </>
             ) : (
@@ -643,6 +671,8 @@ export default function Login() {
               <h2 className="text-[36px] font-bold text-white leading-tight mb-4">
                 {accountType === "LaundryAdmin" ? (
                   <>Manage your laundry,<br />all in one place.</>
+                ) : accountType === "Courier" ? (
+                  <>Deliver orders,<br />stay in motion.</>
                 ) : (
                   <>Clean clothes,<br />zero hassle.</>
                 )}
@@ -650,6 +680,8 @@ export default function Login() {
               <p className="text-white/70 text-base leading-relaxed mb-10 max-w-sm">
                 {accountType === "LaundryAdmin"
                   ? "Track orders, manage services, and grow your business with Nadeef."
+                  : accountType === "Courier"
+                    ? "Use the regular login and signup flow, then head straight to your courier dashboard."
                   : "Browse verified laundries, schedule pickups, and get fresh clothes delivered to your door."}
               </p>
             </motion.div>

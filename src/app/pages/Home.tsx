@@ -38,7 +38,7 @@ function Section({ children, className = '', style }: { children: React.ReactNod
   return (
     <motion.section
       ref={ref}
-      className={className}
+      className={`min-h-screen flex items-center ${className}`}
       style={style}
       initial={{ opacity: 0, y: 48 }}
       animate={inView ? { opacity: 1, y: 0 } : {}}
@@ -106,7 +106,7 @@ export default function Home() {
     <div className="min-h-screen" dir="ltr">
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-[#0d3d50] min-h-[85vh] flex items-center">
+      <section className="relative overflow-hidden bg-[#0d3d50] min-h-screen flex items-center">
         {/* Background image */}
         <div className="absolute inset-0">
           <ImageWithFallback
@@ -128,7 +128,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 md:px-8 py-20 md:py-28 grid md:grid-cols-2 gap-12 items-center">
+        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 lg:py-24 grid md:grid-cols-2 gap-10 lg:gap-14 items-center">
           {/* Left — copy */}
           <div>
             {isLoggedIn && user && (
@@ -147,7 +147,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
-              className="text-4xl md:text-5xl lg:text-6xl text-white mb-6 leading-tight"
+              className="text-4xl md:text-5xl lg:text-6xl text-white mb-5 md:mb-6 leading-tight"
               style={{ fontWeight: 800, letterSpacing: '-0.02em' }}
             >
               Your Neighbourhood<br />
@@ -166,7 +166,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
-              className="text-white/75 text-lg md:text-xl mb-8 leading-relaxed max-w-lg"
+              className="text-white/75 text-lg md:text-xl mb-7 md:mb-8 leading-relaxed max-w-lg"
             >
               Ndeef connects you with the best local laundries. Browse, order, track — clean clothes at your door.
             </motion.p>
@@ -175,7 +175,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.45 }}
-              className="flex flex-wrap gap-3 mb-10"
+              className="flex flex-wrap gap-3.5 mb-8 md:mb-10"
             >
               <Link
                  href="/nearby"
@@ -201,7 +201,7 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.65, duration: 0.6 }}
-              className="flex flex-wrap gap-5"
+              className="flex flex-wrap gap-5 md:gap-6"
             >
               {[
                 { v: '500+', l: 'Orders Delivered' },
@@ -278,9 +278,9 @@ export default function Home() {
       </section>
 
       {/* ── HOW IT WORKS ──────────────────────────────────────────────────── */}
-      <Section className="bg-white py-20 md:py-28">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-14">
+      <Section className="bg-white py-16 md:py-20 lg:py-24">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10 md:mb-12">
             <motion.span
               initial={{ opacity: 0, scale: 0.85 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -303,7 +303,7 @@ export default function Home() {
           </div>
 
           <motion.div
-            className="grid md:grid-cols-3 gap-8"
+            className="grid md:grid-cols-3 gap-6 lg:gap-8"
             variants={listVariants}
             initial="hidden"
             whileInView="show"
@@ -338,9 +338,9 @@ export default function Home() {
       </Section>
 
       {/* ── NEARBY LAUNDRIES PREVIEW ──────────────────────────────────────── */}
-      <Section className="py-20 md:py-28" style={{ background: 'linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)' }}>
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="flex items-end justify-between mb-10">
+      <Section className="py-16 md:py-20 lg:py-24" style={{ background: 'linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)' }}>
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-end justify-between gap-4 mb-8 md:mb-10">
             <div>
               <motion.span
                 initial={{ opacity: 0, x: -16 }}
@@ -368,7 +368,7 @@ export default function Home() {
           </div>
 
           <motion.div
-            className="grid md:grid-cols-3 gap-5"
+            className="grid md:grid-cols-3 gap-5 lg:gap-6"
             variants={listVariants}
             initial="hidden"
             whileInView="show"
@@ -438,9 +438,9 @@ export default function Home() {
       </Section>
 
       {/* ── WHY NDEEF ─────────────────────────────────────────────────────── */}
-      <Section className="bg-[#f8fafb] py-20 md:py-28">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid md:grid-cols-2 gap-12 items-center mb-16">
+      <Section className="bg-[#f8fafb] py-16 md:py-20 lg:py-24">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid md:grid-cols-2 gap-10 lg:gap-14 items-center mb-12 md:mb-14">
             <motion.div
               initial={{ opacity: 0, x: -40 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -471,7 +471,7 @@ export default function Home() {
           </div>
 
           <motion.div
-            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5"
+            className="grid sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6"
             variants={listVariants}
             initial="hidden"
             whileInView="show"
@@ -502,9 +502,9 @@ export default function Home() {
       </Section>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────── */}
-      <Section className="bg-white py-20 md:py-28">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="text-center mb-14">
+      <Section className="bg-white py-16 md:py-20 lg:py-24">
+        <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10 md:mb-12">
             <motion.span
               initial={{ opacity: 0, scale: 0.85 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -527,7 +527,7 @@ export default function Home() {
           </div>
 
           <motion.div
-            className="grid md:grid-cols-3 gap-6"
+            className="grid md:grid-cols-3 gap-5 lg:gap-6"
             variants={listVariants}
             initial="hidden"
             whileInView="show"
@@ -571,8 +571,8 @@ export default function Home() {
       </Section>
 
       {/* ── CTA BANNER ───────────────────────────────────────────────────── */}
-      <Section className="py-20" style={{ background: 'linear-gradient(135deg, #EBA050 0%, #d4832a 100%)' }}>
-        <div className="max-w-3xl mx-auto px-4 md:px-8 text-center">
+      <Section className="py-16 md:py-20" style={{ background: 'linear-gradient(135deg, #EBA050 0%, #d4832a 100%)' }}>
+        <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             className="text-5xl mb-5 select-none"
             animate={{ rotate: [0, -10, 10, -10, 0], scale: [1, 1.12, 1.12, 1.12, 1] }}
@@ -628,9 +628,9 @@ export default function Home() {
       </Section>
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      <footer className="bg-[#0d3d50] text-white py-12">
-        <div className="max-w-7xl mx-auto px-4 md:px-8">
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 mb-10">
+      <footer className="bg-[#0d3d50] text-white py-12 md:py-14">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 lg:gap-10 mb-10">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">

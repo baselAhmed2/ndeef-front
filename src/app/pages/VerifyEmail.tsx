@@ -50,6 +50,7 @@ export default function VerifyEmail() {
 
     const resolvedRole = (result.user?.role ?? requestedRole).toLowerCase();
     const isLaundryAdmin = resolvedRole.includes("laundryadmin");
+    const isCourier = resolvedRole.includes("courier");
 
     if (isLaundryAdmin) {
       const pendingLaundry = readPendingLaundryOnboarding();
@@ -85,7 +86,7 @@ export default function VerifyEmail() {
       return;
     }
 
-    router.replace(next || "/");
+    router.replace(next || (isCourier ? "/courier" : "/"));
   };
 
   return (

@@ -74,10 +74,33 @@ export interface BackendUserProfileDto {
   createdAt: string;
 }
 
+export interface BackendAddressDto {
+  id: number;
+  type: string;
+  label: string;
+  street: string;
+  apt: string | null;
+  city: string;
+  area: string;
+  instructions: string | null;
+  isDefault: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+}
+
 export interface WalletPaymentResponse {
   paymentUrl?: string;
   checkoutUrl?: string;
   [key: string]: unknown;
+}
+
+export interface BackendWalletHistoryItemDto {
+  id: number;
+  amount: number;
+  paymentStatus: string;
+  paymentMethod: string;
+  paymentDate: string | null;
+  paymentUrl?: string | null;
 }
 
 export interface BackendServiceDto {
@@ -115,6 +138,7 @@ export interface BackendPaymentDto {
   paymentStatus: string;
   paymentMethod: string;
   paymentDate: string | null;
+  paymentUrl?: string | null;
 }
 
 export interface BackendOrderDto {
@@ -216,10 +240,10 @@ export interface VerifyEmailResponse {
 }
 
 export const categoryLabels: Record<string, string> = {
-  wash: "Wash & Fold",
+  wash: "Washing",
   iron: "Ironing",
   dry_clean: "Dry Cleaning",
-  specialty: "Specialty Items",
+  specialty: "Special Care",
 };
 
 export const categoryOrder = ["wash", "iron", "dry_clean", "specialty"];
@@ -627,7 +651,7 @@ export async function registerRequest(payload: {
   email: string;
   password: string;
   phoneNumber: string;
-  role: "Customer" | "LaundryAdmin";
+  role: "Customer" | "LaundryAdmin" | "Courier";
 }) {
   return request<BackendUserDto>("/Auth/register", {
     method: "POST",
@@ -683,6 +707,57 @@ export async function updateUserProfileRequest(
   );
 }
 
+export async function getUserAddressesRequest(token: string) {
+  return request<BackendAddressDto[]>("/User/addresses", undefined, token);
+}
+
+export async function addUserAddressRequest(
+  token: string,
+  payload: {
+    type: string;
+    label: string;
+    street: string;
+    apt?: string | null;
+    city: string;
+    area: string;
+    instructions?: string | null;
+    isDefault?: boolean;
+  },
+) {
+  return request<BackendAddressDto>(
+    "/User/addresses",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function updateUserAddressRequest(
+  token: string,
+  addressId: number,
+  payload: {
+    type: string;
+    label: string;
+    street: string;
+    apt?: string | null;
+    city: string;
+    area: string;
+    instructions?: string | null;
+    isDefault?: boolean;
+  },
+) {
+  return request<BackendAddressDto>(
+    `/User/addresses/${addressId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
 export async function payOrderWithCashRequest(
   token: string,
   orderId: number,
@@ -711,6 +786,21 @@ export async function payOrderWithMobileWalletRequest(
     },
     token,
   );
+}
+
+export async function chargeWalletRequest(token: string, amount: number) {
+  return request<WalletPaymentResponse>(
+    "/wallet/charge",
+    {
+      method: "POST",
+      body: JSON.stringify({ amount }),
+    },
+    token,
+  );
+}
+
+export async function getPaymentHistoryRequest(token: string) {
+  return request<BackendWalletHistoryItemDto[]>("/Payments/history", undefined, token);
 }
 
 export async function changePasswordRequest(
@@ -933,7 +1023,7 @@ export async function processPaymentRequest(
   payload: {
     orderId: number;
     amount: number;
-    paymentMethod: "CreditCard";
+    paymentMethod: "CreditCard" | "MobilePayment" | "Cash";
   },
 ) {
   return request<BackendPaymentDto>(

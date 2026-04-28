@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, X, ShoppingBag, User, LogOut, MapPin, HelpCircle, ChevronDown, Home } from 'lucide-react';
+import { Menu, X, ShoppingBag, User, LogOut, MapPin, HelpCircle, ChevronDown, Home, Wallet } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 // ── Nadeef Logo ────────────────────────────────────────────────────────────────
@@ -62,17 +62,17 @@ export function TopNav() {
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 md:px-8 h-16 flex items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-[72px] flex items-center justify-between gap-4 lg:gap-6">
           {/* Logo */}
           <NadeefLogo />
 
           {/* Desktop nav links */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden md:flex items-center gap-2 lg:gap-3">
             {visibleNavLinks.map(({ href, label }) => (
               <Link
                 key={href}
                 href={href}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                className={`px-4 lg:px-5 py-2.5 rounded-xl text-sm font-medium transition-all ${
                   isActive(href)
                     ? 'bg-[#1D6076]/10 text-[#1D6076]'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
@@ -84,12 +84,12 @@ export function TopNav() {
           </nav>
 
           {/* Right side */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isLoggedIn && user ? (
               <div className="relative">
                 <button
                   onClick={() => setUserMenu(v => !v)}
-                  className="flex items-center gap-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 transition-all"
+                  className="flex items-center gap-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3.5 py-2.5 transition-all"
                 >
                   <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#1D6076] to-[#2a7a94] flex items-center justify-center">
                     <span className="text-white text-xs font-semibold">
@@ -108,8 +108,7 @@ export function TopNav() {
                     </div>
                     {[
                       { href: '/profile', label: 'My Profile', Icon: User },
-                      { href: '/orders', label: 'My Orders', Icon: ShoppingBag },
-                      { href: '/billing', label: 'Billing', Icon: () => <span className="text-sm">💳</span> },
+                      { href: '/wallet', label: 'Wallet', Icon: Wallet },
                     ].map(({ href, label, Icon }) => (
                       <Link
                         key={href}
@@ -137,13 +136,13 @@ export function TopNav() {
               <div className="flex items-center gap-2">
                 <Link
                   href={authHref('/login')}
-                  className="hidden sm:block text-sm font-medium text-gray-700 hover:text-[#1D6076] px-3 py-2 rounded-xl hover:bg-gray-50 transition-all"
+                  className="hidden sm:block text-sm font-medium text-gray-700 hover:text-[#1D6076] px-3.5 py-2.5 rounded-xl hover:bg-gray-50 transition-all"
                 >
                   Sign In
                 </Link>
                 <Link
                   href={authHref('/signup')}
-                  className="bg-[#1D6076] text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-[#2a7a94] transition-all shadow-sm"
+                  className="bg-[#1D6076] text-white text-sm font-medium px-4.5 py-2.5 rounded-xl hover:bg-[#2a7a94] transition-all shadow-sm"
                 >
                   Get Started
                 </Link>
@@ -153,7 +152,7 @@ export function TopNav() {
             {/* Mobile hamburger */}
             <button
               onClick={() => setMobileOpen(true)}
-              className="md:hidden p-2 rounded-xl hover:bg-gray-50 transition-all"
+              className="md:hidden p-2.5 rounded-xl hover:bg-gray-50 transition-all"
             >
               <Menu size={22} className="text-gray-700" strokeWidth={2} />
             </button>
@@ -207,7 +206,7 @@ export function TopNav() {
                 <>
                   {[
                     { href: '/profile', label: 'Profile' },
-                    { href: '/billing', label: 'Billing' },
+                    { href: '/wallet', label: 'Wallet' },
                     { href: '/preferences', label: 'Preferences' },
                   ].map(({ href, label }) => (
                     <Link
@@ -252,7 +251,7 @@ export function TopNav() {
       )}
 
       {/* Spacer so content starts below fixed nav */}
-      <div className="h-16" />
+      <div className="h-[72px]" />
     </>
   );
 }

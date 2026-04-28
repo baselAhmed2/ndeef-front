@@ -604,7 +604,7 @@ export default function OrderPage() {
               PICKUP ADDRESS
             </p>
           </div>
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] p-3">
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04]p-3">
             <div>
               <p className="text-sm font-medium text-gray-800">Choose your location from the map</p>
               <p className="text-xs text-gray-500">Use current location or fine-tune the pin coordinates.</p>
@@ -726,7 +726,7 @@ export default function OrderPage() {
                 <p className="text-sm text-gray-900 font-medium">Cash on Delivery</p>
               </div>
               <p className="text-xs text-gray-500">
-                Place the order immediately and pay later.
+                The order is created first, then stays pending until cash payment is processed.
               </p>
             </button>
 
@@ -744,7 +744,7 @@ export default function OrderPage() {
                 <p className="text-sm text-gray-900 font-medium">Credit Card</p>
               </div>
               <p className="text-xs text-gray-500">
-                Place the order, then confirm payment through the backend.
+                The order is created first, then the backend opens the card checkout for that order.
               </p>
             </button>
           </div>
@@ -783,8 +783,8 @@ export default function OrderPage() {
             ) : (
               <>
                 {paymentMethod === "cash"
-                  ? "Place Order (Cash on Delivery)"
-                  : "Proceed to Payment"}
+                  ? "Create Order (Cash)"
+                  : "Create Order and Pay"}
                 <ChevronDown size={16} className="-rotate-90" strokeWidth={2} />
               </>
             )}

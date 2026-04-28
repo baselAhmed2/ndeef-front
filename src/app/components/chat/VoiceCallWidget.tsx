@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { X, PhoneOff, Mic, MicOff, Loader2 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import { BASE_URL } from "@/app/services/api";
 
 // ----------------------------------------------------------------------
 // PCM Player: Plays 16kHz raw PCM (Int16) received from WebSocket
@@ -109,6 +108,10 @@ class PCMRecorder {
 // ----------------------------------------------------------------------
 export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
   const { user, isAuthReady, isLoggedIn } = useAuth();
+  const backendHost =
+    typeof window !== "undefined"
+      ? window.location.host
+      : "ndeefapp.runasp.net";
   
   const [status, setStatus] = useState<"connecting" | "active" | "error" | "ended">("connecting");
   const [errorMsg, setErrorMsg] = useState("");

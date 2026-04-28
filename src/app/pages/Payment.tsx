@@ -11,7 +11,7 @@ import {
 import {
   ApiError,
   getOrderByIdRequest,
-  payOrderWithMobileWalletRequest,
+  processPaymentRequest,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -68,12 +68,16 @@ export default function Payment() {
     try {
       setFlowState("processing");
 
-      const response = await payOrderWithMobileWalletRequest(
+      const order = await getOrderByIdRequest(user.token, orderId);
+      const response = await processPaymentRequest(
         user.token,
-        Number(orderId),
-        Number((await getOrderByIdRequest(user.token, orderId)).totalPrice ?? 0),
+        {
+          orderId: Number(orderId),
+          amount: Number(order.totalPrice ?? 0),
+          paymentMethod: "CreditCard",
+        },
       );
-      const cashierUrl = response.paymentUrl ?? response.checkoutUrl;
+      const cashierUrl = response.paymentUrl;
 
       if (!cashierUrl) {
         throw new ApiError(

@@ -44,7 +44,7 @@ export interface SignupData {
   email: string;
   phone: string;
   password: string;
-  role?: "Customer" | "LaundryAdmin";
+  role?: "Customer" | "LaundryAdmin" | "Courier";
   address?: string;
 }
 

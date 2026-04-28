@@ -18,6 +18,7 @@ import {
   MapPin,
   Check,
   Store,
+  Truck,
 } from "lucide-react";
 import MapPicker from "../components/MapPicker";
 import { useAuth, SignupData } from "../context/AuthContext";
@@ -29,7 +30,7 @@ import {
 } from "../lib/laundry-onboarding";
 import { saveLaundryProfile, startVerificationSession } from "../lib/laundry-admin-client";
 
-type AccountType = "Customer" | "LaundryAdmin";
+type AccountType = "Customer" | "LaundryAdmin" | "Courier";
 
 // Elegant Royal Teal Color
 
@@ -188,6 +189,7 @@ function SegmentedControl({
   const options: { key: AccountType; label: string; icon: React.ElementType }[] = [
     { key: "Customer", label: "Customer", icon: User },
     { key: "LaundryAdmin", label: "Laundry Owner", icon: Store },
+    { key: "Courier", label: "Courier", icon: Truck },
   ];
   return (
     <div className="flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
@@ -274,7 +276,11 @@ export default function SignupPage() {
 
   const [step, setStep] = useState(0);
   const [accountType, setAccountType] = useState<AccountType>(
-    initialRole === "LaundryAdmin" ? "LaundryAdmin" : "Customer",
+    initialRole === "LaundryAdmin"
+      ? "LaundryAdmin"
+      : initialRole === "Courier"
+        ? "Courier"
+        : "Customer",
   );
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -368,23 +374,6 @@ export default function SignupPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const finishLaundryOnboarding = async (data: PendingLaundryOnboarding) => {
-    try {
-      await saveLaundryProfile({
-        laundryName: data.laundryName,
-        address: data.address,
-        latitude: data.latitude,
-        longitude: data.longitude,
-      });
-
-      clearPendingLaundryOnboarding();
-      router.replace("/laundry-admin");
-    } catch (error) {
-      console.error("Failed to complete laundry onboarding", error);
-      router.replace("/laundry-admin");
-    }
-  };
-
   const handleSubmit = async () => {
     if (!validateStep2()) return;
 
@@ -460,11 +449,6 @@ export default function SignupPage() {
       router.push(
         `/verify-email?email=${encodeURIComponent(result.email ?? email)}&role=${accountType}`,
       );
-      return;
-    }
-
-    if (accountType === "LaundryAdmin" && laundryData) {
-      await finishLaundryOnboarding(laundryData);
       return;
     }
 
@@ -589,6 +573,19 @@ export default function SignupPage() {
               </AnimatePresence>
 
               <AnimatePresence mode="wait">
+                {accountType === "Courier" && (
+                  <motion.p
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="text-xs text-gray-500 mt-3"
+                  >
+                    Couriers can create their account here, then sign in from the regular login page with the Courier tab.
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              <AnimatePresence mode="wait">
                 {accountType === "Customer" && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
@@ -638,7 +635,11 @@ export default function SignupPage() {
                 whileTap={{ scale: 0.98 }}
                 className="w-full py-3.5 rounded-xl text-white text-sm font-semibold flex items-center justify-center gap-2 transition-all bg-gradient-to-r from-[#0f4c5c] to-[#2d6b7a] hover:from-[#0a3440] hover:to-[#0f4c5c] shadow-lg shadow-[#0f4c5c]/25"
               >
-                {accountType === "LaundryAdmin" ? "Register Laundry Owner" : "Sign up with Email"}
+                {accountType === "LaundryAdmin"
+                  ? "Register Laundry Owner"
+                  : accountType === "Courier"
+                    ? "Register Courier"
+                    : "Sign up with Email"}
                 <ArrowRight size={18} />
               </motion.button>
 
@@ -661,11 +662,15 @@ export default function SignupPage() {
                 <h1 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">
                   {accountType === "LaundryAdmin"
                     ? "Create your account"
+                    : accountType === "Courier"
+                      ? "Create your courier account"
                     : "Let's get started"}
                 </h1>
                 <p className="text-gray-500 text-sm leading-relaxed">
                   {accountType === "LaundryAdmin"
                     ? "Enter your details to register as a laundry owner. We'll verify your business next."
+                    : accountType === "Courier"
+                      ? "Enter your details to create your courier account and sign in from the regular login page."
                     : "Enter your details to create your customer account."}
                 </p>
               </div>
@@ -786,11 +791,15 @@ export default function SignupPage() {
                 <h1 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">
                   {accountType === "LaundryAdmin"
                     ? "Add your laundry details"
+                    : accountType === "Courier"
+                      ? "One more step"
                     : "One more step"}
                 </h1>
                 <p className="text-gray-500 text-sm leading-relaxed">
                   {accountType === "LaundryAdmin"
                     ? "Enter your contact information and select your laundry location on the map."
+                    : accountType === "Courier"
+                      ? "Add your phone number so the platform can reach you about deliveries."
                     : "Add your phone number so we can reach you about your orders."}
                 </p>
               </div>
@@ -811,9 +820,9 @@ export default function SignupPage() {
                   icon={Phone}
                 />
 
-                {accountType === "Customer" ? (
+                {accountType === "Customer" || accountType === "Courier" ? (
                   <InputField
-                    label="Home address (optional)"
+                    label={accountType === "Courier" ? "Address (optional)" : "Home address (optional)"}
                     placeholder="Street, City"
                     value={address}
                     onChange={setAddress}
@@ -891,6 +900,8 @@ export default function SignupPage() {
                     <Check size={18} strokeWidth={2.5} />
                     {accountType === "LaundryAdmin"
                       ? "Complete Registration"
+                      : accountType === "Courier"
+                        ? "Create Courier Account"
                       : "Create My Account"}
                   </>
                 )}
@@ -945,6 +956,8 @@ export default function SignupPage() {
               <h2 className="text-[36px] font-bold text-white leading-tight mb-4">
                 {accountType === "LaundryAdmin" ? (
                   <>Manage your laundry,<br />all in one place.</>
+                ) : accountType === "Courier" ? (
+                  <>Deliver orders,<br />stay in control.</>
                 ) : (
                   <>Clean clothes,<br />zero hassle.</>
                 )}
@@ -952,6 +965,8 @@ export default function SignupPage() {
               <p className="text-white/70 text-base leading-relaxed mb-10 max-w-sm">
                 {accountType === "LaundryAdmin"
                   ? "Track orders, manage services, and grow your business with Nadeef."
+                  : accountType === "Courier"
+                    ? "Create your courier account, sign in from the regular login page, and manage deliveries from one place."
                   : "Browse verified laundries, schedule pickups, and get fresh clothes delivered to your door."}
               </p>
             </motion.div>
