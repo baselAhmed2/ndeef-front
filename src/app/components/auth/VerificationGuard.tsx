@@ -12,7 +12,7 @@ interface VerificationGuardProps {
 export function VerificationGuard({ children }: VerificationGuardProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, isLoggedIn, isAuthReady } = useAuth();
+  const { user, isLoggedIn, isAuthReady, updateUser } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
   useEffect(() => {
@@ -29,21 +29,54 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
       return;
     }
 
-    // Check if user is LaundryAdmin and needs verification
-    const isLaundryAdmin = user.role === "LaundryAdmin" || user.role === "2";
-    const needsVerification = user.needsVerification;
+    const currentUser = user;
 
+    // Check if user is LaundryAdmin and needs verification
+    const normalizedRole = (currentUser.role ?? "").trim().toLowerCase().replace(/\s+/g, "");
+    const isLaundryAdmin = normalizedRole === "laundryadmin" || normalizedRole === "3";
     // Current path is verification page - allow access
     const isVerificationPage = pathname?.startsWith("/laundry-admin/verification");
 
-    if (isLaundryAdmin && needsVerification && !isVerificationPage) {
-      // Redirect to verification page
-      router.push("/laundry-admin/verification");
+    if (!isLaundryAdmin) {
+      setIsChecking(false);
       return;
     }
 
-    setIsChecking(false);
-  }, [isAuthReady, isLoggedIn, user, pathname, router]);
+    let ignore = false;
+
+    async function checkVerificationStatus() {
+      try {
+        const { getVerificationStatus } = await import("@/app/lib/laundry-admin-client");
+        const status = await getVerificationStatus();
+        if (ignore) return;
+
+        const needsVerification = !status.isIdentityVerified;
+        updateUser({ needsVerification });
+
+        if (needsVerification && !isVerificationPage) {
+          router.push("/laundry-admin/verification");
+          return;
+        }
+
+        setIsChecking(false);
+      } catch {
+        if (ignore) return;
+
+        if (currentUser.needsVerification && !isVerificationPage) {
+          router.push("/laundry-admin/verification");
+          return;
+        }
+
+        setIsChecking(false);
+      }
+    }
+
+    checkVerificationStatus();
+
+    return () => {
+      ignore = true;
+    };
+  }, [isAuthReady, isLoggedIn, pathname, router, updateUser, user]);
 
   if (!isAuthReady || isChecking) {
     return (

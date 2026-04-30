@@ -13,6 +13,8 @@ import {
   Truck,
   ShieldCheck,
   Sparkles,
+  MessageCircleWarning,
+  RotateCcw,
 } from "lucide-react";
 import {
   ApiError,
@@ -131,6 +133,11 @@ export default function TrackOrder() {
   const [track, setTrack] = useState<BackendOrderTrackDto | null>(null);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [isCancelling, setIsCancelling] = useState(false);
+  const [showComplaintModal, setShowComplaintModal] = useState(false);
+  const [complaintText, setComplaintText] = useState("");
+  const [isSubmittingComplaint, setIsSubmittingComplaint] = useState(false);
+  const [complaintError, setComplaintError] = useState("");
+  const [complaintSuccess, setComplaintSuccess] = useState("");
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -181,6 +188,83 @@ export default function TrackOrder() {
 
   const cfg = statusConfig[currentStatus];
   const canCancelOrder = order?.status === "pending_confirmation";
+  const canReportDeliveredIssue = currentStatus === "delivered";
+
+  const submitComplaint = async () => {
+    if (!user?.token || !order) return;
+
+    const details = complaintText.trim();
+    if (details.length < 8) {
+      setComplaintError("Please enter a bit more detail so the backend can accept the complaint.");
+      return;
+    }
+
+    try {
+      setIsSubmittingComplaint(true);
+      setComplaintError("");
+      setComplaintSuccess("");
+
+      const response = await fetch("/api/backend/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+          Authorization: `Bearer ${user.token}`,
+        },
+        body: JSON.stringify({
+          message: `complaint order ${order.id}: ${details}`,
+          history: [],
+        }),
+      });
+
+      if (!response.ok || !response.body) {
+        const body = await response.text().catch(() => "");
+        throw new Error(body || `Complaint request failed (${response.status}).`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let buffer = "";
+      let aggregated = "";
+      let done = false;
+
+      while (!done) {
+        const { value, done: readerDone } = await reader.read();
+        if (readerDone) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+
+        for (const part of parts) {
+          const dataIndex = part.indexOf("data:");
+          if (dataIndex === -1) continue;
+
+          let data = part.slice(dataIndex + 5);
+          if (data.startsWith(" ")) data = data.slice(1);
+
+          if (data.trim() === "[DONE]") {
+            done = true;
+            break;
+          }
+
+          aggregated += data;
+        }
+      }
+
+      if (!aggregated.toLowerCase().includes("complaint") && !aggregated.includes("شكوى")) {
+        throw new Error("The backend did not confirm complaint submission.");
+      }
+
+      setComplaintSuccess("Your complaint was submitted successfully. The laundry and support team were notified.");
+      setShowComplaintModal(false);
+      setComplaintText("");
+    } catch (error) {
+      setComplaintError(error instanceof Error ? error.message : "Failed to submit complaint.");
+    } finally {
+      setIsSubmittingComplaint(false);
+    }
+  };
 
   const handleCancelOrder = async () => {
     if (!user?.token || !order) return;
@@ -377,6 +461,45 @@ export default function TrackOrder() {
             </div>
           </div>
 
+          {canReportDeliveredIssue && (
+            <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                  <RotateCcw size={18} className="text-amber-600" strokeWidth={2} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-gray-900">Complaint or return request</p>
+                  <p className="mt-1 text-sm text-gray-500 leading-relaxed">
+                    The backend supports post-delivery complaints. It does not expose a separate return endpoint, so return issues are sent as a complaint for follow-up.
+                  </p>
+                </div>
+              </div>
+
+              {complaintSuccess && (
+                <div className="mt-4 rounded-2xl border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-700">
+                  {complaintSuccess}
+                </div>
+              )}
+
+              {complaintError && !showComplaintModal && (
+                <div className="mt-4 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {complaintError}
+                </div>
+              )}
+
+              <button
+                onClick={() => {
+                  setComplaintError("");
+                  setComplaintSuccess("");
+                  setShowComplaintModal(true);
+                }}
+                className="mt-4 w-full rounded-2xl bg-amber-500 px-4 py-3 text-sm font-semibold text-white transition hover:bg-amber-600"
+              >
+                Report complaint / request return
+              </button>
+            </div>
+          )}
+
           {canCancelOrder && (
             <button
               onClick={() => setShowCancelModal(true)}
@@ -409,6 +532,56 @@ export default function TrackOrder() {
                 disabled={isCancelling}
               >
                 {isCancelling ? "Cancelling..." : "Cancel Order"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showComplaintModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-3xl p-5 shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
+                <MessageCircleWarning size={18} className="text-amber-600" strokeWidth={2} />
+              </div>
+              <div>
+                <h2 className="text-lg text-gray-900">Report issue with delivered order</h2>
+                <p className="text-xs text-gray-400">Order #{order?.id ?? ""}</p>
+              </div>
+            </div>
+
+            <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+              Your message will be sent to the backend complaint flow and routed to the laundry admin and support team.
+            </p>
+
+            <textarea
+              value={complaintText}
+              onChange={(event) => setComplaintText(event.target.value)}
+              placeholder="Describe the issue or return reason..."
+              className="min-h-32 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1D6076] focus:bg-white"
+            />
+
+            {complaintError && (
+              <div className="mt-3 rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {complaintError}
+              </div>
+            )}
+
+            <div className="mt-4 flex gap-2.5">
+              <button
+                onClick={() => setShowComplaintModal(false)}
+                disabled={isSubmittingComplaint}
+                className="flex-1 rounded-2xl bg-gray-100 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+              >
+                Close
+              </button>
+              <button
+                onClick={submitComplaint}
+                disabled={isSubmittingComplaint}
+                className="flex-1 rounded-2xl bg-[#1D6076] py-3 text-sm font-medium text-white transition hover:bg-[#2a7a94] disabled:opacity-70"
+              >
+                {isSubmittingComplaint ? "Submitting..." : "Send complaint"}
               </button>
             </div>
           </div>

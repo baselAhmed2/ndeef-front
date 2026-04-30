@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import Link from "next/link"
 import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, useInView } from 'motion/react';
-import { ArrowRight, MapPin, Star, ShieldCheck, Zap, Clock, ChevronRight, Sparkles, CheckCircle } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, LogIn, MapPin, Star, ShieldCheck, Zap, Clock, ChevronRight, Sparkles, CheckCircle } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { getLaundriesRequest, mapLaundryDtoToUiLaundry, UiLaundry } from '@/app/lib/api';
 import { useAuth } from '../context/AuthContext';
@@ -81,6 +81,15 @@ export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [nearbyPreview, setNearbyPreview] = useState<UiLaundry[]>([]);
+
+  const handleProtectedNavigation = (target: string) => {
+    if (!isLoggedIn) {
+      router.push(`/login?from=${encodeURIComponent(target)}`);
+      return;
+    }
+
+    router.push(target);
+  };
 
   useEffect(() => {
     if (searchParams?.get('orderPlaced') !== '1') return;
@@ -340,31 +349,55 @@ export default function Home() {
       {/* ── NEARBY LAUNDRIES PREVIEW ──────────────────────────────────────── */}
       <Section className="py-16 md:py-20 lg:py-24" style={{ background: 'linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)' }}>
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-end justify-between gap-4 mb-8 md:mb-10">
-            <div>
-              <motion.span
-                initial={{ opacity: 0, x: -16 }}
-                whileInView={{ opacity: 1, x: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4 }}
-                className="inline-block bg-white/15 text-white text-xs font-semibold tracking-widest px-4 py-1.5 rounded-full mb-4 uppercase"
-              >
-                Near You
-              </motion.span>
-              <motion.h2
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-                className="text-3xl md:text-4xl text-white"
-                style={{ fontWeight: 800, letterSpacing: '-0.02em' }}
-              >
-                Top Laundries
-              </motion.h2>
+          <div className="mb-8 rounded-[2rem] border border-white/10 bg-white/8 p-6 backdrop-blur-sm md:mb-10 md:p-8">
+            <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
+              <div className="max-w-2xl">
+                <motion.span
+                  initial={{ opacity: 0, x: -16 }}
+                  whileInView={{ opacity: 1, x: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.4 }}
+                  className="inline-block bg-white/15 text-white text-xs font-semibold tracking-widest px-4 py-1.5 rounded-full mb-4 uppercase"
+                >
+                  Near You
+                </motion.span>
+                <motion.h2
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.5, delay: 0.1 }}
+                  className="text-3xl md:text-4xl text-white"
+                  style={{ fontWeight: 800, letterSpacing: '-0.02em' }}
+                >
+                  Top Laundries
+                </motion.h2>
+                <p className="mt-3 max-w-xl text-sm leading-6 text-white/68">
+                  Browse standout laundries near you, compare prices, and jump into services in one tap.
+                </p>
+              </div>
+
+              <div className="flex flex-col items-start gap-3 md:items-end">
+                {!isLoggedIn && (
+                  <div className="flex items-center gap-2 rounded-2xl border border-[#EBA050]/30 bg-[#EBA050]/12 px-4 py-2 text-sm text-white/90">
+                    <LogIn size={15} className="text-[#FFD39A]" />
+                    <span>Sign in to open laundry services and place an order.</span>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => handleProtectedNavigation("/nearby")}
+                  className="group inline-flex items-center gap-2 rounded-2xl border border-white/15 bg-white/10 px-5 py-3 text-sm font-semibold text-white transition-all hover:bg-white/16 hover:border-white/25"
+                >
+                  See All
+                  <ChevronRight size={16} strokeWidth={2.5} className="transition-transform group-hover:translate-x-0.5" />
+                </button>
+              </div>
             </div>
-            <Link  href="/nearby" className="flex items-center gap-1.5 text-[#EBA050] text-sm font-semibold hover:gap-2.5 transition-all">
-              See All <ChevronRight size={16} strokeWidth={2.5} />
-            </Link>
+          </div>
+
+          <div className="mb-8 text-sm font-medium text-white/55 md:mb-10">
+            {isLoggedIn ? "Tap any card to explore services." : "Opening a laundry now will redirect you to sign in first."}
           </div>
 
           <motion.div
@@ -376,14 +409,16 @@ export default function Home() {
           >
             {nearbyPreview.length > 0 ? nearbyPreview.map(l => (
               <motion.div key={l.id} variants={itemVariants}>
-                <Link  href={`/laundry/${l.id}`} className="group block">
-                  <motion.div
-                    className="bg-white rounded-3xl overflow-hidden shadow-lg"
-                    whileHover={{ y: -8, boxShadow: '0 30px 60px rgba(0,0,0,0.20)' }}
-                    whileTap={{ scale: 0.99 }}
-                    transition={{ type: 'spring', stiffness: 300, damping: 22 }}
-                  >
-                    <div className="relative h-44 overflow-hidden">
+                <motion.button
+                  type="button"
+                  onClick={() => handleProtectedNavigation(`/laundry/${l.id}`)}
+                  className="group block w-full text-left"
+                  whileHover={{ y: -8 }}
+                  whileTap={{ scale: 0.99 }}
+                  transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                >
+                  <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/96 shadow-[0_24px_60px_rgba(2,19,26,0.20)]">
+                    <div className="relative h-48 overflow-hidden">
                       <motion.div whileHover={{ scale: 1.06 }} transition={{ duration: 0.5 }} className="h-full">
                         <ImageWithFallback
                           src={l.image || WASHING_IMG}
@@ -391,41 +426,68 @@ export default function Home() {
                           className="w-full h-full object-cover"
                         />
                       </motion.div>
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
-                      <div className="absolute top-3 right-3 bg-white/90 backdrop-blur-sm rounded-full px-3 py-1 flex items-center gap-1.5">
-                        <MapPin size={11} className="text-[#1D6076]" strokeWidth={2.5} />
-                        <span className="text-xs font-semibold text-gray-800">{l.distanceLabel}</span>
-                      </div>
-                      {l.isAvailable && (
-                        <div className="absolute top-3 left-3 bg-emerald-500 rounded-full px-3 py-1 flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                          <span className="text-white text-xs font-semibold">Open</span>
+                      <div className="absolute inset-0 bg-gradient-to-t from-[#0f2430]/80 via-[#0f2430]/10 to-transparent" />
+                      <div className="absolute left-4 right-4 top-4 flex items-start justify-between gap-3">
+                        <div className="rounded-full bg-white/92 px-3 py-1.5 backdrop-blur-sm">
+                          <div className="flex items-center gap-1.5">
+                            <MapPin size={11} className="text-[#1D6076]" strokeWidth={2.5} />
+                            <span className="text-xs font-semibold text-gray-800">{l.distanceLabel}</span>
+                          </div>
                         </div>
-                      )}
+                        <div className="rounded-full bg-black/35 px-3 py-1.5 text-xs font-semibold text-white backdrop-blur-sm">
+                          {isLoggedIn ? "Open profile" : "Login required"}
+                        </div>
+                      </div>
+                      <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+                        <div>
+                          {l.isAvailable ? (
+                            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-emerald-500 px-3 py-1 text-xs font-semibold text-white shadow-lg shadow-emerald-500/25">
+                              <span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" />
+                              Open now
+                            </div>
+                          ) : (
+                            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-white/18 px-3 py-1 text-xs font-semibold text-white backdrop-blur-sm">
+                              Closed right now
+                            </div>
+                          )}
+                          <h3 className="text-xl font-semibold text-white">{l.name}</h3>
+                        </div>
+
+                        <div className="rounded-2xl bg-white/14 px-3 py-2 text-white backdrop-blur-sm">
+                          <div className="flex items-center gap-1">
+                            <Star size={13} className="fill-[#F7B84B] text-[#F7B84B]" strokeWidth={0} />
+                            <span className="text-sm font-semibold">{l.rating.toFixed(1)}</span>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+
                     <div className="p-5">
-                      <div className="flex items-start justify-between mb-2">
-                        <h3 className="text-gray-900 font-semibold text-base">{l.name}</h3>
-                        <div className="flex items-center gap-1 shrink-0 ml-2">
-                          <Star size={13} className="text-amber-400 fill-amber-400" strokeWidth={0} />
-                          <span className="text-sm font-semibold text-gray-800">{l.rating.toFixed(1)}</span>
+                      <p className="line-clamp-2 min-h-[2.75rem] text-sm leading-6 text-gray-500">
+                        {l.address || "Verified local laundry with convenient pickup and delivery coverage."}
+                      </p>
+
+                      <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                        <div>
+                          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-slate-400">Starting from</p>
+                          <p className="mt-1 text-lg font-bold text-[#1D6076]">
+                            {l.services.length ? Math.min(...l.services.map(s => s.price)) : 0} EGP
+                          </p>
+                        </div>
+
+                        <div className="inline-flex items-center gap-2 rounded-2xl bg-[#1D6076]/8 px-4 py-2.5 text-sm font-semibold text-[#1D6076] transition-all group-hover:bg-[#1D6076] group-hover:text-white">
+                          {isLoggedIn ? "View Services" : "Sign In to Continue"}
+                          <ArrowUpRight size={15} strokeWidth={2.3} className="transition-transform group-hover:translate-x-0.5 group-hover:-translate-y-0.5" />
                         </div>
                       </div>
-                      <p className="text-gray-400 text-xs mb-3">{l.address}</p>
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">From <strong className="text-[#1D6076]">{l.services.length ? Math.min(...l.services.map(s => s.price)) : 0} EGP</strong></span>
-                        <span className="text-xs font-semibold text-[#1D6076] flex items-center gap-0.5">
-                          View Services <ChevronRight size={12} strokeWidth={2.5} />
-                        </span>
-                      </div>
                     </div>
-                  </motion.div>
-                </Link>
+                  </div>
+                </motion.button>
               </motion.div>
             )) : (
               <motion.div
                 variants={itemVariants}
-                className="md:col-span-3 bg-white/10 backdrop-blur-sm border border-white/10 rounded-3xl p-8 text-center"
+                className="md:col-span-3 rounded-[2rem] border border-white/12 bg-white/10 p-10 text-center backdrop-blur-sm"
               >
                 <p className="text-white text-lg font-semibold mb-2">No live laundries yet</p>
                 <p className="text-white/65 text-sm max-w-md mx-auto">

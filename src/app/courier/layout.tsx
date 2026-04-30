@@ -22,6 +22,7 @@ import {
 import { ReactNode } from "react";
 import { getCourierActiveRun, getCourierProfile, getCourierTodayStats, updateCourierStatus } from "@/app/lib/courier-client";
 import { useAuth } from "@/app/context/AuthContext";
+import { DashboardAccessGuard } from "@/app/components/auth/DashboardAccessGuard";
 
 const NAV_ITEMS = [
   {
@@ -79,19 +80,6 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    if (!isAuthReady) return;
-
-    if (!isLoggedIn) {
-      router.replace(`/login?role=Courier&from=${encodeURIComponent(pathname ?? "/courier")}`);
-      return;
-    }
-
-    if (!isCourier) {
-      router.replace("/");
-    }
-  }, [isAuthReady, isCourier, isLoggedIn, pathname, router]);
 
   useEffect(() => {
     if (!isAuthReady || !isLoggedIn || !isCourier) return;
@@ -251,19 +239,9 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
     );
   };
 
-  if (!isAuthReady || (isLoggedIn && !isCourier) || !isLoggedIn) {
-    return (
-      <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4">
-          <div className="w-10 h-10 border-[3px] border-gray-100 border-t-[#EBA050] rounded-full animate-spin" />
-          <p className="text-xs font-semibold text-[#EBA050] tracking-widest uppercase opacity-80">Ndeef Courier</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#f1f5f9" }}>
+    <DashboardAccessGuard allowedRoles={["courier"]} loginRoleHint="Courier">
+      <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#f1f5f9" }}>
       <AnimatePresence>
         {mobileMenuOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm" />}
       </AnimatePresence>
@@ -363,6 +341,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
           </div>
         </nav>
       </div>
-    </div>
+      </div>
+    </DashboardAccessGuard>
   );
 }

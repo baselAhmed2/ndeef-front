@@ -24,6 +24,17 @@ import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 // Note: laundry-admin-client functions are dynamically imported in resolveLaundryAdminLoginPath
 type AccountType = "Customer" | "LaundryAdmin" | "Courier";
 
+function getNoAccountMessage(accountType: AccountType) {
+  switch (accountType) {
+    case "LaundryAdmin":
+      return "No laundry owner account found with this email.";
+    case "Courier":
+      return "No courier account found with this email.";
+    default:
+      return "No customer account found with this email.";
+  }
+}
+
 function SegmentedControl({
   value,
   onChange,
@@ -75,20 +86,27 @@ function resolvePostLoginPath(role?: string, from?: string) {
   return "/";
 }
 
-async function resolveLaundryAdminLoginPath(requiresVerification?: boolean) {
-  // Check if user needs identity verification (from login/signup result)
-  if (requiresVerification) {
-    return "/laundry-admin/verification";
+async function resolveLaundryAdminLoginPath(
+  requiresVerification?: boolean,
+  onVerificationResolved?: (needsVerification: boolean) => void,
+) {
+  try {
+    const { getVerificationStatus } = await import("@/app/lib/laundry-admin-client");
+    const status = await getVerificationStatus();
+    const needsVerification = !status.isIdentityVerified;
+    onVerificationResolved?.(needsVerification);
+    return needsVerification ? "/laundry-admin/verification" : "/laundry-admin";
+  } catch {
+    const needsVerification = Boolean(requiresVerification);
+    onVerificationResolved?.(needsVerification);
+    return needsVerification ? "/laundry-admin/verification" : "/laundry-admin";
   }
-  
-  // Otherwise go to dashboard
-  return "/laundry-admin";
 }
 
 export default function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, socialLogin } = useAuth();
+  const { login, logout, socialLogin, updateUser } = useAuth();
 
   const from = searchParams?.get("from") || "/";
   const initialRole = searchParams?.get("role");
@@ -127,30 +145,42 @@ export default function Login() {
     const result = await login(email, password);
 
     if (result.ok) {
-      const resolvedRole = (result.user?.role ?? "").toLowerCase();
-      const isLaundryAdmin = resolvedRole.includes("laundryadmin");
-      const isCourier = resolvedRole.includes("courier");
-
-      if (accountType === "LaundryAdmin" && !isLaundryAdmin) {
+      const rejectWrongAccountType = (message: string) => {
+        logout();
         setLoading(false);
         setLoginPhase("idle");
         setLoginProgress("");
-        setError("Account type mismatch: This email is registered as a Customer, not a Laundry Owner.");
+        setError(message);
+      };
+
+      const resolvedRole = (result.user?.role ?? "").toLowerCase();
+      const isLaundryAdmin = resolvedRole.includes("laundryadmin");
+      const isCourier = resolvedRole.includes("courier");
+      const isAdmin = resolvedRole.includes("admin");
+      const isCustomer = !isLaundryAdmin && !isCourier && !isAdmin;
+
+      if (accountType === "Customer" && !isCustomer) {
+        rejectWrongAccountType(getNoAccountMessage("Customer"));
+        return;
+      }
+
+      if (accountType === "LaundryAdmin" && !isLaundryAdmin) {
+        rejectWrongAccountType(getNoAccountMessage("LaundryAdmin"));
         return;
       }
 
       if (accountType === "Courier" && !isCourier) {
-        setLoading(false);
-        setLoginPhase("idle");
-        setLoginProgress("");
-        setError("Account type mismatch: This email is not registered as a Courier.");
+        rejectWrongAccountType(getNoAccountMessage("Courier"));
         return;
       }
 
       if (isLaundryAdmin) {
         setLoginPhase("checking");
         setLoginProgress("Checking your laundry setup and verification status...");
-        const nextPath = await resolveLaundryAdminLoginPath(result.requiresVerification);
+        const nextPath = await resolveLaundryAdminLoginPath(
+          result.requiresVerification,
+          (needsVerification) => updateUser({ needsVerification }),
+        );
         if (nextPath.startsWith("http")) {
           window.location.href = nextPath;
         } else {
@@ -299,14 +329,34 @@ export default function Login() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-red-700 text-sm leading-snug font-medium">{error}</p>
-                  {error.includes("Account type mismatch") && accountType === "LaundryAdmin" && (
+                  {error === getNoAccountMessage("LaundryAdmin") && accountType === "LaundryAdmin" && (
                     <motion.button
                       type="button"
                       onClick={() => { setAccountType("Customer"); setError(""); }}
                       whileHover={{ x: 2 }}
                       className="mt-2 text-sm text-[#1D6076] font-semibold hover:underline inline-flex items-center gap-1"
                     >
-                      Switch to Customer login →
+                      Switch to Customer login
+                    </motion.button>
+                  )}
+                  {error === getNoAccountMessage("Courier") && accountType === "Courier" && (
+                    <motion.button
+                      type="button"
+                      onClick={() => { setAccountType("Customer"); setError(""); }}
+                      whileHover={{ x: 2 }}
+                      className="mt-2 text-sm text-[#1D6076] font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      Switch to Customer login
+                    </motion.button>
+                  )}
+                  {error === getNoAccountMessage("Customer") && accountType === "Customer" && (
+                    <motion.button
+                      type="button"
+                      onClick={() => setError("")}
+                      whileHover={{ x: 2 }}
+                      className="mt-2 text-sm text-[#1D6076] font-semibold hover:underline inline-flex items-center gap-1"
+                    >
+                      Try another account type
                     </motion.button>
                   )}
                 </div>

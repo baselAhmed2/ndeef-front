@@ -924,9 +924,16 @@ export async function initiateKashier(
         currency: "EGP",
         laundryId: resolvedLaundryId,
       }),
-    },
-  );
-  return { url: payload?.sessionUrl ?? payload?.url ?? "" };
+      },
+    );
+  return {
+    url:
+      payload?.checkoutUrl ??
+      payload?.CheckoutUrl ??
+      payload?.sessionUrl ??
+      payload?.url ??
+      "",
+  };
 }
 
 export async function getPayments(): Promise<any[]> {

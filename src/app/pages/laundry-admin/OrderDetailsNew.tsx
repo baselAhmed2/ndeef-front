@@ -325,14 +325,40 @@ export function OrderDetailsNew() {
             </div>
           </div>
 
-          <button
-            onClick={() => handleStatusChange("Ready")}
-            disabled={updating || order.status === "Ready" || order.status === "Delivered"}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#1D5B70] px-4 py-3 text-sm font-bold text-white transition hover:bg-[#17495a] disabled:opacity-50"
-          >
-            {updating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Truck className="h-4 w-4" />}
-            Mark as Ready
-          </button>
+          <div className="rounded-2xl border border-gray-100 bg-white p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Truck className="h-4 w-4 text-[#1D5B70]" />
+              <h3 className="font-semibold text-gray-900">Update Order Status</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {statusActions.map((status) => {
+                const actionCfg = statusConfig[status] ?? statusConfig.Pending;
+                const ActionIcon = actionCfg.icon;
+                const isCurrent = order.status === status;
+
+                return (
+                  <button
+                    key={status}
+                    onClick={() => handleStatusChange(status)}
+                    disabled={updating || isCurrent}
+                    className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition disabled:opacity-50 ${
+                      isCurrent
+                        ? "border-transparent text-white"
+                        : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                    }`}
+                    style={isCurrent ? { backgroundColor: actionCfg.color } : {}}
+                  >
+                    {updating && !isCurrent ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <ActionIcon className="h-4 w-4" />
+                    )}
+                    {status}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </aside>
       </div>
     </div>

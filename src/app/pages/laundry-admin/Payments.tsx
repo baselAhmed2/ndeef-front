@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ElementType } from "react";
+import { useEffect, useMemo, useRef, useState, type ElementType } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   getCommissionSummary,
   getPayments,
@@ -354,58 +355,104 @@ function PlatformCommissionCard({
 }
 
 export function Payments() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const latestLoadIdRef = useRef(0);
   const [activeTab, setActiveTab] = useState<PaymentStatus>("All");
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [downloadToast, setDownloadToast] = useState(false);
   const [pageError, setPageError] = useState("");
+  const [paymentNotice, setPaymentNotice] = useState("");
   const [payments, setPayments] = useState<Payment[]>([]);
   const [revenueWeekly, setRevenueWeekly] = useState<Array<{ day: string; revenue: number }>>([]);
   const [commissionInfo, setCommissionInfo] = useState<CommissionInfo | null>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadData() {
+  const loadData = async (showSpinner = true) => {
+    const loadId = ++latestLoadIdRef.current;
+
+    if (showSpinner) {
       setLoading(true);
-      setPageError("");
+    }
+    setPageError("");
 
-      const [paymentsResult, commissionResult, revenueResult] = await Promise.allSettled([
-        getPayments(),
-        getCommissionSummary(),
-        getRevenueWeekly(),
-      ]);
+    const [paymentsResult, commissionResult, revenueResult] = await Promise.allSettled([
+      getPayments(),
+      getCommissionSummary(),
+      getRevenueWeekly(),
+    ]);
 
-      if (paymentsResult.status === "fulfilled") {
-        setPayments(paymentsResult.value);
-      } else {
-        console.error("Failed to load payments", paymentsResult.reason);
-      }
-
-      if (commissionResult.status === "fulfilled") {
-        setCommissionInfo(commissionResult.value);
-      } else {
-        console.error("Failed to load commission summary", commissionResult.reason);
-      }
-
-      if (revenueResult.status === "fulfilled") {
-        setRevenueWeekly(revenueResult.value);
-      } else {
-        console.error("Failed to load weekly revenue", revenueResult.reason);
-      }
-
-      if (
-        paymentsResult.status === "rejected" &&
-        commissionResult.status === "rejected" &&
-        revenueResult.status === "rejected"
-      ) {
-        setPageError("Payment data could not be loaded right now.");
-      }
-
-      setLoading(false);
+    if (loadId !== latestLoadIdRef.current) {
+      return;
     }
 
+    if (paymentsResult.status === "fulfilled") {
+      setPayments(paymentsResult.value);
+    } else {
+      console.error("Failed to load payments", paymentsResult.reason);
+    }
+
+    if (commissionResult.status === "fulfilled") {
+      setCommissionInfo(commissionResult.value);
+    } else {
+      console.error("Failed to load commission summary", commissionResult.reason);
+    }
+
+    if (revenueResult.status === "fulfilled") {
+      setRevenueWeekly(revenueResult.value);
+    } else {
+      console.error("Failed to load weekly revenue", revenueResult.reason);
+    }
+
+    if (
+      paymentsResult.status === "rejected" &&
+      commissionResult.status === "rejected" &&
+      revenueResult.status === "rejected"
+    ) {
+      setPageError("Payment data could not be loaded right now.");
+    }
+
+    if (showSpinner) {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     void loadData();
   }, []);
+
+  useEffect(() => {
+    const paymentStatus = searchParams?.get("payment");
+    const merchantOrderId = searchParams?.get("merchantOrderId") ?? "";
+
+    if (!paymentStatus || !merchantOrderId.startsWith("commission-")) {
+      return;
+    }
+
+    if (paymentStatus === "success") {
+      setPaymentNotice("Commission payment received. Syncing the latest payment status...");
+
+      const refreshDelays = [0, 1500, 3500];
+      refreshDelays.forEach((delay) => {
+        window.setTimeout(() => {
+          void loadData(delay === 0);
+        }, delay);
+      });
+    } else if (paymentStatus === "failed") {
+      setPaymentNotice("Commission payment was not completed.");
+    }
+
+    const cleanupTimer = window.setTimeout(() => {
+      const nextParams = new URLSearchParams(searchParams?.toString() ?? "");
+      nextParams.delete("payment");
+      nextParams.delete("merchantOrderId");
+      const nextQuery = nextParams.toString();
+      router.replace(nextQuery ? `/laundry-admin/payments?${nextQuery}` : "/laundry-admin/payments");
+    }, 5000);
+
+    return () => window.clearTimeout(cleanupTimer);
+  }, [router, searchParams]);
 
   const filtered = useMemo(() => {
     return payments.filter((payment) => {
@@ -451,6 +498,12 @@ export function Payments() {
 
   return (
     <div className="space-y-5 p-6">
+      {paymentNotice && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {paymentNotice}
+        </div>
+      )}
+
       {pageError && (
         <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {pageError}

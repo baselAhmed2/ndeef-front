@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import { startVerificationSession } from "@/app/lib/laundry-admin-client";
+import { getVerificationStatus, startVerificationSession } from "@/app/lib/laundry-admin-client";
 
 export default function VerificationPage() {
   const router = useRouter();
-  const { user, isLoggedIn, isAuthReady } = useAuth();
+  const { user, isLoggedIn, isAuthReady, updateUser } = useAuth();
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -19,24 +19,41 @@ export default function VerificationPage() {
       return;
     }
 
-    if (user.role !== "LaundryAdmin" && user.role !== "3") {
+    const currentUser = user;
+    const normalizedRole = (currentUser.role ?? "").trim().toLowerCase().replace(/\s+/g, "");
+
+    if (normalizedRole !== "laundryadmin" && normalizedRole !== "3") {
       router.push("/");
       return;
     }
 
     async function redirectToDidit() {
       try {
+        const status = await getVerificationStatus();
+        const needsVerification = !status.isIdentityVerified;
+        updateUser({ needsVerification });
+
+        if (!needsVerification) {
+          router.replace("/laundry-admin");
+          return;
+        }
+
         const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
         const session = await startVerificationSession(redirectUrl);
         window.location.href = session.url;
       } catch (err) {
+        if (currentUser.needsVerification === false) {
+          router.replace("/laundry-admin");
+          return;
+        }
+
         const message = err instanceof Error ? err.message : "Could not start verification.";
         setError(message);
       }
     }
 
     redirectToDidit();
-  }, [isLoggedIn, isAuthReady, user, router]);
+  }, [isLoggedIn, isAuthReady, user, router, updateUser]);
 
   return (
     <div className="flex min-h-[70vh] items-center justify-center bg-gray-50 px-4">
