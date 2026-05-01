@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Star,
@@ -10,8 +11,6 @@ import {
   XCircle,
   MapPin,
   Bell,
-  ChevronRight,
-  Shield,
   LogOut,
   Wifi,
   WifiOff,
@@ -20,9 +19,21 @@ import {
   TrendingUp,
   User,
   Loader2,
+  ArrowUpRight,
+  Info,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import { getCourierProfile, updateCourierStatus } from "@/app/lib/courier-client";
+import {
+  announceCourierNotificationCountUpdated,
+  announceCourierProfileUpdated,
+  getCourierEarnings,
+  getCourierProfile,
+  getCourierUnreadNotificationCount,
+  subscribeCourierNotificationCountUpdates,
+  subscribeCourierProfileUpdates,
+  updateCourierProfileDetails,
+  updateCourierStatus,
+} from "@/app/lib/courier-client";
 import { ApiError } from "@/app/lib/admin-api";
 
 function initials(name: string) {
@@ -34,14 +45,25 @@ function initials(name: string) {
 }
 
 export default function CourierProfilePage() {
+  const router = useRouter();
   const { logout } = useAuth();
   const [profile, setProfile] = useState<Awaited<ReturnType<typeof getCourierProfile>> | null>(null);
+  const [earnings, setEarnings] = useState<Awaited<ReturnType<typeof getCourierEarnings>> | null>(null);
+  const [notificationCount, setNotificationCount] = useState(0);
   const [available, setAvailable] = useState(false);
   const [togglingAvail, setTogglingAvail] = useState(false);
-  const [notifOn, setNotifOn] = useState(true);
-  const [locationOn, setLocationOn] = useState(true);
+  const [profileNameInput, setProfileNameInput] = useState("");
+  const [phoneInput, setPhoneInput] = useState("");
+  const [savingProfile, setSavingProfile] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  const applyProfileSnapshot = (nextProfile: Awaited<ReturnType<typeof getCourierProfile>>) => {
+    setProfile(nextProfile);
+    setAvailable(nextProfile.isOnline);
+    setProfileNameInput(nextProfile.name || "");
+    setPhoneInput(nextProfile.phone || "");
+  };
 
   useEffect(() => {
     let ignore = false;
@@ -50,10 +72,16 @@ export default function CourierProfilePage() {
       setLoading(true);
       setError("");
       try {
-        const result = await getCourierProfile();
+        const [result, earningsResult, unreadCount] = await Promise.all([
+          getCourierProfile(),
+          getCourierEarnings().catch(() => null),
+          getCourierUnreadNotificationCount().catch(() => 0),
+        ]);
         if (ignore) return;
-        setProfile(result);
-        setAvailable(result.isOnline);
+        applyProfileSnapshot(result);
+        setEarnings(earningsResult);
+        setNotificationCount(unreadCount);
+        announceCourierNotificationCountUpdated(unreadCount);
       } catch (loadError) {
         if (ignore) return;
         setError(loadError instanceof ApiError ? loadError.message : "Unable to load courier profile.");
@@ -68,18 +96,52 @@ export default function CourierProfilePage() {
     };
   }, []);
 
+  useEffect(() => {
+    const unsubscribe = subscribeCourierProfileUpdates((nextProfile) => {
+      applyProfileSnapshot(nextProfile);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeCourierNotificationCountUpdates((count) => {
+      setNotificationCount(count);
+    });
+    return unsubscribe;
+  }, []);
+
   const handleToggle = async () => {
     const nextValue = !available;
     setTogglingAvail(true);
     setError("");
     try {
       await updateCourierStatus(nextValue);
-      setAvailable(nextValue);
-      setProfile((current) => (current ? { ...current, isOnline: nextValue } : current));
+      const refreshedProfile = await getCourierProfile();
+      applyProfileSnapshot(refreshedProfile);
+      announceCourierProfileUpdated(refreshedProfile);
     } catch (toggleError) {
       setError(toggleError instanceof ApiError ? toggleError.message : "Unable to update availability.");
     } finally {
       setTogglingAvail(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profile) return;
+
+    setSavingProfile(true);
+    setError("");
+    try {
+      const updated = await updateCourierProfileDetails({
+        name: profileNameInput.trim(),
+        phoneNumber: phoneInput.trim(),
+      });
+      applyProfileSnapshot(updated);
+      announceCourierProfileUpdated(updated);
+    } catch (saveError) {
+      setError(saveError instanceof ApiError ? saveError.message : "Unable to update profile details.");
+    } finally {
+      setSavingProfile(false);
     }
   };
 
@@ -103,6 +165,36 @@ export default function CourierProfilePage() {
   if (!profile) return null;
 
   const avatarText = profile.avatar || initials(profile.name || "Courier");
+  const performanceCards = [
+    {
+      label: "Completed",
+      value: profile.totalOrders,
+      icon: CheckCircle2,
+      color: "#16a34a",
+      bg: "#f0fdf4",
+    },
+    {
+      label: "Cancelled",
+      value: earnings?.cancelled ?? profile.performance?.cancelled ?? 0,
+      icon: XCircle,
+      color: "#ef4444",
+      bg: "#fef2f2",
+    },
+    {
+      label: "Hours Tracked",
+      value: `${earnings?.hoursActive ?? 0}h`,
+      icon: Clock,
+      color: "#1D5B70",
+      bg: "#f0f9ff",
+    },
+    {
+      label: "This Week",
+      value: `EGP ${Number(earnings?.totalEarned ?? 0).toFixed(1)}`,
+      icon: TrendingUp,
+      color: "#EBA050",
+      bg: "#fff7ed",
+    },
+  ];
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 lg:p-6 max-w-4xl mx-auto space-y-4">
@@ -191,23 +283,76 @@ export default function CourierProfilePage() {
                 <span className="text-[10px] font-bold text-green-600">{profile.assignedLaundry?.status || "Inactive"}</span>
               </div>
             </div>
-            <a href={`tel:${profile.phone}`} className="w-full flex items-center justify-center gap-2 h-10 rounded-xl border border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all">
-              <Phone className="w-4 h-4" />
-              Call Courier
-            </a>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
+              Laundry assignment is managed by backend admin workflows.
+            </div>
           </div>
         </div>
 
         <div className="lg:col-span-2 space-y-4">
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
-            <p className="font-bold text-gray-800 mb-4">Performance Overview</p>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <div>
+                <p className="font-bold text-gray-800">Account Details</p>
+                <p className="text-xs text-gray-400">Update the courier profile fields supported by backend.</p>
+              </div>
+              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                backend
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-gray-500">Full Name</span>
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3">
+                  <User className="w-4 h-4 text-gray-400 shrink-0" />
+                  <input
+                    value={profileNameInput}
+                    onChange={(event) => setProfileNameInput(event.target.value)}
+                    className="h-11 w-full bg-transparent text-sm text-gray-800 outline-none"
+                    placeholder="Courier name"
+                  />
+                </div>
+              </label>
+
+              <label className="block">
+                <span className="mb-1.5 block text-xs font-semibold text-gray-500">Phone Number</span>
+                <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3">
+                  <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+                  <input
+                    value={phoneInput}
+                    onChange={(event) => setPhoneInput(event.target.value)}
+                    className="h-11 w-full bg-transparent text-sm text-gray-800 outline-none"
+                    placeholder="01xxxxxxxxx"
+                  />
+                </div>
+              </label>
+            </div>
+
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={handleSaveProfile}
+                disabled={savingProfile}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#1D5B70] px-4 py-2.5 text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60"
+              >
+                {savingProfile ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                Save Profile
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <p className="font-bold text-gray-800">Performance Overview</p>
+                <p className="text-xs text-gray-400">Only backend-backed courier metrics are shown here.</p>
+              </div>
+              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                backend
+              </div>
+            </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-              {[
-                { label: "Completed", value: profile.performance?.completed ?? profile.totalOrders, icon: CheckCircle2, color: "#16a34a", bg: "#f0fdf4" },
-                { label: "Cancelled", value: profile.performance?.cancelled ?? 0, icon: XCircle, color: "#ef4444", bg: "#fef2f2" },
-                { label: "Hours", value: `${profile.performance?.hours ?? profile.activeHours}h`, icon: Clock, color: "#1D5B70", bg: "#f0f9ff" },
-                { label: "This Month", value: `EGP ${profile.performance?.earningsThisMonth ?? "0"}`, icon: TrendingUp, color: "#EBA050", bg: "#fff7ed" },
-              ].map((s) => (
+              {performanceCards.map((s) => (
                 <div key={s.label} className="rounded-xl p-3 border text-center" style={{ backgroundColor: s.bg, borderColor: s.bg }}>
                   <div className="w-8 h-8 rounded-lg flex items-center justify-center mx-auto mb-2" style={{ backgroundColor: "white" }}>
                     <s.icon className="w-4 h-4" style={{ color: s.color }} />
@@ -221,17 +366,17 @@ export default function CourierProfilePage() {
               {[
                 {
                   label: "Completion Rate",
-                  value: `${profile.completionRate.toFixed(1)}%`,
-                  pct: `${profile.completionRate}%`,
+                  value: `${(earnings?.completionRate ?? profile.completionRate).toFixed(1)}%`,
+                  pct: `${earnings?.completionRate ?? profile.completionRate}%`,
                   color: "#22c55e",
                   note: `${profile.totalOrders} delivered orders so far`,
                 },
                 {
-                  label: "Customer Rating",
-                  value: `${profile.rating.toFixed(1)} / 5.0`,
-                  pct: `${(profile.rating / 5) * 100}%`,
+                  label: "Avg / Order",
+                  value: `EGP ${Number(earnings?.avgPerOrder ?? 0).toFixed(1)}`,
+                  pct: `${Math.max(8, Math.min(100, (Number(earnings?.avgPerOrder ?? 0) / Math.max(1, Number(earnings?.nextPayoutAmount ?? 1))) * 100))}%`,
                   color: "#EBA050",
-                  note: null,
+                  note: earnings ? `Next payout: EGP ${earnings.nextPayoutAmount.toFixed(1)} on ${earnings.nextPayoutDate}` : null,
                 },
               ].map((item) => (
                 <div key={item.label}>
@@ -248,15 +393,38 @@ export default function CourierProfilePage() {
                 </div>
               ))}
             </div>
+            {(earnings?.hoursActive ?? 0) === 0 && (
+              <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                <Info className="mt-0.5 w-4 h-4 shrink-0 text-amber-600" />
+                <p className="text-xs text-amber-800">
+                  Backend is not tracking courier working hours yet, so this section shows `0h` until that data becomes available.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-gray-50">
-              <p className="font-bold text-gray-800">Preferences</p>
+              <p className="font-bold text-gray-800">Courier Tools</p>
             </div>
             {[
-              { icon: Bell, label: "Order Notifications", desc: "Get alerted for new assignments", color: "#3b82f6", bg: "#eff6ff", value: notifOn, toggle: () => setNotifOn((v) => !v) },
-              { icon: MapPin, label: "Location Sharing", desc: "Share your location during deliveries", color: "#7c3aed", bg: "#f5f3ff", value: locationOn, toggle: () => setLocationOn((v) => !v) },
+              {
+                icon: Bell,
+                label: "Notifications",
+                desc:
+                  notificationCount > 0
+                    ? `${notificationCount} unread updates from backend`
+                    : "No unread courier notifications right now",
+                color: "#3b82f6",
+                bg: "#eff6ff",
+              },
+              {
+                icon: MapPin,
+                label: "Location Sync",
+                desc: "Your location is synced automatically while an active run is open.",
+                color: "#7c3aed",
+                bg: "#f5f3ff",
+              },
             ].map((item) => (
               <div key={item.label} className="flex items-center gap-3 px-5 py-3.5 border-b border-gray-50">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: item.bg }}>
@@ -266,17 +434,17 @@ export default function CourierProfilePage() {
                   <p className="text-sm font-semibold text-gray-800">{item.label}</p>
                   <p className="text-xs text-gray-400">{item.desc}</p>
                 </div>
-                <button onClick={item.toggle} className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${item.value ? "bg-[#1D5B70]" : "bg-gray-200"}`}>
-                  <motion.div layout transition={{ type: "spring", stiffness: 600, damping: 35 }} className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow" style={{ left: item.value ? "calc(100% - 1.375rem)" : "0.125rem" }} />
-                </button>
+                <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
+                  backend
+                </div>
               </div>
             ))}
             {[
-              { icon: Package, label: "Order History", desc: "All past deliveries", color: "#1D5B70", bg: "#f0f9ff" },
-              { icon: Shield, label: "Privacy & Security", desc: "Manage your data", color: "#0891b2", bg: "#f0f9ff" },
-              { icon: User, label: "Account Settings", desc: "Edit personal info", color: "#6b7280", bg: "#f9fafb" },
+              { icon: Package, label: "Order History", desc: "Open delivered courier orders", color: "#1D5B70", bg: "#f0f9ff", onClick: () => router.push("/courier?tab=done") },
+              { icon: TrendingUp, label: "Earnings Summary", desc: "See your backend earnings breakdown", color: "#EBA050", bg: "#fff7ed", onClick: () => router.push("/courier/earnings") },
+              { icon: Truck, label: "Active Run", desc: "Jump to your current delivery route", color: "#0891b2", bg: "#ecfeff", onClick: () => router.push("/courier/active") },
             ].map((item) => (
-              <button key={item.label} className="w-full flex items-center gap-3 px-5 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-all text-left">
+              <button key={item.label} onClick={item.onClick} className="w-full flex items-center gap-3 px-5 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-all text-left">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: item.bg }}>
                   <item.icon className="w-4 h-4" style={{ color: item.color }} />
                 </div>
@@ -284,7 +452,10 @@ export default function CourierProfilePage() {
                   <p className="text-sm font-semibold text-gray-800">{item.label}</p>
                   <p className="text-xs text-gray-400">{item.desc}</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-gray-300 shrink-0" />
+                <div className="flex items-center gap-1 text-xs font-semibold text-gray-400 shrink-0">
+                  Open
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </div>
               </button>
             ))}
           </div>

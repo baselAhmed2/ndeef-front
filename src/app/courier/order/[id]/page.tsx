@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import {
   acceptCourierOrder,
+  calculateCourierEarning,
   cancelCourierOrder,
   confirmCourierDelivery,
   confirmCourierPickup,
@@ -52,6 +53,10 @@ const CANCEL_REASONS = [
   "Package damaged",
   "Other",
 ];
+
+function buildMapsUrl(destination: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
+}
 
 function getServiceIcon(service: string) {
   switch (serviceIconKey(service)) {
@@ -182,11 +187,17 @@ function MapStrip({ order }: { order: CourierDashboardOrder }) {
         </div>
         <div className="bg-white rounded-lg px-2 py-0.5 shadow text-[9px] font-bold text-gray-700 whitespace-nowrap">{order.dropArea}</div>
       </div>
-      <button className="absolute right-3 bottom-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold shadow-lg" style={{ backgroundColor: "#1D5B70" }}>
+      <a
+        href={buildMapsUrl(order.deliveryLocation || order.dropArea)}
+        target="_blank"
+        rel="noreferrer"
+        className="absolute right-3 bottom-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-white text-xs font-bold shadow-lg"
+        style={{ backgroundColor: "#1D5B70" }}
+      >
         <Navigation className="w-3.5 h-3.5" />
         Open Maps
         <ExternalLink className="w-3 h-3 opacity-70" />
-      </button>
+      </a>
       <div className="absolute left-3 bottom-3 flex items-center gap-1 bg-white rounded-xl px-2.5 py-1.5 shadow text-xs font-bold text-gray-700">
         <MapPin className="w-3.5 h-3.5" style={{ color: "#1D5B70" }} />
         {order.distance}
@@ -301,6 +312,7 @@ export default function CourierOrderDetail() {
   const delivered = status === "delivered";
   const cancelled = status === "cancelled";
   const done = delivered || cancelled;
+  const canCancel = status === "pending" || status === "accepted";
 
   type ActionCfg = { label: string; sublabel: string; icon: React.ElementType; color: string } | null;
   const actionConfig: ActionCfg =
@@ -415,9 +427,14 @@ export default function CourierOrderDetail() {
                     <Phone className="w-4 h-4 text-green-600" />
                   </a>
                 ) : null}
-                <button className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-all">
-                  <MessageCircle className="w-4 h-4 text-blue-500" />
-                </button>
+                {order.phone ? (
+                  <a
+                    href={`sms:${order.phone}`}
+                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-all"
+                  >
+                    <MessageCircle className="w-4 h-4 text-blue-500" />
+                  </a>
+                ) : null}
               </div>
             </div>
           </div>
@@ -504,7 +521,7 @@ export default function CourierOrderDetail() {
             <div className="flex items-baseline gap-1">
               <span className="text-3xl font-bold text-gray-900">EGP</span>
               <span className="text-4xl font-bold" style={{ color: "#1D5B70" }}>
-                {order.amount}
+                {calculateCourierEarning(order.amount).toFixed(2)}
               </span>
             </div>
             <p className="text-xs text-gray-400 mt-1">{order.paid ? "Customer paid online — no cash collection needed." : "Collect cash from customer upon delivery."}</p>
@@ -532,10 +549,12 @@ export default function CourierOrderDetail() {
                   )}
                 </button>
               )}
-              <button onClick={() => setShowCancel(true)} className="w-full h-11 rounded-2xl border border-red-200 text-red-500 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-red-50 transition-all">
-                <XCircle className="w-4 h-4" />
-                Cancel this order
-              </button>
+              {canCancel && (
+                <button onClick={() => setShowCancel(true)} className="w-full h-11 rounded-2xl border border-red-200 text-red-500 text-sm font-semibold flex items-center justify-center gap-2 hover:bg-red-50 transition-all">
+                  <XCircle className="w-4 h-4" />
+                  Cancel this order
+                </button>
+              )}
             </div>
           )}
           {done && (

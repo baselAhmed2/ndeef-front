@@ -51,6 +51,12 @@ export interface CourierOrderDto {
   deliveredAt?: string | null;
   courierLatitude?: number | null;
   courierLongitude?: number | null;
+  isPaid?: boolean;
+  itemsCount?: number;
+  serviceName?: string;
+  IsPaid?: boolean;
+  ItemsCount?: number;
+  ServiceName?: string;
 }
 
 export interface CourierOrderResponseDto {
@@ -79,6 +85,7 @@ export interface CourierProfileResponseDto {
   completionRate: number;
   activeHours: number;
   isOnline: boolean;
+  availability?: string;
   unreadNotifications: number;
   assignedLaundry?: {
     name: string;
@@ -178,6 +185,15 @@ export interface CourierEarningsResponseDto {
   nextPayoutDate: string;
 }
 
+export interface CourierNotificationDto {
+  id: number;
+  title: string;
+  message: string;
+  isRead: boolean;
+  orderId?: number | null;
+  createdAt: string;
+}
+
 export interface CourierDashboardOrder {
   id: string;
   customer: string;
@@ -205,6 +221,21 @@ export interface CourierOrderLocationPayload {
   currentLatitude: number;
   currentLongitude: number;
 }
+
+export interface CourierDeliveryHistoryDto {
+  orderId: number;
+  customerName: string;
+  deliveryLocation: string;
+  deliveredAt?: string | null;
+  totalPrice: number;
+  earningsFromOrder: number;
+  finalStatus: string;
+}
+
+const COURIER_PROFILE_UPDATED_EVENT = "nadeef:courier-profile-updated";
+const COURIER_NOTIFICATION_COUNT_UPDATED_EVENT = "nadeef:courier-notification-count-updated";
+
+export const COURIER_EARNING_RATE = 0.1;
 
 function parseNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value ?? 0);
@@ -263,6 +294,7 @@ function normalizeCourierProfile(profile: CourierProfileResponseDto | CourierPro
       completionRate: parseNumber(typed.completionRate),
       activeHours: parseNumber(typed.activeHours),
       isOnline: Boolean(typed.isOnline),
+      availability: typed.availability || (typed.isOnline ? "online" : "offline"),
       unreadNotifications: parseNumber(typed.unreadNotifications),
       assignedLaundry: typed.assignedLaundry ?? null,
       performance: typed.performance ?? null,
@@ -285,6 +317,7 @@ function normalizeCourierProfile(profile: CourierProfileResponseDto | CourierPro
     completionRate,
     activeHours: 0,
     isOnline: pickBoolean(raw, "isAvailable", "IsAvailable"),
+    availability: pickBoolean(raw, "isAvailable", "IsAvailable") ? "online" : "offline",
     unreadNotifications: 0,
     assignedLaundry: pickString(raw, "laundryName", "LaundryName")
       ? {
@@ -364,6 +397,21 @@ function normalizeCourierEarnings(stats: CourierEarningsResponseDto | CourierSta
   };
 }
 
+function normalizeCourierNotification(notification: CourierNotificationDto | Record<string, unknown>): CourierNotificationDto {
+  const raw = notification as Record<string, unknown>;
+  return {
+    id: pickNumber(raw, "id", "Id"),
+    title: pickString(raw, "title", "Title"),
+    message: pickString(raw, "message", "Message"),
+    isRead: pickBoolean(raw, "isRead", "IsRead"),
+    orderId:
+      "orderId" in raw || "OrderId" in raw
+        ? pickNumber(raw, "orderId", "OrderId")
+        : null,
+    createdAt: pickString(raw, "createdAt", "CreatedAt"),
+  };
+}
+
 function mapFilterToQuery(filter: CourierOrderTab) {
   switch (filter) {
     case "new":
@@ -412,9 +460,97 @@ export function formatRelativeTime(value?: string | null) {
   return `${diffDays} day${diffDays === 1 ? "" : "s"} ago`;
 }
 
+export function formatEtaTime(value?: string | null) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "--";
+
+  const diffMinutes = Math.round((date.getTime() - Date.now()) / 60000);
+  if (Math.abs(diffMinutes) < 1) return "Now";
+  if (diffMinutes > 0) {
+    if (diffMinutes < 60) return `${diffMinutes} min`;
+    return `${Math.floor(diffMinutes / 60)} hr`;
+  }
+
+  return formatRelativeTime(value);
+}
+
+export function calculateCourierEarning(amount: number) {
+  return Number((amount * COURIER_EARNING_RATE).toFixed(2));
+}
+
+export function announceCourierProfileUpdated(profile: CourierProfileResponseDto) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<CourierProfileResponseDto>(COURIER_PROFILE_UPDATED_EVENT, {
+      detail: profile,
+    }),
+  );
+}
+
+export function subscribeCourierProfileUpdates(
+  listener: (profile: CourierProfileResponseDto) => void,
+) {
+  if (typeof window === "undefined") return () => undefined;
+
+  const handler = (event: Event) => {
+    const customEvent = event as CustomEvent<CourierProfileResponseDto>;
+    if (customEvent.detail) listener(customEvent.detail);
+  };
+
+  window.addEventListener(COURIER_PROFILE_UPDATED_EVENT, handler as EventListener);
+  return () => window.removeEventListener(COURIER_PROFILE_UPDATED_EVENT, handler as EventListener);
+}
+
+export function announceCourierNotificationCountUpdated(count: number) {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(
+    new CustomEvent<number>(COURIER_NOTIFICATION_COUNT_UPDATED_EVENT, {
+      detail: count,
+    }),
+  );
+}
+
+export function subscribeCourierNotificationCountUpdates(listener: (count: number) => void) {
+  if (typeof window === "undefined") return () => undefined;
+
+  const handler = (event: Event) => {
+    const customEvent = event as CustomEvent<number>;
+    if (typeof customEvent.detail === "number") listener(customEvent.detail);
+  };
+
+  window.addEventListener(COURIER_NOTIFICATION_COUNT_UPDATED_EVENT, handler as EventListener);
+  return () => window.removeEventListener(COURIER_NOTIFICATION_COUNT_UPDATED_EVENT, handler as EventListener);
+}
+
 export function extractArea(location?: string | null) {
   if (!location) return "Unknown";
   return location.split(",")[0]?.trim() || location.trim() || "Unknown";
+}
+
+function normalizeCourierHistoryOrder(order: CourierDeliveryHistoryDto): CourierDashboardOrder {
+  return {
+    id: String(order.orderId),
+    customer: order.customerName || "Customer",
+    phone: "",
+    avatar: initialsFromName(order.customerName || "Customer"),
+    pickupArea: "Completed",
+    dropArea: extractArea(order.deliveryLocation),
+    pickupLocation: "",
+    deliveryLocation: order.deliveryLocation || "",
+    distance: "Completed",
+    eta: "--",
+    amount: parseNumber(order.totalPrice),
+    status: mapCourierOrderStatus(order.finalStatus),
+    urgent: false,
+    time: formatRelativeTime(order.deliveredAt),
+    paid: false,
+    service: "Laundry Service",
+    items: 0,
+    notes: "",
+    laundryName: "",
+    laundryAddress: "",
+  };
 }
 
 export function mapCourierOrderStatus(status: string): CourierDashboardOrder["status"] {
@@ -478,6 +614,24 @@ export function normalizeCourierOrder(order: CourierOrderDto | CourierOrderRespo
   };
 }
 
+function enrichLegacyCourierOrder(
+  rawOrder: CourierOrderDto | CourierOrderResponseDto,
+  normalizedOrder: CourierDashboardOrder,
+) {
+  if ("customer" in rawOrder) {
+    return normalizedOrder;
+  }
+
+  const raw = rawOrder as unknown as Record<string, unknown>;
+  return {
+    ...normalizedOrder,
+    eta: formatEtaTime(rawOrder.estimatedDeliveryTime),
+    paid: pickBoolean(raw, "isPaid", "IsPaid"),
+    service: pickString(raw, "serviceName", "ServiceName") || normalizedOrder.service,
+    items: pickNumber(raw, "itemsCount", "ItemsCount"),
+  };
+}
+
 export async function getCourierOrders(filter: CourierOrderTab = "new") {
   const query = new URLSearchParams({
     Filter: String(mapFilterToQuery(filter)),
@@ -491,22 +645,37 @@ export async function getCourierOrders(filter: CourierOrderTab = "new") {
   const raw = Array.isArray(response) ? {} : response;
   return {
     ...raw,
-    data: unwrapResponseArray(response).map(normalizeCourierOrder),
+    data: unwrapResponseArray(response).map((order) =>
+      enrichLegacyCourierOrder(order, normalizeCourierOrder(order)),
+    ),
   };
 }
 
 export async function getAllCourierOrders() {
-  const results = await Promise.all([
+  const [newOrders, activeOrders, doneOrders, historyResult] = await Promise.all([
     getCourierOrders("new"),
     getCourierOrders("active"),
     getCourierOrders("done"),
+    getCourierDeliveryHistory().catch(() => null),
   ]);
 
   const merged = new Map<string, CourierDashboardOrder>();
-  for (const result of results) {
+  for (const result of [newOrders, activeOrders, doneOrders]) {
     for (const order of result.data ?? []) {
       merged.set(order.id, order);
     }
+  }
+
+  const historyOrders = historyResult
+    ? Array.isArray(historyResult.data)
+      ? historyResult.data
+      : Array.isArray(historyResult.Data)
+        ? historyResult.Data
+        : []
+    : [];
+
+  for (const order of historyOrders.map(normalizeCourierHistoryOrder)) {
+    merged.set(order.id, order);
   }
 
   return Array.from(merged.values());
@@ -531,12 +700,56 @@ export async function getCourierProfile() {
   return normalizeCourierProfile(response);
 }
 
-export async function updateCourierStatus(isOnline: boolean) {
-  return apiRequest<void>("/driver/status", {
-    method: "PUT",
-    body: JSON.stringify({ isOnline }),
+export async function getCourierUnreadNotificationCount() {
+  const response = await apiRequest<{ unreadCount?: number; UnreadCount?: number }>("/notifications/count", {
     suppressErrorLog: true,
   });
+  return pickNumber(response as Record<string, unknown>, "unreadCount", "UnreadCount");
+}
+
+export async function getCourierUnreadNotifications() {
+  const response = await apiRequest<Array<CourierNotificationDto | Record<string, unknown>>>("/notifications/unread", {
+    suppressErrorLog: true,
+  });
+  return (Array.isArray(response) ? response : []).map((notification) =>
+    normalizeCourierNotification(notification),
+  );
+}
+
+export async function markAllCourierNotificationsRead() {
+  return apiRequest<{ updatedCount?: number; UpdatedCount?: number }>("/notifications/mark-all-read", {
+    method: "PUT",
+    suppressErrorLog: true,
+  });
+}
+
+export async function updateCourierProfileDetails(payload: {
+  name?: string;
+  phoneNumber?: string;
+}) {
+  const response = await apiRequest<CourierProfileDto>("/courier/profile", {
+    method: "PUT",
+    body: JSON.stringify(payload),
+    suppressErrorLog: true,
+  });
+  return normalizeCourierProfile(response);
+}
+
+export async function updateCourierStatus(isOnline: boolean) {
+  return withFallback<void>(
+    () =>
+      apiRequest<void>("/driver/status", {
+        method: "PUT",
+        body: JSON.stringify({ isOnline }),
+        suppressErrorLog: true,
+      }),
+    () =>
+      apiRequest<void>("/courier/profile", {
+        method: "PUT",
+        body: JSON.stringify({ isAvailable: isOnline }),
+        suppressErrorLog: true,
+      }),
+  );
 }
 
 export async function getCourierTodayStats() {
@@ -628,17 +841,41 @@ export async function getCourierEarnings() {
   return normalizeCourierEarnings(response);
 }
 
+export async function getCourierDeliveryHistory(pageIndex = 1, pageSize = 20) {
+  const query = new URLSearchParams({
+    pageIndex: String(pageIndex),
+    pageSize: String(pageSize),
+  });
+  return apiRequest<{
+    data?: CourierDeliveryHistoryDto[];
+    Data?: CourierDeliveryHistoryDto[];
+    totalCount?: number;
+    TotalCount?: number;
+  }>(`/courier/history?${query.toString()}`, {
+    suppressErrorLog: true,
+  });
+}
+
 export async function syncCourierLocation(
   lat: number,
   lng: number,
   heading = 0,
   speed = 0,
 ) {
-  return apiRequest<void>("/driver/location/sync", {
-    method: "POST",
-    body: JSON.stringify({ lat, lng, heading, speed }),
-    suppressErrorLog: true,
-  });
+  return withFallback<void>(
+    () =>
+      apiRequest<void>("/driver/location/sync", {
+        method: "POST",
+        body: JSON.stringify({ lat, lng, heading, speed }),
+        suppressErrorLog: true,
+      }),
+    () =>
+      apiRequest<void>("/courier/location", {
+        method: "PUT",
+        body: JSON.stringify({ latitude: lat, longitude: lng }),
+        suppressErrorLog: true,
+      }),
+  );
 }
 
 export async function safeSyncCourierLocation(

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MapPin,
@@ -246,7 +246,13 @@ function OrderCard({ order, index, onClick }: { order: CourierDashboardOrder; in
 
 export default function CourierOrdersPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<Tab>("new");
+  const searchParams = useSearchParams();
+  const initialTabParam = searchParams?.get("tab");
+  const initialTab: Tab =
+    initialTabParam === "active" || initialTabParam === "done" || initialTabParam === "new"
+      ? initialTabParam
+      : "new";
+  const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<CourierDashboardOrder[]>([]);
   const [loading, setLoading] = useState(true);
@@ -263,6 +269,14 @@ export default function CourierOrdersPage() {
     totalAmount: number;
     totalDistance: string;
   } | null>(null);
+
+  useEffect(() => {
+    if (!searchParams) return;
+    const tab = searchParams.get("tab");
+    if (tab === "new" || tab === "active" || tab === "done") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     let ignore = false;

@@ -3,22 +3,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
-  TrendingUp,
   Package,
   Clock,
   CheckCircle2,
   XCircle,
   Wallet,
-  Star,
   ArrowUpRight,
   ArrowDownRight,
   Calendar,
   Loader2,
+  Info,
 } from "lucide-react";
 import { getCourierEarnings, getCourierTodayStats, type CourierEarningsResponseDto, type CourierTodayStatsDto } from "@/app/lib/courier-client";
 import { ApiError } from "@/app/lib/admin-api";
 
-type Period = "today" | "week" | "month";
+type Period = "today" | "week";
 
 function buildStats(period: Period, earnings: CourierEarningsResponseDto, today: CourierTodayStatsDto) {
   if (period === "today") {
@@ -118,14 +117,14 @@ export default function CourierEarningsPage() {
           <p className="text-gray-400 text-sm">Track your income and performance</p>
         </div>
         <div className="flex items-center gap-1 bg-white border border-gray-100 rounded-xl p-1 shadow-sm">
-          {(["today", "week", "month"] as Period[]).map((p) => (
+          {(["today", "week"] as Period[]).map((p) => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3 h-8 rounded-lg text-xs font-semibold capitalize transition-all ${period === p ? "text-white shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
               style={period === p ? { backgroundColor: "#1D5B70" } : {}}
             >
-              {p === "today" ? "Today" : p === "week" ? "This Week" : "Month"}
+              {p === "today" ? "Today" : "This Week"}
             </button>
           ))}
         </div>
@@ -173,7 +172,7 @@ export default function CourierEarningsPage() {
             </div>
             <div className="flex items-center gap-1.5 text-xs text-gray-400">
               <Calendar className="w-3.5 h-3.5" />
-              Current cycle
+              Current week
             </div>
           </div>
           <div className="flex items-end gap-2 h-36">
@@ -220,8 +219,22 @@ export default function CourierEarningsPage() {
         <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
           <p className="font-bold text-gray-800">Performance</p>
           {[
-            { icon: Package, label: "Completion Rate", value: `${stats.completionRate.toFixed(1)}%`, pct: stats.completionRate, color: "#22c55e", delay: 0.2 },
-            { icon: Star, label: "Customer Rating", value: `${earnings.rating.toFixed(1)} / 5.0`, pct: (earnings.rating / 5) * 100, color: "#EBA050", delay: 0.4 },
+            {
+              icon: Package,
+              label: "Completion Rate",
+              value: `${stats.completionRate.toFixed(1)}%`,
+              pct: `${stats.completionRate}%`,
+              color: "#22c55e",
+              delay: 0.2,
+            },
+            {
+              icon: Wallet,
+              label: "Avg / Order",
+              value: `EGP ${stats.avgPerOrder.toFixed(1)}`,
+              pct: `${Math.max(8, Math.min(100, stats.orders > 0 ? (stats.avgPerOrder / Math.max(stats.earned, 1)) * 100 : 8))}%`,
+              color: "#EBA050",
+              delay: 0.4,
+            },
           ].map((item) => (
             <div key={item.label}>
               <div className="flex items-center justify-between mb-1.5">
@@ -234,14 +247,21 @@ export default function CourierEarningsPage() {
                 </span>
               </div>
               <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                <motion.div key={period} initial={{ width: 0 }} animate={{ width: `${item.pct}%` }} transition={{ duration: 1, delay: item.delay }} className="h-full rounded-full" style={{ backgroundColor: item.color }} />
+                <motion.div
+                  key={period}
+                  initial={{ width: 0 }}
+                  animate={{ width: item.pct }}
+                  transition={{ duration: 1, delay: item.delay }}
+                  className="h-full rounded-full"
+                  style={{ backgroundColor: item.color }}
+                />
               </div>
             </div>
           ))}
-          <div className="flex items-center gap-2 bg-green-50 border border-green-100 rounded-xl px-3 py-2.5">
-            <TrendingUp className="w-4 h-4 text-green-600 shrink-0" />
-            <p className="text-xs text-green-700">
-              You&apos;re in the <strong>top {earnings.topPercent}%</strong> of couriers right now.
+          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+            <Info className="mt-0.5 w-4 h-4 shrink-0 text-amber-600" />
+            <p className="text-xs text-amber-800">
+              Backend does not currently provide tracked courier ratings, ranking, or hours worked. This page only shows earnings and completion metrics calculated directly by backend.
             </p>
           </div>
         </div>
@@ -282,9 +302,9 @@ export default function CourierEarningsPage() {
           <p className="font-bold text-gray-900">EGP {earnings.nextPayoutAmount}</p>
           <p className="text-xs text-amber-600 mt-0.5">{earnings.nextPayoutDate}</p>
         </div>
-        <button className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border transition-all hover:opacity-80" style={{ borderColor: "#EBA050", color: "#EBA050" }}>
-          Details <ArrowUpRight className="w-3.5 h-3.5" />
-        </button>
+        <div className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border bg-amber-50" style={{ borderColor: "#fcd34d", color: "#b45309" }}>
+          Backend summary <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+        </div>
       </div>
     </motion.div>
   );

@@ -102,7 +102,12 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
     return undefined as T;
   }
 
-  return (await response.json()) as T;
+  const responseText = await response.text();
+  if (!responseText.trim()) {
+    return undefined as T;
+  }
+
+  return JSON.parse(responseText) as T;
 }
 
 // Super Admin: Get all laundry admin commission payments

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,9 +18,24 @@ import {
   Menu,
   X,
   Loader2,
+  CheckCheck,
 } from "lucide-react";
 import { ReactNode } from "react";
-import { getCourierActiveRun, getCourierProfile, getCourierTodayStats, updateCourierStatus } from "@/app/lib/courier-client";
+import {
+  announceCourierNotificationCountUpdated,
+  announceCourierProfileUpdated,
+  getCourierActiveRun,
+  getCourierProfile,
+  getCourierTodayStats,
+  getCourierUnreadNotificationCount,
+  getCourierUnreadNotifications,
+  markAllCourierNotificationsRead,
+  subscribeCourierNotificationCountUpdates,
+  subscribeCourierProfileUpdates,
+  type CourierNotificationDto,
+  type CourierProfileResponseDto,
+  updateCourierStatus,
+} from "@/app/lib/courier-client";
 import { useAuth } from "@/app/context/AuthContext";
 import { DashboardAccessGuard } from "@/app/components/auth/DashboardAccessGuard";
 
@@ -52,6 +67,15 @@ const NAV_ITEMS = [
   },
 ];
 
+function normalizeRole(role: string) {
+  return role.trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function isCourierRole(role: string) {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === "courier" || normalizedRole === "2";
+}
+
 function initials(name: string) {
   return name
     .split(/\s+/)
@@ -73,13 +97,53 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
   const [profileRating, setProfileRating] = useState(0);
   const [profileOrders, setProfileOrders] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
+  const [notifications, setNotifications] = useState<CourierNotificationDto[]>([]);
   const [activeRunLabel, setActiveRunLabel] = useState("");
+  const notificationPanelRef = useRef<HTMLDivElement | null>(null);
   const role = user?.role ?? "";
-  const isCourier = isLoggedIn && role.toLowerCase().includes("courier");
+  const isCourier = isLoggedIn && isCourierRole(role);
+
+  const applyProfileSnapshot = (profile: CourierProfileResponseDto) => {
+    setAvailable(profile.isOnline);
+    setProfileName(profile.name || "Courier");
+    setProfileAvatar(profile.avatar || initials(profile.name || "Courier"));
+    setProfileRating(profile.rating);
+    setProfileOrders(profile.totalOrders);
+  };
 
   useEffect(() => {
     setMobileMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeCourierProfileUpdates((profile) => {
+      applyProfileSnapshot(profile);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeCourierNotificationCountUpdates((count) => {
+      setUnreadNotifications(count);
+    });
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!notificationsOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!notificationPanelRef.current?.contains(event.target as Node)) {
+        setNotificationsOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [notificationsOpen]);
 
   useEffect(() => {
     if (!isAuthReady || !isLoggedIn || !isCourier) return;
@@ -88,20 +152,18 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
 
     async function loadLayoutData() {
       try {
-        const [profile, todayStats, activeRun] = await Promise.all([
+        const [profile, todayStats, activeRun, unreadCount] = await Promise.all([
           getCourierProfile(),
           getCourierTodayStats().catch(() => null),
           getCourierActiveRun().catch(() => null),
+          getCourierUnreadNotificationCount().catch(() => 0),
         ]);
 
         if (ignore) return;
 
-        setAvailable(profile.isOnline);
-        setProfileName(profile.name || "Courier");
-        setProfileAvatar(profile.avatar || initials(profile.name || "Courier"));
-        setProfileRating(profile.rating);
-        setProfileOrders(profile.totalOrders);
-        setUnreadNotifications(profile.unreadNotifications ?? 0);
+        applyProfileSnapshot(profile);
+        setUnreadNotifications(unreadCount);
+        announceCourierNotificationCountUpdated(unreadCount);
 
         if (activeRun) {
           setActiveRunLabel(`${activeRun.totalStops}-stop run · ${activeRun.stopsDone} of ${activeRun.totalStops} done`);
@@ -134,13 +196,116 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
     setLoadingStatus(true);
     try {
       await updateCourierStatus(nextValue);
-      setAvailable(nextValue);
+      const refreshedProfile = await getCourierProfile();
+      applyProfileSnapshot(refreshedProfile);
+      announceCourierProfileUpdated(refreshedProfile);
     } catch {
       return;
     } finally {
       setLoadingStatus(false);
     }
   };
+
+  const handleToggleNotifications = async () => {
+    const nextOpen = !notificationsOpen;
+    setNotificationsOpen(nextOpen);
+    if (!nextOpen) return;
+
+    setNotificationsLoading(true);
+    try {
+      const unread = await getCourierUnreadNotifications();
+      setNotifications(unread);
+      setUnreadNotifications(unread.length);
+      announceCourierNotificationCountUpdated(unread.length);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  const handleMarkAllNotificationsRead = async () => {
+    setMarkingNotificationsRead(true);
+    try {
+      await markAllCourierNotificationsRead();
+      setNotifications([]);
+      setUnreadNotifications(0);
+      announceCourierNotificationCountUpdated(0);
+    } catch {
+      return;
+    } finally {
+      setMarkingNotificationsRead(false);
+    }
+  };
+
+  const renderNotificationsButton = () => (
+    <div className="relative" ref={notificationPanelRef}>
+      <button
+        onClick={handleToggleNotifications}
+        className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-colors"
+      >
+        <Bell className="w-4 h-4" />
+      </button>
+      {unreadNotifications > 0 && (
+        <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center px-1" style={{ backgroundColor: "#EBA050" }}>
+          {unreadNotifications}
+        </span>
+      )}
+      <AnimatePresence>
+        {notificationsOpen && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            className="absolute right-0 top-12 z-30 w-[320px] rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden"
+          >
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+              <div>
+                <p className="text-sm font-bold text-gray-900">Notifications</p>
+                <p className="text-[11px] text-gray-400">Unread updates from backend</p>
+              </div>
+              <button
+                onClick={handleMarkAllNotificationsRead}
+                disabled={markingNotificationsRead || unreadNotifications === 0}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 disabled:opacity-50"
+              >
+                {markingNotificationsRead ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
+                Mark all read
+              </button>
+            </div>
+            <div className="max-h-80 overflow-y-auto">
+              {notificationsLoading ? (
+                <div className="flex flex-col items-center justify-center py-10 text-center">
+                  <Loader2 className="w-5 h-5 animate-spin text-[#1D5B70]" />
+                  <p className="mt-2 text-xs text-gray-400">Loading notifications...</p>
+                </div>
+              ) : notifications.length === 0 ? (
+                <div className="px-4 py-8 text-center">
+                  <p className="text-sm font-semibold text-gray-700">No unread notifications</p>
+                  <p className="mt-1 text-xs text-gray-400">You're all caught up.</p>
+                </div>
+              ) : (
+                notifications.map((notification) => (
+                  <div key={notification.id} className="px-4 py-3 border-b border-gray-50 last:border-0">
+                    <div className="flex items-start gap-3">
+                      <div className="mt-1 w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: "#EBA050" }} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-gray-800">{notification.title}</p>
+                        <p className="mt-1 text-xs text-gray-500">{notification.message}</p>
+                        <p className="mt-1 text-[11px] text-gray-400">
+                          {notification.createdAt ? new Date(notification.createdAt).toLocaleString() : ""}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
 
   const renderSidebarContent = (isMobile = false) => {
     const isExpanded = isMobile || sidebarOpen;
@@ -240,7 +405,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
   };
 
   return (
-    <DashboardAccessGuard allowedRoles={["courier"]} loginRoleHint="Courier">
+    <DashboardAccessGuard allowedRoles={["courier", "2"]} loginRoleHint="Courier">
       <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#f1f5f9" }}>
       <AnimatePresence>
         {mobileMenuOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm" />}
@@ -269,16 +434,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <div className="relative">
-              <button className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all">
-                <Bell className="w-4 h-4" />
-              </button>
-              {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center px-1" style={{ backgroundColor: "#EBA050" }}>
-                  {unreadNotifications}
-                </span>
-              )}
-            </div>
+            {renderNotificationsButton()}
             <button onClick={() => router.push("/courier/profile")} className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ backgroundColor: "#EBA050" }}>
               {profileAvatar}
             </button>
@@ -297,16 +453,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
                 <span className="text-xs font-semibold text-purple-700">{activeRunLabel}</span>
               </div>
             )}
-            <div className="relative">
-              <button className="w-9 h-9 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-100 transition-all">
-                <Bell className="w-4 h-4" />
-              </button>
-              {unreadNotifications > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-4 h-4 rounded-full text-[9px] font-bold text-white flex items-center justify-center px-1" style={{ backgroundColor: "#EBA050" }}>
-                  {unreadNotifications}
-                </span>
-              )}
-            </div>
+            {renderNotificationsButton()}
             <button onClick={() => router.push("/courier/profile")} className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-all border border-gray-100">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#EBA050" }}>
                 {profileAvatar}

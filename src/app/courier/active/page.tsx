@@ -26,6 +26,7 @@ import {
   Banknote,
 } from "lucide-react";
 import {
+  calculateCourierEarning,
   type CourierActiveRunResponseDto,
   type CourierActiveRunStopDto,
   deliverCourierRunStop,
@@ -44,6 +45,12 @@ type Stop = CourierActiveRunStopDto & {
   status: StopStatus;
 };
 
+type CompletedRunSummary = {
+  totalAmount: number;
+  totalDistance: string;
+  totalStops: number;
+};
+
 const PIN_POSITIONS = [
   { x: "14%", y: "55%" },
   { x: "38%", y: "38%" },
@@ -52,6 +59,10 @@ const PIN_POSITIONS = [
 ];
 
 const AVATAR_COLORS = ["#7c3aed", "#1D5B70", "#0891b2", "#EBA050"];
+
+function buildMapsUrl(destination: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
+}
 
 function getServiceIcon(service: string) {
   switch (serviceIconKey(service)) {
@@ -85,6 +96,19 @@ function normalizeStops(stops: CourierActiveRunStopDto[]): Stop[] {
         ? stop.status
         : "upcoming",
   }));
+}
+
+function isMissingActiveRunError(error: unknown) {
+  if (!(error instanceof ApiError)) return false;
+  if (error.status !== 400 && error.status !== 404) return false;
+
+  const message = error.message.toLowerCase();
+  return (
+    message.includes("no active run") ||
+    message.includes("not found") ||
+    message.includes("status 400") ||
+    message.includes("status 404")
+  );
 }
 
 function MultiStopMap({ stops, currentIdx }: { stops: Stop[]; currentIdx: number }) {
@@ -304,14 +328,23 @@ function StopCard({
                     <Phone className="w-3.5 h-3.5" />
                     Call
                   </a>
-                  <button className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-blue-50 border border-blue-100 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-all px-4">
+                  <a
+                    href={stop.phone ? `sms:${stop.phone}` : undefined}
+                    className="flex items-center justify-center gap-1.5 h-10 rounded-xl bg-blue-50 border border-blue-100 text-sm font-semibold text-blue-700 hover:bg-blue-100 transition-all px-4"
+                  >
                     <MessageCircle className="w-3.5 h-3.5" />
                     Message
-                  </button>
-                  <button className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90" style={{ backgroundColor: "#1D5B70" }}>
+                  </a>
+                  <a
+                    href={buildMapsUrl(stop.address || stop.area)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex-1 flex items-center justify-center gap-1.5 h-10 rounded-xl text-white text-sm font-bold transition-all hover:opacity-90"
+                    style={{ backgroundColor: "#1D5B70" }}
+                  >
                     <Navigation className="w-3.5 h-3.5" />
                     Navigate
-                  </button>
+                  </a>
                 </div>
                 {current && (
                   <button
@@ -360,7 +393,7 @@ function RunSummaryBar({ run }: { run: CourierActiveRunResponseDto }) {
       <div className="grid grid-cols-3 gap-2">
         {[
           { label: "Earned so far", value: `EGP ${run.earnedSoFar}`, color: "#16a34a" },
-          { label: "Remaining", value: `EGP ${run.remainingAmount}`, color: "#1D5B70" },
+          { label: "Remaining value", value: `EGP ${run.remainingAmount}`, color: "#1D5B70" },
           { label: "Total run", value: run.totalDistance, color: "#6b7280" },
         ].map((s) => (
           <div key={s.label} className="bg-gray-50 rounded-xl p-2.5 text-center">
@@ -407,34 +440,78 @@ export default function CourierActivePage() {
   const router = useRouter();
   const [run, setRun] = useState<CourierActiveRunResponseDto | null>(null);
   const [stops, setStops] = useState<Stop[]>([]);
+  const [completedRun, setCompletedRun] = useState<CompletedRunSummary | null>(null);
   const [expandedId, setExpandedId] = useState<string>("");
   const [deliveringId, setDeliveringId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [hasNoActiveRun, setHasNoActiveRun] = useState(false);
+
+  const applyRunState = (result: CourierActiveRunResponseDto) => {
+    setRun(result);
+    setCompletedRun(null);
+    setHasNoActiveRun(false);
+    const nextStops = normalizeStops(result.stops);
+    setStops(nextStops);
+    setExpandedId(
+      nextStops.find((stop) => stop.status === "current")?.orderId ??
+        nextStops[0]?.orderId ??
+        "",
+    );
+  };
+
+  const clearRunState = () => {
+    setRun(null);
+    setStops([]);
+    setExpandedId("");
+  };
+
+  const loadRun = async ({
+    showLoader = false,
+    afterSuccessfulDelivery = false,
+    lastKnownRun,
+  }: {
+    showLoader?: boolean;
+    afterSuccessfulDelivery?: boolean;
+    lastKnownRun?: CourierActiveRunResponseDto | null;
+  } = {}) => {
+    if (showLoader) setLoading(true);
+    setError("");
+
+    try {
+      const result = await getCourierActiveRun();
+      applyRunState(result);
+      return result;
+    } catch (loadError) {
+      if (isMissingActiveRunError(loadError)) {
+        clearRunState();
+        setHasNoActiveRun(!afterSuccessfulDelivery);
+        if (afterSuccessfulDelivery && lastKnownRun) {
+          setCompletedRun({
+            totalAmount: lastKnownRun.totalAmount,
+            totalDistance: lastKnownRun.totalDistance,
+            totalStops: lastKnownRun.totalStops,
+          });
+        }
+        return null;
+      }
+
+      const message = loadError instanceof ApiError ? loadError.message : "Unable to load active run.";
+      setError(message);
+      return null;
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  };
 
   useEffect(() => {
     let ignore = false;
 
-    async function loadRun() {
-      setLoading(true);
-      setError("");
-      try {
-        const result = await getCourierActiveRun();
-        if (ignore) return;
-        setRun(result);
-        const nextStops = normalizeStops(result.stops);
-        setStops(nextStops);
-        setExpandedId(nextStops.find((stop) => stop.status === "current")?.orderId ?? nextStops[0]?.orderId ?? "");
-      } catch (loadError) {
-        if (ignore) return;
-        const message = loadError instanceof ApiError ? loadError.message : "Unable to load active run.";
-        setError(message);
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
+    void (async () => {
+      await loadRun({ showLoader: true });
+      if (ignore) return;
+    })();
 
-    loadRun();
     return () => {
       ignore = true;
     };
@@ -468,30 +545,32 @@ export default function CourierActivePage() {
     if (!stop) return;
 
     setDeliveringId(stopId);
+    setError("");
     try {
       await deliverCourierRunStop(run.runId, stopId, !stop.isPaid);
-      setStops((prev) => {
-        const idx = prev.findIndex((s) => s.orderId === stopId);
-        if (idx === -1) return prev;
-        const next = [...prev];
-        next[idx] = { ...next[idx], status: "done" };
-        if (idx + 1 < next.length) {
-          next[idx + 1] = { ...next[idx + 1], status: "current" };
-          setExpandedId(next[idx + 1].orderId);
-        }
-        return next;
+      await loadRun({
+        afterSuccessfulDelivery: true,
+        lastKnownRun: {
+          ...run,
+          stopsDone: Math.min(run.totalStops, run.stopsDone + 1),
+          earnedSoFar: Number((run.earnedSoFar + calculateCourierEarning(stop.amount)).toFixed(2)),
+          remainingAmount: Math.max(0, run.remainingAmount - stop.amount),
+        },
       });
-      setRun((prev) =>
-        prev
-          ? {
-              ...prev,
-              stopsDone: Math.min(prev.totalStops, prev.stopsDone + 1),
-              earnedSoFar: prev.earnedSoFar + stop.amount,
-              remainingAmount: Math.max(0, prev.remainingAmount - stop.amount),
-            }
-          : prev,
-      );
     } catch (deliverError) {
+      if (deliverError instanceof ApiError && (deliverError.status === 400 || deliverError.status === 404)) {
+        await loadRun({
+          afterSuccessfulDelivery: true,
+          lastKnownRun: {
+            ...run,
+            stopsDone: Math.min(run.totalStops, run.stopsDone + 1),
+            earnedSoFar: Number((run.earnedSoFar + calculateCourierEarning(stop.amount)).toFixed(2)),
+            remainingAmount: Math.max(0, run.remainingAmount - stop.amount),
+          },
+        });
+        return;
+      }
+
       setError(deliverError instanceof ApiError ? deliverError.message : "Unable to confirm delivery.");
     } finally {
       setDeliveringId(null);
@@ -517,7 +596,20 @@ export default function CourierActivePage() {
     );
   }
 
-  if (!run || stops.length === 0) {
+  if (completedRun) {
+    return (
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="p-4 lg:p-6 max-w-4xl mx-auto">
+        <RunCompleted
+          onBack={() => router.push("/courier")}
+          totalAmount={completedRun.totalAmount}
+          totalDistance={completedRun.totalDistance}
+          totalStops={completedRun.totalStops}
+        />
+      </motion.div>
+    );
+  }
+
+  if (hasNoActiveRun || !run || stops.length === 0) {
     return (
       <div className="p-4 lg:p-6 max-w-4xl mx-auto">
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
@@ -547,7 +639,7 @@ export default function CourierActivePage() {
       </div>
 
       {allDone ? (
-        <RunCompleted onBack={() => router.push("/courier")} totalAmount={run.totalAmount} totalDistance={run.totalDistance} totalStops={run.totalStops} />
+        <RunCompleted onBack={() => router.push("/courier")} totalAmount={run.earnedSoFar} totalDistance={run.totalDistance} totalStops={run.totalStops} />
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 space-y-4">

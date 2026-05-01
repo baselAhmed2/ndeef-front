@@ -175,6 +175,16 @@ function ErrorScreen({
 }
 
 function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) {
+  const availabilityMeta = laundry.isAvailable
+    ? {
+        label: "Open Now",
+        tone: "text-emerald-700 bg-emerald-50 border-emerald-200",
+      }
+    : {
+        label: laundry.availability === "Busy" ? "Currently Busy" : "Currently Closed",
+        tone: "text-slate-700 bg-slate-100/95 border-slate-200/80",
+      };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 28, scale: 0.96 }}
@@ -187,10 +197,10 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
     >
       <Link
         href={`/laundry/${laundry.id}`}
-        className="block bg-white rounded-2xl overflow-hidden shadow-sm border border-gray-100 active:scale-[0.99] transition-all duration-200"
+        className="group block overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.08)] active:scale-[0.99] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
       >
         <motion.div
-          className="relative h-44 overflow-hidden"
+          className="relative h-56 overflow-hidden"
           whileHover={{ scale: 1.02 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
         >
@@ -201,55 +211,77 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
             whileHover={{ scale: 1.06 }}
             transition={{ duration: 0.4 }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
-          {!laundry.isAvailable && (
-            <div className="absolute top-3 left-3 bg-gray-800/80 text-white text-xs px-3 py-1 rounded-full">
-              {laundry.availability === "Busy" ? "Currently Busy" : "Currently Closed"}
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-4">
+            <div className="flex items-end justify-between gap-3">
+              <div className="min-w-0">
+                <div className="mb-2 flex items-center gap-2 flex-wrap">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold backdrop-blur-sm ${availabilityMeta.tone}`}
+                  >
+                    <span
+                      className={`h-1.5 w-1.5 rounded-full ${laundry.isAvailable ? "bg-emerald-500" : "bg-slate-500"}`}
+                    />
+                    {availabilityMeta.label}
+                  </span>
+                  {laundry.rating >= 4.5 && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#1D6076]/20 bg-[#1D6076]/90 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
+                      <Zap size={11} fill="currentColor" strokeWidth={0} />
+                      Top Pick
+                    </span>
+                  )}
+                </div>
+                <h3 className="truncate text-xl font-semibold tracking-tight text-white">
+                  {laundry.name}
+                </h3>
+                <p className="mt-1 line-clamp-1 text-sm text-white/75">
+                  {laundry.address}
+                </p>
+              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white backdrop-blur-md transition-transform duration-300 group-hover:translate-x-0.5">
+                <ChevronRight size={18} strokeWidth={2.2} />
+              </div>
             </div>
-          )}
+          </div>
           {laundry.isAvailable && laundry.rating >= 4.5 && (
-            <div className="absolute top-3 right-3 bg-[#1D6076] text-white text-xs px-3 py-1 rounded-full flex items-center gap-1">
-              <Zap size={10} fill="white" strokeWidth={0} />
+            <div className="absolute top-4 right-4 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur-md">
               Featured
             </div>
           )}
-          <div className="absolute bottom-3 left-3 bg-white/95 backdrop-blur-sm text-gray-700 text-xs px-2.5 py-1 rounded-full flex items-center gap-1 font-medium">
+          <div className="absolute left-4 top-4 bg-white/95 backdrop-blur-md text-slate-700 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-semibold shadow-sm">
             <MapPin size={10} className="text-[#1D6076]" strokeWidth={2.5} />
             {laundry.distanceLabel}
           </div>
         </motion.div>
 
-        <div className="px-4 py-4">
-          <div className="flex items-start justify-between mb-2">
-            <h3 className="text-gray-900 text-base font-medium leading-snug">
-              {laundry.name}
-            </h3>
-            <ChevronRight
-              size={18}
-              className="text-gray-300 mt-0.5 shrink-0"
-              strokeWidth={2}
-            />
-          </div>
-          <p className="text-gray-400 text-xs mb-3">{laundry.address}</p>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-1">
-              <Star size={13} className="text-amber-400 fill-amber-400" />
-              <span className="text-sm font-medium text-gray-900">
-                {laundry.rating.toFixed(1)}
-              </span>
-              <span className="text-xs text-gray-400">({laundry.reviews})</span>
+        <div className="px-5 py-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+              <div className="mb-1 flex items-center gap-1.5 text-slate-400">
+                <Star size={13} className="fill-amber-400 text-amber-400" />
+                <span className="text-[11px] font-semibold uppercase tracking-wide">Rating</span>
+              </div>
+              <p className="text-base font-semibold text-slate-900">{laundry.rating.toFixed(1)}</p>
+              <p className="text-[11px] text-slate-400">{laundry.reviews} reviews</p>
             </div>
-            <span className="w-1 h-1 rounded-full bg-gray-300" />
-            <div className="flex items-center gap-1 text-xs text-gray-500">
-              <Clock size={12} className="text-[#1D6076]" strokeWidth={2} />
-              {laundry.deliveryTime}
+
+            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+              <div className="mb-1 flex items-center gap-1.5 text-slate-400">
+                <Clock size={13} className="text-[#1D6076]" strokeWidth={2} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide">ETA</span>
+              </div>
+              <p className="text-base font-semibold text-slate-900">{laundry.deliveryTime}</p>
+              <p className="text-[11px] text-slate-400">Estimated service</p>
             </div>
-            <span className="w-1 h-1 rounded-full bg-gray-300" />
-            <span
-              className={`text-xs font-medium ${laundry.isAvailable ? "text-emerald-600" : "text-gray-400"}`}
-            >
-              {laundry.isAvailable ? "Open" : laundry.availability}
-            </span>
+
+            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+              <div className="mb-1 flex items-center gap-1.5 text-slate-400">
+                <MapPin size={13} className="text-[#1D6076]" strokeWidth={2} />
+                <span className="text-[11px] font-semibold uppercase tracking-wide">Distance</span>
+              </div>
+              <p className="text-base font-semibold text-slate-900">{laundry.distanceLabel}</p>
+              <p className="text-[11px] text-slate-400">From your location</p>
+            </div>
           </div>
         </div>
       </Link>

@@ -125,22 +125,22 @@ function ServiceRow({
     <button
       type="button"
       onClick={() => onToggle(service.id)}
-      className={`w-full flex items-center justify-between p-4 border rounded-2xl active:scale-[0.99] transition-all duration-200 bg-white group ${
+      className={`w-full flex items-center justify-between p-4 border rounded-[24px] active:scale-[0.99] transition-all duration-300 bg-white group ${
         selected
-          ? "border-[#1D6076] shadow-sm ring-2 ring-[#1D6076]/10"
-          : "border-gray-100 hover:border-[#1D6076]/30 hover:shadow-sm"
+          ? "border-[#1D6076] shadow-[0_10px_30px_rgba(29,96,118,0.12)] ring-2 ring-[#1D6076]/10"
+          : "border-slate-200/80 hover:border-[#1D6076]/30 hover:shadow-[0_10px_25px_rgba(15,23,42,0.08)]"
       }`}
     >
       <div className="flex items-center gap-3.5">
         <div
-          className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+          className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
           style={{ backgroundColor: `${color}15` }}
         >
           <Sparkles size={20} style={{ color }} strokeWidth={1.8} />
         </div>
         <div>
-          <p className="text-gray-900 text-sm font-medium">{service.name}</p>
-          <p className="text-xs text-gray-400 mt-0.5">{service.unit}</p>
+          <p className="text-gray-900 text-[15px] font-semibold">{service.name}</p>
+          <p className="text-xs text-slate-400 mt-0.5">{service.unit}</p>
         </div>
       </div>
       <div className="flex items-center gap-2">
@@ -273,8 +273,8 @@ export default function LaundryDetails() {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]" dir="ltr">
-      <div className="sticky top-16 z-20 bg-white border-b border-gray-100 px-4 md:px-8 py-4 flex items-center gap-3 shadow-sm">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f6fbfd_0%,#f8fafc_28%,#f5f5f5_70%)]" dir="ltr">
+      <div className="sticky top-16 z-20 border-b border-slate-200/80 bg-white/90 px-4 md:px-8 py-4 flex items-center gap-3 shadow-sm backdrop-blur-md">
         <button
           onClick={() => router.back()}
           className="p-2 -ml-1 rounded-xl hover:bg-gray-50 active:scale-95 transition-all"
@@ -315,57 +315,101 @@ export default function LaundryDetails() {
 
       {flowState === "success" && laundry && (
         <div className="pb-10">
-          <div className="relative h-56">
+          <div className="relative h-[340px] overflow-hidden bg-slate-200">
             <img
               src={laundry.image}
               alt={laundry.name}
-              className="w-full h-full object-cover"
+              className="w-full h-full object-cover scale-[1.04] saturate-[1.08] contrast-[1.04] brightness-[0.92]"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.24),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(235,160,80,0.18),transparent_24%)]" />
+            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/15 via-transparent to-transparent" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/22 to-slate-950/12" />
+            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/40 to-transparent" />
+            <div className="absolute inset-x-0 bottom-0 px-5 md:px-10 pb-8">
+              <div className="mx-auto max-w-5xl">
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
+                    <Star size={11} className="fill-[#EBA050] text-[#EBA050]" />
+                    {laundry.rating.toFixed(1)} rating
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
+                    <Clock size={11} />
+                    {laundry.deliveryTime}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
+                    <MapPin size={11} />
+                    {laundry.distanceLabel}
+                  </span>
+                </div>
+                <h2 className="text-3xl font-semibold tracking-tight text-white">
+                  {laundry.name}
+                </h2>
+                <p className="mt-2 max-w-2xl text-sm text-white/75">
+                  {laundry.address}
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="bg-white rounded-t-3xl -mt-6 relative z-10 shadow-sm px-5 pt-5 pb-4">
-            <div className="flex items-start justify-between mb-3">
-              <h2 className="text-xl text-gray-900">{laundry.name}</h2>
+          <div className="relative z-10 -mt-10 mx-auto max-w-5xl px-4 md:px-8">
+            <div className="rounded-[32px] border border-slate-200/80 bg-white/96 px-6 pt-6 pb-5 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur">
+              <div className="flex items-start justify-between gap-4 mb-4">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+                    Laundry Overview
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-slate-950">{laundry.name}</h2>
+                </div>
               {!laundry.isAvailable && (
-                <span className="text-xs text-orange-500 bg-orange-50 px-2.5 py-1 rounded-full flex items-center gap-1 shrink-0">
+                <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-full flex items-center gap-1 shrink-0 font-semibold">
                   <Info size={10} strokeWidth={2.5} />
                   {laundry.availability}
                 </span>
               )}
-            </div>
+              </div>
 
-            <div className="flex flex-wrap items-center gap-2 mb-3">
-              <div className="flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-xl">
-                <Star size={14} className="text-amber-500 fill-amber-500" />
-                <span className="text-sm font-medium text-gray-900">
-                  {laundry.rating.toFixed(1)}
-                </span>
-                <span className="text-xs text-gray-500">({laundry.reviews})</span>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="rounded-2xl bg-amber-50 px-4 py-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-amber-500">
+                    <Star size={14} className="fill-amber-500" />
+                    <span className="text-[11px] font-semibold uppercase tracking-wide">Rating</span>
+                  </div>
+                  <p className="text-lg font-semibold text-slate-900">{laundry.rating.toFixed(1)}</p>
+                  <p className="text-xs text-slate-400">{laundry.reviews} reviews</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-[#1D6076]">
+                    <Clock size={14} strokeWidth={2.1} />
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ETA</span>
+                  </div>
+                  <p className="text-lg font-semibold text-slate-900">{laundry.deliveryTime}</p>
+                  <p className="text-xs text-slate-400">Estimated turnaround</p>
+                </div>
+                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                  <div className="mb-1 flex items-center gap-1.5 text-[#1D6076]">
+                    <MapPin size={14} strokeWidth={2.1} />
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Distance</span>
+                  </div>
+                  <p className="text-lg font-semibold text-slate-900">{laundry.distanceLabel}</p>
+                  <p className="text-xs text-slate-400">From your location</p>
+                </div>
               </div>
-              <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-xl">
-                <Clock size={13} className="text-[#1D6076]" strokeWidth={2} />
-                <span className="text-xs font-medium text-gray-800">
-                  {laundry.deliveryTime}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-xl">
-                <MapPin size={13} className="text-[#1D6076]" strokeWidth={2} />
-                <span className="text-xs font-medium text-gray-800">
-                  {laundry.distanceLabel}
-                </span>
-              </div>
-            </div>
 
-            <p className="text-xs text-gray-400">{laundry.address}</p>
+              <p className="mt-4 text-sm text-slate-500">{laundry.address}</p>
+            </div>
           </div>
 
-          <div className="max-w-2xl mx-auto px-4 md:px-8 mt-4 space-y-5">
+          <div className="max-w-5xl mx-auto px-4 md:px-8 mt-6 space-y-6">
             {grouped.map(({ category, label, items }) => (
               <div key={category}>
-                <p className="text-xs font-semibold text-gray-500 tracking-wider mb-3 uppercase">
-                  {label}
-                </p>
+                <div className="mb-3 flex items-center justify-between">
+                  <p className="text-xs font-semibold text-slate-500 tracking-[0.22em] uppercase">
+                    {label}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {items.length} service{items.length > 1 ? "s" : ""}
+                  </p>
+                </div>
                 <div className="space-y-2.5">
                   {items
                     .sort((a, b) => a.price - b.price)
@@ -381,7 +425,7 @@ export default function LaundryDetails() {
               </div>
             ))}
 
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mt-2">
+            <div className="bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5 mt-2">
               <p className="text-xs font-semibold text-gray-500 tracking-wider mb-4 uppercase">
                 Why This Page Is Different Now
               </p>
@@ -404,18 +448,18 @@ export default function LaundryDetails() {
             </div>
           </div>
 
-          <div className="sticky bottom-4 z-20">
-            <div className="bg-white/95 backdrop-blur rounded-2xl border border-gray-100 shadow-lg p-4">
+          <div className="sticky bottom-4 z-20 px-4 md:px-8">
+            <div className="mx-auto max-w-5xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/80 shadow-[0_18px_50px_rgba(15,23,42,0.12)] p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">
+                  <p className="text-sm font-semibold text-slate-950">
                     {selectedServiceIds.length === 0
                       ? "Choose one or more services"
                       : `${selectedServiceIds.length} service${
                           selectedServiceIds.length > 1 ? "s" : ""
                         } selected`}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-slate-500">
                     Starting from {selectedStartingPrice} EGP before quantities
                   </p>
                 </div>
@@ -434,7 +478,7 @@ export default function LaundryDetails() {
                 type="button"
                 onClick={handleContinue}
                 disabled={selectedServiceIds.length === 0}
-                className="w-full bg-[#1D6076] text-white py-3.5 rounded-2xl text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#2a7a94] transition-all"
+                className="w-full bg-[#1D6076] text-white py-3.5 rounded-2xl text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#2a7a94] transition-all shadow-[0_10px_25px_rgba(29,96,118,0.20)]"
               >
                 Continue to Order
               </button>

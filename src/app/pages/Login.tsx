@@ -24,6 +24,25 @@ import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 // Note: laundry-admin-client functions are dynamically imported in resolveLaundryAdminLoginPath
 type AccountType = "Customer" | "LaundryAdmin" | "Courier";
 
+function normalizeRole(role?: string) {
+  return (role ?? "").trim().toLowerCase().replace(/\s+/g, "");
+}
+
+function isCourierRole(role?: string) {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === "courier" || normalizedRole === "2";
+}
+
+function isLaundryAdminRole(role?: string) {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === "laundryadmin" || normalizedRole === "3";
+}
+
+function isAdminRole(role?: string) {
+  const normalizedRole = normalizeRole(role);
+  return normalizedRole === "admin" || normalizedRole === "superadmin" || normalizedRole === "4";
+}
+
 function getNoAccountMessage(accountType: AccountType) {
   switch (accountType) {
     case "LaundryAdmin":
@@ -78,10 +97,9 @@ function SegmentedControl({
 }
 
 function resolvePostLoginPath(role?: string, from?: string) {
-  const normalizedRole = (role ?? "").toLowerCase();
-  if (normalizedRole.includes("courier")) return "/courier";
-  if (normalizedRole.includes("laundryadmin")) return "/laundry-admin";
-  if (normalizedRole.includes("admin")) return "/admin";
+  if (isCourierRole(role)) return "/courier";
+  if (isLaundryAdminRole(role)) return "/laundry-admin";
+  if (isAdminRole(role)) return "/admin";
   if (from && from !== "/") return from;
   return "/";
 }
@@ -153,10 +171,10 @@ export default function Login() {
         setError(message);
       };
 
-      const resolvedRole = (result.user?.role ?? "").toLowerCase();
-      const isLaundryAdmin = resolvedRole.includes("laundryadmin");
-      const isCourier = resolvedRole.includes("courier");
-      const isAdmin = resolvedRole.includes("admin");
+      const resolvedRole = result.user?.role ?? "";
+      const isLaundryAdmin = isLaundryAdminRole(resolvedRole);
+      const isCourier = isCourierRole(resolvedRole);
+      const isAdmin = isAdminRole(resolvedRole);
       const isCustomer = !isLaundryAdmin && !isCourier && !isAdmin;
 
       if (accountType === "Customer" && !isCustomer) {
