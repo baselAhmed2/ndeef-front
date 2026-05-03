@@ -22,7 +22,9 @@ html.dark {
 
 html,
 body {
+  width: 100%;
   min-height: 100%;
+  overflow-x: hidden;
   background: var(--ndeef-page-bg);
   color: var(--ndeef-text);
   transition: background-color 180ms ease, color 180ms ease;
@@ -126,6 +128,7 @@ html.dark .shadow-2xl {
 }
 
 .ndeef-preferences-widget {
+  max-width: calc(100vw - 1.5rem);
   animation: ndeef-preferences-in 260ms ease-out both;
 }
 
@@ -158,6 +161,7 @@ html.dark .ndeef-preference-button:hover {
   .ndeef-preferences-widget {
     bottom: 0.75rem !important;
     left: 0.75rem !important;
+    max-width: calc(100vw - 1.5rem);
   }
 
   html[dir="rtl"] .ndeef-preferences-widget {

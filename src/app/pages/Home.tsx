@@ -112,7 +112,7 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen" dir="ltr">
+    <div className="min-h-screen overflow-x-clip" dir="ltr">
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-[#0d3d50] min-h-screen flex items-center">
@@ -137,7 +137,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20 lg:py-24 grid md:grid-cols-2 gap-10 lg:gap-14 items-center">
+        <div className="relative w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 md:py-16 lg:py-20 grid md:grid-cols-2 gap-8 lg:gap-12 items-center">
           {/* Left — copy */}
           <div>
             {isLoggedIn && user && (
@@ -145,7 +145,7 @@ export default function Home() {
                 initial={{ opacity: 0, y: -16, scale: 0.92 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-6"
+                className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm border border-white/20 rounded-full px-4 py-1.5 mb-5"
               >
                 <span className="text-amber-300 text-sm">👋</span>
                 <span className="text-white/90 text-sm">Welcome back, {user.firstName}!</span>
@@ -156,7 +156,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 40 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1], delay: 0.1 }}
-              className="text-4xl md:text-5xl lg:text-6xl text-white mb-5 md:mb-6 leading-tight"
+              className="text-4xl md:text-5xl lg:text-6xl text-white mb-4 md:mb-5 leading-tight"
               style={{ fontWeight: 800, letterSpacing: '-0.02em' }}
             >
               Your Neighbourhood<br />
@@ -175,7 +175,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
-              className="text-white/75 text-lg md:text-xl mb-7 md:mb-8 leading-relaxed max-w-lg"
+              className="text-white/75 text-lg md:text-xl mb-6 md:mb-7 leading-relaxed max-w-lg"
             >
               Ndeef connects you with the best local laundries. Browse, order, track — clean clothes at your door.
             </motion.p>
@@ -184,7 +184,7 @@ export default function Home() {
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.45 }}
-              className="flex flex-wrap gap-3.5 mb-8 md:mb-10"
+              className="flex flex-wrap gap-3 mb-7 md:mb-8"
             >
               <Link
                  href="/nearby"
@@ -210,7 +210,7 @@ export default function Home() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.65, duration: 0.6 }}
-              className="flex flex-wrap gap-5 md:gap-6"
+              className="flex flex-wrap gap-4 md:gap-5"
             >
               {[
                 { v: '500+', l: 'Orders Delivered' },
@@ -265,7 +265,7 @@ export default function Home() {
 
               {/* Floating rating badge */}
               <motion.div
-                className="absolute -top-4 -right-4 bg-gradient-to-br from-[#EBA050] to-[#d4832a] text-white rounded-2xl px-4 py-2 shadow-lg text-xs font-semibold"
+                className="absolute top-3 right-3 bg-gradient-to-br from-[#EBA050] to-[#d4832a] text-white rounded-2xl px-4 py-2 shadow-lg text-xs font-semibold"
                 animate={{ y: [0, -6, 0] }}
                 transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               >
@@ -274,7 +274,7 @@ export default function Home() {
 
               {/* Floating delivered badge */}
               <motion.div
-                className="absolute -bottom-3 -left-3 bg-white rounded-2xl px-3 py-2 shadow-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-100"
+                className="absolute bottom-3 left-3 bg-white rounded-2xl px-3 py-2 shadow-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-100"
                 animate={{ y: [0, 6, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.7 }}
               >
@@ -287,9 +287,9 @@ export default function Home() {
       </section>
 
       {/* ── HOW IT WORKS ──────────────────────────────────────────────────── */}
-      <Section className="bg-white py-16 md:py-20 lg:py-24">
+      <Section className="bg-white py-14 md:py-16 lg:py-20">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10 md:mb-12">
+          <div className="text-center mb-8 md:mb-10">
             <motion.span
               initial={{ opacity: 0, scale: 0.85 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -312,7 +312,7 @@ export default function Home() {
           </div>
 
           <motion.div
-            className="grid md:grid-cols-3 gap-6 lg:gap-8"
+            className="grid md:grid-cols-3 gap-5 lg:gap-6"
             variants={listVariants}
             initial="hidden"
             whileInView="show"
@@ -347,9 +347,9 @@ export default function Home() {
       </Section>
 
       {/* ── NEARBY LAUNDRIES PREVIEW ──────────────────────────────────────── */}
-      <Section className="py-16 md:py-20 lg:py-24" style={{ background: 'linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)' }}>
+      <Section className="py-14 md:py-16 lg:py-20" style={{ background: 'linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)' }}>
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-8 rounded-[2rem] border border-white/10 bg-white/8 p-6 backdrop-blur-sm md:mb-10 md:p-8">
+          <div className="mb-7 rounded-[2rem] border border-white/10 bg-white/8 p-5 backdrop-blur-sm md:mb-8 md:p-7">
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
               <div className="max-w-2xl">
                 <motion.span
@@ -396,7 +396,7 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="mb-8 text-sm font-medium text-white/55 md:mb-10">
+          <div className="mb-7 text-sm font-medium text-white/55 md:mb-8">
             {isLoggedIn ? "Tap any card to explore services." : "Opening a laundry now will redirect you to sign in first."}
           </div>
 
@@ -500,9 +500,9 @@ export default function Home() {
       </Section>
 
       {/* ── WHY NDEEF ─────────────────────────────────────────────────────── */}
-      <Section className="bg-[#f8fafb] py-16 md:py-20 lg:py-24">
+      <Section className="bg-[#f8fafb] py-14 md:py-16 lg:py-20">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid md:grid-cols-2 gap-10 lg:gap-14 items-center mb-12 md:mb-14">
+          <div className="grid md:grid-cols-2 gap-8 lg:gap-12 items-center mb-10 md:mb-12">
             <motion.div
               initial={{ opacity: 0, x: -40 }}
               whileInView={{ opacity: 1, x: 0 }}
@@ -564,9 +564,9 @@ export default function Home() {
       </Section>
 
       {/* ── TESTIMONIALS ─────────────────────────────────────────────────── */}
-      <Section className="bg-white py-16 md:py-20 lg:py-24">
+      <Section className="bg-white py-14 md:py-16 lg:py-20">
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center mb-10 md:mb-12">
+          <div className="text-center mb-8 md:mb-10">
             <motion.span
               initial={{ opacity: 0, scale: 0.85 }}
               whileInView={{ opacity: 1, scale: 1 }}
@@ -633,7 +633,7 @@ export default function Home() {
       </Section>
 
       {/* ── CTA BANNER ───────────────────────────────────────────────────── */}
-      <Section className="py-16 md:py-20" style={{ background: 'linear-gradient(135deg, #EBA050 0%, #d4832a 100%)' }}>
+      <Section className="py-14 md:py-16" style={{ background: 'linear-gradient(135deg, #EBA050 0%, #d4832a 100%)' }}>
         <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             className="text-5xl mb-5 select-none"
@@ -690,9 +690,9 @@ export default function Home() {
       </Section>
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      <footer className="bg-[#0d3d50] text-white py-12 md:py-14">
+      <footer className="bg-[#0d3d50] text-white py-10 md:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-8 lg:gap-10 mb-10">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
                 <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
