@@ -118,7 +118,7 @@ function QuickStats({
           color: "#16a34a",
         },
       ].map((s) => (
-        <div key={s.label} className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+        <div key={s.label} className="ndeef-courier-card bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
           <p className="text-xs text-gray-400 mb-1">{s.label}</p>
           <p className="font-bold text-gray-900" style={{ fontSize: "1.1rem" }}>
             {s.value}
@@ -146,7 +146,7 @@ function OrderCard({ order, index, onClick }: { order: CourierDashboardOrder; in
       exit={{ opacity: 0, scale: 0.97 }}
       transition={{ duration: 0.2, delay: index * 0.04 }}
       onClick={onClick}
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group overflow-hidden"
+      className="ndeef-courier-card bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-gray-200 transition-all cursor-pointer group overflow-hidden"
     >
       {!order.paid && <div className="h-1 w-full" style={{ backgroundColor: "#EBA050" }} />}
       {order.paid && order.urgent && <div className="h-1 w-full" style={{ backgroundColor: "#ef4444" }} />}
@@ -187,7 +187,7 @@ function OrderCard({ order, index, onClick }: { order: CourierDashboardOrder; in
             <div className="w-px flex-1 my-0.5" style={{ backgroundColor: "#cbd5e1" }} />
             <div className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: "#EBA050" }} />
           </div>
-          <div className="flex flex-col justify-between flex-1 bg-gray-50 rounded-xl p-3 gap-2">
+          <div className="ndeef-courier-soft flex flex-col justify-between flex-1 bg-gray-50 rounded-xl p-3 gap-2">
             <div>
               <p className="text-[10px] text-gray-400 uppercase font-semibold tracking-wide">Pick up from</p>
               <p className="text-sm font-bold text-gray-800">{order.pickupArea}</p>
@@ -281,9 +281,9 @@ export default function CourierOrdersPage() {
   useEffect(() => {
     let ignore = false;
 
-    async function loadDashboard() {
-      setLoading(true);
-      setError("");
+    async function loadDashboard(silent = false) {
+      if (!silent) setLoading(true);
+      if (!ignore) setError("");
       try {
         const [ordersResult, statsResult, activeRunResult] = await Promise.allSettled([
           getAllCourierOrders(),
@@ -321,13 +321,25 @@ export default function CourierOrdersPage() {
           loadError instanceof ApiError ? loadError.message : "Unable to load courier dashboard.";
         setError(message);
       } finally {
-        if (!ignore) setLoading(false);
+        if (!ignore && !silent) setLoading(false);
       }
     }
 
-    loadDashboard();
+    const refreshIfVisible = () => {
+      if (document.hidden) return;
+      void loadDashboard(true);
+    };
+
+    void loadDashboard();
+    const intervalId = window.setInterval(refreshIfVisible, 10000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
     return () => {
       ignore = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
     };
   }, []);
 

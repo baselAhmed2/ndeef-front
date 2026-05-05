@@ -1,26 +1,22 @@
 "use client";
 
-import { motion, AnimatePresence } from "motion/react";
 import { TopNav } from "@/app/components/TopNav";
+import NdeefPageLoader from "@/app/components/NdeefPageLoader";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { useEffect } from "react";
 import { ReactNode } from "react";
 import { Suspense } from "react";
 
-const pageVariants = {
-  initial: { opacity: 0, y: 14 },
-  animate: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.38, ease: [0.22, 1, 0.36, 1] as const },
-  },
-  exit: {
-    opacity: 0,
-    y: -8,
-    transition: { duration: 0.22, ease: [0.42, 0, 1, 1] as const },
-  },
-};
+function AuthPageLoader() {
+  return (
+    <NdeefPageLoader
+      title="Loading page"
+      subtitle="Checking your session and preparing the screen..."
+      accent="teal"
+    />
+  );
+}
 
 function AppLayoutInner({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -58,10 +54,10 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
       }
       return;
     }
-  }, [currentPath, fromParam, isAuthReady, isLaundryAdmin, router]);
+  }, [currentPath, fromParam, isAuthReady, isCourier, isLaundryAdmin, router]);
 
   if (!isAuthReady) {
-    return null;
+    return <AuthPageLoader />;
   }
 
   // AGGRESSIVE: If you are an admin in a user section, show NOTHING but the white loader
@@ -93,24 +89,14 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       {shouldShowTopNav && <TopNav />}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={currentPath}
-          variants={pageVariants}
-          initial="initial"
-          animate="animate"
-          exit="exit"
-        >
-          {children}
-        </motion.div>
-      </AnimatePresence>
+      <div key={currentPath}>{children}</div>
     </div>
   );
 }
 
 export default function AppLayout({ children }: { children: ReactNode }) {
   return (
-    <Suspense>
+    <Suspense fallback={<AuthPageLoader />}>
       <AppLayoutInner>{children}</AppLayoutInner>
     </Suspense>
   );

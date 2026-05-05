@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { TopBar } from '../components/TopBar';
 import { BottomNav } from '../components/BottomNav';
 import { apiRequest } from '../lib/admin-api';
+import { useAutoRefresh } from '@/app/hooks/useAutoRefresh';
 
 interface Notification {
   id: string;
@@ -94,32 +95,28 @@ export default function Notifications() {
   const [error, setError] = useState<string | null>(null);
   const unreadCount = notifications.filter(n => !n.read).length;
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadNotifications() {
-      try {
-        setLoading(true);
-        setError(null);
-        const payload = await apiRequest<NotificationResponse>('/notifications?PageIndex=1&PageSize=50');
-        if (active) setNotifications(unwrapNotifications(payload).map(mapNotification));
-      } catch (error) {
-        console.error('Failed to load notifications', error);
-        if (active) {
-          setNotifications([]);
-          setError('Failed to load notifications from backend.');
-        }
-      } finally {
-        if (active) setLoading(false);
+  const loadNotifications = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      setError(null);
+      const payload = await apiRequest<NotificationResponse>('/notifications?PageIndex=1&PageSize=50');
+      setNotifications(unwrapNotifications(payload).map(mapNotification));
+    } catch (error) {
+      console.error('Failed to load notifications', error);
+      setNotifications([]);
+      setError('Failed to load notifications from backend.');
+    } finally {
+      if (!silent) {
+        setLoading(false);
       }
     }
+  };
 
+  useEffect(() => {
     void loadNotifications();
-
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useAutoRefresh(() => loadNotifications(true), { intervalMs: 10000 });
 
   const markAllRead = async () => {
     try {

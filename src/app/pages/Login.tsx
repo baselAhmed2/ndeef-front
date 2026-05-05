@@ -67,7 +67,7 @@ function SegmentedControl({
     { key: "Courier", label: "Courier", icon: Truck },
   ];
   return (
-    <div className="flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+    <div className="ndeef-auth-segment flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
       {options.map(({ key, label, icon: Icon }) => (
         <motion.button
           key={key}
@@ -82,7 +82,7 @@ function SegmentedControl({
           {value === key && (
             <motion.div
               layoutId="activeTab"
-              className="absolute inset-0 bg-white rounded-xl shadow-md shadow-black/5"
+              className="ndeef-auth-segment-active absolute inset-0 bg-white rounded-xl shadow-md shadow-black/5"
               transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
             />
           )}
@@ -114,8 +114,13 @@ async function resolveLaundryAdminLoginPath(
     const needsVerification = !status.isIdentityVerified;
     onVerificationResolved?.(needsVerification);
     return needsVerification ? "/laundry-admin/verification" : "/laundry-admin";
-  } catch {
-    const needsVerification = Boolean(requiresVerification);
+  } catch (error) {
+    const status =
+      typeof error === "object" && error !== null && "status" in error
+        ? Number((error as { status?: number }).status)
+        : null;
+    const needsVerification =
+      Boolean(requiresVerification) || status === 401 || status === 403;
     onVerificationResolved?.(needsVerification);
     return needsVerification ? "/laundry-admin/verification" : "/laundry-admin";
   }
@@ -144,11 +149,20 @@ export default function Login() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loginProgress, setLoginProgress] = useState("");
 
+  const validatePasswordField = (value: string) => {
+    if (!value) return "Password is required";
+    if (value.length < 6) return "Password must be at least 6 characters";
+    if (!/[A-Za-z]/.test(value)) return "Password must include at least one letter";
+    if (!/[0-9]/.test(value)) return "Password must include at least one number";
+    return "";
+  };
+
   const validate = () => {
     const nextErrors: Record<string, string> = {};
     if (!email.trim()) nextErrors.email = "Email is required";
     else if (!/\S+@\S+\.\S+/.test(email)) nextErrors.email = "Enter a valid email";
-    if (!password) nextErrors.password = "Password is required";
+    const passwordError = validatePasswordField(password);
+    if (passwordError) nextErrors.password = passwordError;
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -254,13 +268,13 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
+    <div className="ndeef-auth-page min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
       {/* ── Left: Form ── */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 flex flex-col justify-center px-8 md:px-16 lg:px-24 relative"
+        className="ndeef-auth-panel flex-1 flex flex-col justify-start px-8 pt-24 pb-10 md:px-16 md:pt-28 lg:px-24 lg:pt-24 relative"
       >
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -277,9 +291,9 @@ export default function Login() {
             onClick={() => router.back()}
             whileHover={{ x: -4 }}
             whileTap={{ scale: 0.98 }}
-            className="group flex items-center gap-2 text-gray-400 hover:text-gray-600 text-sm mb-10 transition-all"
+            className="group flex items-center gap-2 text-gray-400 hover:text-gray-600 dark:text-slate-400 dark:hover:text-slate-200 text-sm mb-10 transition-all"
           >
-            <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center transition-colors">
+            <div className="ndeef-auth-muted-box w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center transition-colors">
               <ArrowLeft size={16} strokeWidth={2} />
             </div>
             <span className="font-medium">Back</span>
@@ -291,10 +305,10 @@ export default function Login() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.5 }}
           >
-            <h1 className="text-[32px] font-bold text-gray-900 tracking-tight mb-2">
+            <h1 className="ndeef-auth-heading text-[32px] font-bold tracking-tight mb-2">
               Welcome back
             </h1>
-            <p className="text-gray-500 text-[15px] mb-8">
+            <p className="ndeef-auth-subheading text-[15px] mb-8">
               Sign in to your Nadeef account
             </p>
           </motion.div>
@@ -313,7 +327,7 @@ export default function Login() {
 
           {/* Laundry admin hint */}
           {accountType === "LaundryAdmin" && (
-            <p className="text-xs text-gray-500 mt-3 mb-1">
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-3 mb-1">
               Laundry owners sign in with email to keep the verification flow correct.
               New here?{" "}
               <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium hover:underline">
@@ -323,7 +337,7 @@ export default function Login() {
           )}
 
           {accountType === "Courier" && (
-            <p className="text-xs text-gray-500 mt-3 mb-1">
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-3 mb-1">
               Couriers sign in here with their regular account.
               New here?{" "}
               <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium hover:underline">
@@ -340,7 +354,7 @@ export default function Login() {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, y: -10, scale: 0.95 }}
                 transition={{ duration: 0.2 }}
-                className="mt-4 flex items-start gap-3 bg-red-50/80 backdrop-blur-sm border border-red-200 rounded-xl px-4 py-3.5 shadow-sm"
+                className="mt-4 flex items-start gap-3 bg-red-50/80 backdrop-blur-sm border border-red-200 rounded-xl px-4 py-3.5 shadow-sm dark:bg-red-500/10 dark:border-red-500/25"
               >
                 <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
                   <AlertCircle size={14} className="text-red-500" />
@@ -396,7 +410,7 @@ export default function Login() {
                   <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-500 bg-gray-50/50"
+                    className="ndeef-auth-muted-box w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-500 dark:text-slate-300 bg-gray-50/50"
                   >
                     <Loader2 size={18} className="animate-spin" />
                     Signing in with Google…
@@ -414,11 +428,11 @@ export default function Login() {
 
           {/* Divider */}
           <div className="flex items-center gap-3 my-6">
-            <div className="flex-1 h-px bg-gray-200" />
-            <span className="text-gray-400 text-xs">
+            <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
+            <span className="text-gray-400 dark:text-slate-500 text-xs">
               {accountType === "Customer" ? "or sign in with email" : "sign in with email"}
             </span>
-            <div className="flex-1 h-px bg-gray-200" />
+            <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
           </div>
 
           {/* Form */}
@@ -435,7 +449,7 @@ export default function Login() {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: 0.6, duration: 0.5, type: "spring", stiffness: 100 }}
             >
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-2">
                 Email
               </label>
               <motion.div
@@ -446,7 +460,7 @@ export default function Login() {
                   animate={errors.email ? { x: [0, -5, 5, -5, 5, 0] } : {}}
                   transition={{ duration: 0.4 }}
                 >
-                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#0f4c5c] transition-colors duration-300" />
+                  <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 group-focus-within:text-[#0f4c5c] transition-colors duration-300" />
                   <input
                     type="email"
                     placeholder="you@example.com"
@@ -455,7 +469,7 @@ export default function Login() {
                       setEmail(e.target.value);
                       setErrors((prev) => ({ ...prev, email: "" }));
                     }}
-                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${errors.email
+                    className={`ndeef-auth-input w-full border-2 rounded-xl px-4 py-3.5 pl-10 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${errors.email
                         ? "border-red-400 focus:ring-red-100 focus:border-red-500 bg-red-50/30"
                         : "border-gray-200 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 hover:border-gray-300 bg-white"
                       }`}
@@ -476,7 +490,7 @@ export default function Login() {
               </motion.div>
               <AnimatePresence>
                 {errors.email && (
-                  <motion.p
+                  <motion.div
                     initial={{ opacity: 0, y: -10, height: 0 }}
                     animate={{ opacity: 1, y: 0, height: "auto" }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
@@ -490,7 +504,7 @@ export default function Login() {
                       <AlertCircle size={14} />
                     </motion.div>
                     {errors.email}
-                  </motion.p>
+                  </motion.div>
                 )}
               </AnimatePresence>
             </motion.div>
@@ -502,7 +516,7 @@ export default function Login() {
               transition={{ delay: 0.75, duration: 0.5, type: "spring", stiffness: 100 }}
             >
               <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium text-gray-700">Password</label>
+                <label className="text-sm font-medium text-gray-700 dark:text-slate-300">Password</label>
                 <Link
                   href={`/forgot-password?email=${encodeURIComponent(email)}`}
                   className="text-xs text-[#0f4c5c] hover:text-[#0a3440] font-semibold hover:underline transition-colors"
@@ -518,16 +532,20 @@ export default function Login() {
                   animate={errors.password ? { x: [0, -5, 5, -5, 5, 0] } : {}}
                   transition={{ duration: 0.4 }}
                 >
-                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 group-focus-within:text-[#0f4c5c] transition-colors duration-300" />
+                  <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 group-focus-within:text-[#0f4c5c] transition-colors duration-300" />
                   <input
                     type={showPwd ? "text" : "password"}
                     placeholder="Enter your password"
                     value={password}
                     onChange={(e) => {
-                      setPassword(e.target.value);
-                      setErrors((prev) => ({ ...prev, password: "" }));
+                      const nextValue = e.target.value;
+                      setPassword(nextValue);
+                      setErrors((prev) => ({
+                        ...prev,
+                        password: nextValue.length > 0 ? validatePasswordField(nextValue) : "",
+                      }));
                     }}
-                    className={`w-full border-2 rounded-xl px-4 py-3.5 pl-10 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${errors.password
+                    className={`ndeef-auth-input w-full border-2 rounded-xl px-4 py-3.5 pl-10 pr-12 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-4 transition-all duration-300 ${errors.password
                         ? "border-red-400 focus:ring-red-100 focus:border-red-500 bg-red-50/30"
                         : "border-gray-200 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 hover:border-gray-300 bg-white"
                       }`}
@@ -537,7 +555,7 @@ export default function Login() {
                     onClick={() => setShowPwd((v) => !v)}
                     whileHover={{ scale: 1.1, rotate: showPwd ? -15 : 15 }}
                     whileTap={{ scale: 0.9 }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-[#0f4c5c] p-1.5 rounded-lg hover:bg-[#0f4c5c]/10 transition-all duration-200"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500 hover:text-[#0f4c5c] p-1.5 rounded-lg hover:bg-[#0f4c5c]/10 transition-all duration-200"
                   >
                     <AnimatePresence mode="wait">
                       <motion.div
@@ -555,7 +573,7 @@ export default function Login() {
               </motion.div>
               <AnimatePresence>
                 {errors.password && (
-                  <motion.p
+                  <motion.div
                     initial={{ opacity: 0, y: -10, height: 0 }}
                     animate={{ opacity: 1, y: 0, height: "auto" }}
                     exit={{ opacity: 0, y: -10, height: 0 }}
@@ -569,7 +587,7 @@ export default function Login() {
                       <AlertCircle size={14} />
                     </motion.div>
                     {errors.password}
-                  </motion.p>
+                  </motion.div>
                 )}
               </AnimatePresence>
             </motion.div>
@@ -661,7 +679,7 @@ export default function Login() {
           </motion.form>
 
           {/* Footer */}
-          <p className="mt-8 text-sm text-gray-500 text-center">
+          <p className="mt-8 text-sm text-gray-500 dark:text-slate-400 text-center">
             {accountType === "LaundryAdmin" ? (
               <>
                 New laundry owner?{" "}
@@ -693,7 +711,7 @@ export default function Login() {
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-[#1D6076] to-[#164d5f] relative flex-col justify-between p-12 overflow-hidden"
+        className="ndeef-auth-brand hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-[#1D6076] to-[#164d5f] relative flex-col justify-between p-12 overflow-hidden"
       >
         {/* Animated background shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">

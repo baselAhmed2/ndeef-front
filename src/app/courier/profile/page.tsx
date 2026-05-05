@@ -35,6 +35,7 @@ import {
   updateCourierStatus,
 } from "@/app/lib/courier-client";
 import { ApiError } from "@/app/lib/admin-api";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 
 function initials(name: string) {
   return name
@@ -65,36 +66,47 @@ export default function CourierProfilePage() {
     setPhoneInput(nextProfile.phone || "");
   };
 
+  const loadProfile = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    setError("");
+    try {
+      const [result, earningsResult, unreadCount] = await Promise.all([
+        getCourierProfile(),
+        getCourierEarnings().catch(() => null),
+        getCourierUnreadNotificationCount().catch(() => 0),
+      ]);
+      applyProfileSnapshot(result);
+      setEarnings(earningsResult);
+      setNotificationCount(unreadCount);
+      announceCourierNotificationCountUpdated(unreadCount);
+    } catch (loadError) {
+      setError(loadError instanceof ApiError ? loadError.message : "Unable to load courier profile.");
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
     let ignore = false;
 
-    async function loadProfile() {
-      setLoading(true);
-      setError("");
-      try {
-        const [result, earningsResult, unreadCount] = await Promise.all([
-          getCourierProfile(),
-          getCourierEarnings().catch(() => null),
-          getCourierUnreadNotificationCount().catch(() => 0),
-        ]);
-        if (ignore) return;
-        applyProfileSnapshot(result);
-        setEarnings(earningsResult);
-        setNotificationCount(unreadCount);
-        announceCourierNotificationCountUpdated(unreadCount);
-      } catch (loadError) {
-        if (ignore) return;
-        setError(loadError instanceof ApiError ? loadError.message : "Unable to load courier profile.");
-      } finally {
-        if (!ignore) setLoading(false);
-      }
-    }
+    void (async () => {
+      await loadProfile();
+      if (ignore) return;
+    })();
 
-    loadProfile();
     return () => {
       ignore = true;
     };
   }, []);
+
+  useAutoRefresh(() => {
+    if (savingProfile || togglingAvail) return;
+    return loadProfile(true);
+  }, { intervalMs: 10000 });
 
   useEffect(() => {
     const unsubscribe = subscribeCourierProfileUpdates((nextProfile) => {

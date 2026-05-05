@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { getIncomingOrders } from "@/app/lib/laundry-admin-client";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 import {
   CalendarClock,
   Loader2,
@@ -83,23 +84,27 @@ export default function LaundryCustomersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    async function loadCustomers() {
-      try {
-        setLoading(true);
-        setError("");
-        const orders = await getIncomingOrders();
-        setCustomers(buildCustomers(orders));
-      } catch (err) {
-        const text = err instanceof Error ? err.message : "Could not load customers.";
-        setError(text);
-      } finally {
+  const loadCustomers = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      setError("");
+      const orders = await getIncomingOrders();
+      setCustomers(buildCustomers(orders));
+    } catch (err) {
+      const text = err instanceof Error ? err.message : "Could not load customers.";
+      setError(text);
+    } finally {
+      if (!silent) {
         setLoading(false);
       }
     }
+  };
 
-    loadCustomers();
+  useEffect(() => {
+    void loadCustomers();
   }, []);
+
+  useAutoRefresh(() => loadCustomers(true), { intervalMs: 10000 });
 
   const normalizedQuery = query.trim().toLowerCase();
   const filteredCustomers = normalizedQuery

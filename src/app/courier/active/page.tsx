@@ -61,6 +61,15 @@ const PIN_POSITIONS = [
 const AVATAR_COLORS = ["#7c3aed", "#1D5B70", "#0891b2", "#EBA050"];
 
 function buildMapsUrl(destination: string) {
+  const coordinatesMatch = destination.match(
+    /(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/,
+  );
+
+  if (coordinatesMatch) {
+    const [, lat, lng] = coordinatesMatch;
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+  }
+
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
 }
 
@@ -111,10 +120,30 @@ function isMissingActiveRunError(error: unknown) {
   );
 }
 
-function MultiStopMap({ stops, currentIdx }: { stops: Stop[]; currentIdx: number }) {
+function MultiStopMap({
+  stops,
+  currentIdx,
+  mapHref,
+}: {
+  stops: Stop[];
+  currentIdx: number;
+  mapHref?: string;
+}) {
   const courierPos = PIN_POSITIONS[Math.max(0, Math.min(currentIdx, PIN_POSITIONS.length - 1))];
+  const Container = mapHref ? "a" : "div";
+
   return (
-    <div className="relative w-full rounded-2xl overflow-hidden" style={{ height: 220, backgroundColor: "#d1e8df" }}>
+    <Container
+      {...(mapHref
+        ? {
+            href: mapHref,
+            target: "_blank",
+            rel: "noreferrer",
+          }
+        : {})}
+      className={`relative block w-full rounded-2xl overflow-hidden ${mapHref ? "cursor-pointer group" : ""}`}
+      style={{ height: 220, backgroundColor: "#d1e8df" }}
+    >
       <svg width="100%" height="100%" className="absolute inset-0" style={{ opacity: 0.18 }}>
         <defs>
           <pattern id="mg" width="22" height="22" patternUnits="userSpaceOnUse">
@@ -202,7 +231,12 @@ function MultiStopMap({ stops, currentIdx }: { stops: Stop[]; currentIdx: number
           </p>
         </div>
       </div>
-    </div>
+      {mapHref && (
+        <div className="absolute right-3 bottom-3 rounded-xl bg-white/95 px-3 py-2 shadow text-[11px] font-semibold text-[#1D5B70] transition-all group-hover:shadow-md">
+          Opens customer address
+        </div>
+      )}
+    </Container>
   );
 }
 
@@ -227,7 +261,7 @@ function StopCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className={`rounded-2xl border overflow-hidden transition-all ${
-        current ? "border-2 shadow-lg" : done ? "border-gray-100 opacity-70" : "border-gray-100 bg-white"
+        current ? "border-2 shadow-lg" : done ? "ndeef-courier-card border-gray-100 opacity-70" : "ndeef-courier-card border-gray-100 bg-white"
       }`}
       style={current ? { borderColor: stop.avatarColor } : {}}
     >
@@ -243,7 +277,7 @@ function StopCard({
           </div>
         </div>
       )}
-      <div className={`p-4 ${done ? "bg-gray-50" : "bg-white"}`}>
+      <div className={`p-4 ${done ? "ndeef-courier-soft bg-gray-50" : "bg-white"}`}>
         <div className="flex items-center gap-3">
           <div
             className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border-2"
@@ -282,7 +316,7 @@ function StopCard({
             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden">
               <div className="mt-3 space-y-3">
                 {stop.isPaid ? (
-                  <div className="flex items-center gap-2.5 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
+                  <div className="ndeef-courier-soft flex items-center gap-2.5 bg-green-50 border border-green-200 rounded-xl px-3 py-2.5">
                     <CreditCard className="w-4 h-4 text-green-600 shrink-0" />
                     <div>
                       <p className="text-xs font-bold text-green-800">Paid online — no collection needed</p>
@@ -290,7 +324,7 @@ function StopCard({
                     </div>
                   </div>
                 ) : (
-                  <div className="flex items-center gap-2.5 bg-amber-50 border-2 border-amber-300 rounded-xl px-3 py-2.5">
+                  <div className="ndeef-courier-soft flex items-center gap-2.5 bg-amber-50 border-2 border-amber-300 rounded-xl px-3 py-2.5">
                     <Banknote className="w-5 h-5 text-amber-600 shrink-0" />
                     <div>
                       <p className="text-xs font-bold text-amber-900">
@@ -300,7 +334,7 @@ function StopCard({
                     </div>
                   </div>
                 )}
-                <div className="bg-gray-50 rounded-xl p-3 space-y-2">
+                <div className="ndeef-courier-soft bg-gray-50 rounded-xl p-3 space-y-2">
                   <div className="flex items-start gap-2">
                     <MapPin className="w-3.5 h-3.5 text-gray-400 mt-0.5 shrink-0" />
                     <div>
@@ -318,7 +352,7 @@ function StopCard({
                   </div>
                 </div>
                 {stop.note && (
-                  <div className="flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
+                  <div className="ndeef-courier-soft flex items-start gap-2 bg-amber-50 border border-amber-100 rounded-xl px-3 py-2.5">
                     <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-800">{stop.note}</p>
                   </div>
@@ -377,7 +411,7 @@ function StopCard({
 function RunSummaryBar({ run }: { run: CourierActiveRunResponseDto }) {
   const pct = run.totalStops > 0 ? (run.stopsDone / run.totalStops) * 100 : 0;
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <div className="ndeef-courier-card bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4" style={{ color: "#1D5B70" }} />
@@ -396,7 +430,7 @@ function RunSummaryBar({ run }: { run: CourierActiveRunResponseDto }) {
           { label: "Remaining value", value: `EGP ${run.remainingAmount}`, color: "#1D5B70" },
           { label: "Total run", value: run.totalDistance, color: "#6b7280" },
         ].map((s) => (
-          <div key={s.label} className="bg-gray-50 rounded-xl p-2.5 text-center">
+          <div key={s.label} className="ndeef-courier-soft bg-gray-50 rounded-xl p-2.5 text-center">
             <p className="font-bold text-sm" style={{ color: s.color }}>
               {s.value}
             </p>
@@ -410,7 +444,7 @@ function RunSummaryBar({ run }: { run: CourierActiveRunResponseDto }) {
 
 function RunCompleted({ onBack, totalAmount, totalDistance, totalStops }: { onBack: () => void; totalAmount: number; totalDistance: string; totalStops: number }) {
   return (
-    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-white rounded-2xl border border-green-200 p-6 text-center shadow-lg">
+    <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="ndeef-courier-card bg-white rounded-2xl border border-green-200 p-6 text-center shadow-lg">
       <div className="w-16 h-16 rounded-2xl bg-green-100 flex items-center justify-center mx-auto mb-4">
         <CheckCircle2 className="w-9 h-9 text-green-500" />
       </div>
@@ -518,6 +552,23 @@ export default function CourierActivePage() {
   }, []);
 
   useEffect(() => {
+    const refreshIfVisible = () => {
+      if (document.hidden || deliveringId) return;
+      void loadRun();
+    };
+
+    const intervalId = window.setInterval(refreshIfVisible, 8000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [deliveringId]);
+
+  useEffect(() => {
     if (!navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
@@ -538,6 +589,11 @@ export default function CourierActivePage() {
 
   const allDone = useMemo(() => stops.length > 0 && stops.every((s) => s.status === "done"), [stops]);
   const currentIdx = useMemo(() => Math.max(0, stops.findIndex((s) => s.status === "current")) + 1, [stops]);
+  const currentStop = useMemo(
+    () => stops.find((s) => s.status === "current") ?? stops.find((s) => s.status === "upcoming") ?? stops[0] ?? null,
+    [stops],
+  );
+  const routeOverviewHref = currentStop ? buildMapsUrl(currentStop.address || currentStop.area) : undefined;
 
   const handleDeliver = async (stopId: string) => {
     if (!run) return;
@@ -591,7 +647,7 @@ export default function CourierActivePage() {
   if (error) {
     return (
       <div className="p-4 lg:p-6 max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-sm text-red-700">{error}</div>
+        <div className="ndeef-courier-soft bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-sm text-red-700">{error}</div>
       </div>
     );
   }
@@ -612,7 +668,7 @@ export default function CourierActivePage() {
   if (hasNoActiveRun || !run || stops.length === 0) {
     return (
       <div className="p-4 lg:p-6 max-w-4xl mx-auto">
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
+        <div className="ndeef-courier-card bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center">
           <Package className="w-10 h-10 mx-auto text-gray-300 mb-3" />
           <p className="font-bold text-gray-800">No active run right now</p>
           <p className="text-sm text-gray-400 mt-1">You do not have any delivery run in progress.</p>
@@ -643,18 +699,23 @@ export default function CourierActivePage() {
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
+            <div className="ndeef-courier-card bg-white rounded-2xl p-4 border border-gray-100 shadow-sm">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Route Overview</p>
-                <div className="flex items-center gap-1.5">
+                <div>
+                  <p className="text-xs font-bold text-gray-400 uppercase tracking-wide">Route Overview</p>
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Tap the map to open the current customer delivery address.
+                  </p>
+                </div>
+                <div className="flex items-center gap-1.5 shrink-0">
                   <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
                   <span className="text-xs font-semibold text-green-600">Live</span>
                 </div>
               </div>
-              <MultiStopMap stops={stops} currentIdx={currentIdx} />
+              <MultiStopMap stops={stops} currentIdx={currentIdx} mapHref={routeOverviewHref} />
             </div>
             <RunSummaryBar run={run} />
-            <div className="bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
+            <div className="ndeef-courier-soft bg-green-50 border border-green-200 rounded-2xl p-4 flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-green-100 flex items-center justify-center shrink-0">
                 <CheckCircle2 className="w-5 h-5 text-green-600" />
               </div>
@@ -681,10 +742,9 @@ export default function CourierActivePage() {
                 delivering={deliveringId === stop.orderId}
               />
             ))}
-            {stops.find((s) => s.status === "current") && (
+            {currentStop && (
               <div className="lg:hidden">
                 {(() => {
-                  const currentStop = stops.find((s) => s.status === "current");
                   if (!currentStop || expandedId === currentStop.orderId) return null;
                   return (
                     <button

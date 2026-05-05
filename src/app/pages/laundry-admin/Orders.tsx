@@ -39,7 +39,7 @@ interface Order {
 const statusConfig: Record<Exclude<OrderStatus, "All">, { color: string; bg: string; icon: React.ElementType; label: string }> = {
   Pending: { color: "#EBA050", bg: "#fff7ed", icon: Clock, label: "Pending" },
   Processing: { color: "#1D5B70", bg: "#f0f9ff", icon: Loader2, label: "Processing" },
-  Ready: { color: "#8b5cf6", bg: "#f5f3ff", icon: Package, label: "Ready" },
+  Ready: { color: "#8b5cf6", bg: "#f5f3ff", icon: Package, label: "Ready for Delivery" },
   Delivered: { color: "#22c55e", bg: "#f0fdf4", icon: CheckCircle2, label: "Delivered" },
   Cancelled: { color: "#ef4444", bg: "#fef2f2", icon: XCircle, label: "Cancelled" },
 };
@@ -59,19 +59,44 @@ export function Orders() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchOrders() {
+    let cancelled = false;
+
+    async function fetchOrders(silent = false) {
+      if (!silent) setLoading(true);
+
       try {
         const data = await getIncomingOrders();
-        if (data && Array.isArray(data)) {
+        if (!cancelled && data && Array.isArray(data)) {
           setOrders(data);
         }
       } catch (err) {
-        console.error("Failed to fetch orders", err);
+        if (!cancelled) {
+          console.error("Failed to fetch orders", err);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
       }
     }
-    fetchOrders();
+
+    const refreshIfVisible = () => {
+      if (document.hidden) return;
+      void fetchOrders(true);
+    };
+
+    void fetchOrders();
+
+    const intervalId = window.setInterval(refreshIfVisible, 10000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
   }, []);
 
   const handleExport = () => {

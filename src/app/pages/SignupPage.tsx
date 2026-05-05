@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -126,7 +126,7 @@ function InputField({
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <label className="block text-sm font-medium text-gray-700 mb-1.5">
+      <label className="block text-sm font-medium text-gray-700 dark:text-slate-300 mb-1.5">
         {label}
       </label>
       <div className="relative group">
@@ -135,7 +135,7 @@ function InputField({
           placeholder={placeholder}
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className={`w-full border rounded-xl px-4 py-3.5 pl-10 ${suffix ? "pr-10" : showCheck ? "pr-10" : ""
+          className={`ndeef-auth-input w-full border rounded-xl px-4 py-3.5 pl-10 ${suffix ? "pr-10" : showCheck ? "pr-10" : ""
             } text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 transition-all duration-200 ${error
               ? "border-red-300 focus:ring-red-200 focus:border-red-300"
               : showCheck
@@ -145,7 +145,7 @@ function InputField({
         />
         <Icon
           size={16}
-          className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-400" : showCheck ? "text-green-500" : "text-gray-400 group-focus-within:text-[#0f4c5c]"
+          className={`absolute left-3.5 top-1/2 -translate-y-1/2 transition-colors ${error ? "text-red-400" : showCheck ? "text-green-500" : "text-gray-400 dark:text-slate-500 group-focus-within:text-[#0f4c5c]"
             }`}
         />
         {suffix && (
@@ -192,7 +192,7 @@ function SegmentedControl({
     { key: "Courier", label: "Courier", icon: Truck },
   ];
   return (
-    <div className="flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+    <div className="ndeef-auth-segment flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
       {options.map(({ key, label, icon: Icon }) => (
         <motion.button
           key={key}
@@ -207,7 +207,7 @@ function SegmentedControl({
           {value === key && (
             <motion.div
               layoutId="activeSignupTab"
-              className="absolute inset-0 bg-white rounded-xl shadow-md shadow-black/5"
+              className="ndeef-auth-segment-active absolute inset-0 bg-white rounded-xl shadow-md shadow-black/5"
               transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
             />
           )}
@@ -268,11 +268,13 @@ function PasswordStrength({ password }: { password: string }) {
   );
 }
 
-export default function SignupPage() {
+export default function SignupPage({
+  initialRole,
+}: {
+  initialRole?: string | null;
+}) {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const { signup, socialLogin } = useAuth();
-  const initialRole = searchParams?.get("role");
 
   const [step, setStep] = useState(0);
   const [accountType, setAccountType] = useState<AccountType>(
@@ -481,12 +483,12 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
+    <div className="ndeef-auth-page min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.5 }}
-        className="flex-1 flex flex-col justify-center px-8 md:px-16 lg:px-24 relative"
+        className="ndeef-auth-panel flex-1 flex flex-col justify-start px-8 pt-24 pb-10 md:px-16 md:pt-28 lg:px-24 lg:pt-24 relative"
       >
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
@@ -504,9 +506,9 @@ export default function SignupPage() {
               onClick={() => (step === 0 ? router.back() : setStep((s) => s - 1))}
               whileHover={{ x: -4 }}
               whileTap={{ scale: 0.98 }}
-              className="group flex items-center gap-2 text-gray-500 hover:text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-100 transition-all"
+              className="group flex items-center gap-2 text-gray-500 hover:text-gray-700 dark:text-slate-400 dark:hover:text-slate-200 text-sm font-medium rounded-lg hover:bg-gray-100 dark:hover:bg-white/8 transition-all"
             >
-              <div className="w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center transition-colors">
+              <div className="ndeef-auth-muted-box w-8 h-8 rounded-lg bg-gray-100 group-hover:bg-gray-200 flex items-center justify-center transition-colors">
                 <ArrowLeft size={16} strokeWidth={2} />
               </div>
               <span>{step === 0 ? "Back" : "Step " + step}</span>
@@ -516,7 +518,7 @@ export default function SignupPage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="text-xs font-medium text-gray-400"
+              className="text-xs font-medium text-gray-400 dark:text-slate-500"
             >
               Step {step + 1} of 3
             </motion.span>
@@ -535,7 +537,7 @@ export default function SignupPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
-                className="text-[32px] font-bold text-gray-900 tracking-tight mb-2"
+                className="ndeef-auth-heading text-[32px] font-bold tracking-tight mb-2"
               >
                 Create account
               </motion.h1>
@@ -543,7 +545,7 @@ export default function SignupPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.2 }}
-                className="text-gray-500 text-[15px] mb-8"
+                className="ndeef-auth-subheading text-[15px] mb-8"
               >
                 Join Nadeef for free.{" "}
                 <Link href="/login" className="text-[#0f4c5c] font-semibold hover:underline transition-colors">
@@ -565,7 +567,7 @@ export default function SignupPage() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="text-xs text-gray-500 mt-3"
+                    className="text-xs text-gray-500 dark:text-slate-400 mt-3"
                   >
                     Laundry owners sign up with email so we can register the account as Laundry Admin and continue to verification.
                   </motion.p>
@@ -578,7 +580,7 @@ export default function SignupPage() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="text-xs text-gray-500 mt-3"
+                    className="text-xs text-gray-500 dark:text-slate-400 mt-3"
                   >
                     Couriers can create their account here, then sign in from the regular login page with the Courier tab.
                   </motion.p>
@@ -597,7 +599,7 @@ export default function SignupPage() {
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-500 bg-gray-50/50"
+                        className="ndeef-auth-muted-box w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-500 dark:text-slate-300 bg-gray-50/50"
                       >
                         <Loader2 size={18} className="animate-spin" />
                         Signing up with Google…
@@ -619,11 +621,11 @@ export default function SignupPage() {
                 transition={{ delay: 0.4 }}
                 className="flex items-center gap-3 my-6"
               >
-                <div className="flex-1 h-px bg-gray-200" />
-                <span className="text-gray-400 text-xs">
+                <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
+                <span className="text-gray-400 dark:text-slate-500 text-xs">
                   {accountType === "Customer" ? "or sign up with email" : "sign up with email"}
                 </span>
-                <div className="flex-1 h-px bg-gray-200" />
+                <div className="flex-1 h-px bg-gray-200 dark:bg-white/10" />
               </motion.div>
 
               <motion.button
@@ -659,14 +661,14 @@ export default function SignupPage() {
               <StepIndicator current={0} total={2} />
 
               <div className="mb-6">
-                <h1 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">
+                <h1 className="ndeef-auth-heading text-[28px] font-bold tracking-tight mb-2">
                   {accountType === "LaundryAdmin"
                     ? "Create your account"
                     : accountType === "Courier"
                       ? "Create your courier account"
                     : "Let's get started"}
                 </h1>
-                <p className="text-gray-500 text-sm leading-relaxed">
+                <p className="ndeef-auth-subheading text-sm leading-relaxed">
                   {accountType === "LaundryAdmin"
                     ? "Enter your details to register as a laundry owner. We'll verify your business next."
                     : accountType === "Courier"
@@ -679,7 +681,7 @@ export default function SignupPage() {
                 <div className="grid grid-cols-2 gap-3">
                   <InputField
                     label="First name"
-                    placeholder="Basel"
+                    placeholder="fname"
                     value={firstName}
                     onChange={(v) => {
                       setFirstName(v);
@@ -692,7 +694,7 @@ export default function SignupPage() {
                   />
                   <InputField
                     label="Last name"
-                    placeholder="Ahmed"
+                    placeholder="lname"
                     value={lastName}
                     onChange={(v) => {
                       setLastName(v);
@@ -736,7 +738,7 @@ export default function SignupPage() {
                       type="button"
                       onClick={() => setShowPwd((v) => !v)}
                       whileTap={{ scale: 0.9 }}
-                      className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-200 p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-white/8 transition-colors"
                     >
                       <AnimatePresence mode="wait">
                         <motion.div
@@ -788,14 +790,14 @@ export default function SignupPage() {
               <StepIndicator current={1} total={2} />
 
               <div className="mb-6">
-                <h1 className="text-[28px] font-bold text-gray-900 tracking-tight mb-2">
+                <h1 className="ndeef-auth-heading text-[28px] font-bold tracking-tight mb-2">
                   {accountType === "LaundryAdmin"
                     ? "Add your laundry details"
                     : accountType === "Courier"
                       ? "One more step"
                     : "One more step"}
                 </h1>
-                <p className="text-gray-500 text-sm leading-relaxed">
+                <p className="ndeef-auth-subheading text-sm leading-relaxed">
                   {accountType === "LaundryAdmin"
                     ? "Enter your contact information and select your laundry location on the map."
                     : accountType === "Courier"
@@ -845,7 +847,7 @@ export default function SignupPage() {
                     />
 
                     {/* Map Picker for Laundry Location */}
-                    <div className="border-t border-gray-100 pt-4 mt-2">
+                    <div className="border-t border-gray-100 dark:border-white/10 pt-4 mt-2">
                       <MapPicker
                         onLocationSelect={(location) => {
                           setLaundryAddress(location.address);
@@ -869,7 +871,7 @@ export default function SignupPage() {
 
               <InlineError message={errors.submit} />
 
-              <p className="text-xs text-gray-400 mt-4 leading-relaxed text-center">
+              <p className="text-xs text-gray-400 dark:text-slate-500 mt-4 leading-relaxed text-center">
                 By creating an account you agree to our{" "}
                 <span className="text-[#0f4c5c] cursor-pointer hover:underline font-medium">
                   Terms of Service
@@ -916,7 +918,7 @@ export default function SignupPage() {
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-[#0f4c5c] to-[#0a3440] relative flex-col justify-between p-12 overflow-hidden"
+        className="ndeef-auth-brand hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-[#0f4c5c] to-[#0a3440] relative flex-col justify-between p-12 overflow-hidden"
       >
         {/* Animated background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">

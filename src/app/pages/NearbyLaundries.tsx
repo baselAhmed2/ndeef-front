@@ -15,6 +15,8 @@ import {
   RefreshCw,
   ChevronRight,
   Zap,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import {
   ApiError,
@@ -63,61 +65,140 @@ function PermissionScreen({
   onDeny: () => void;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center">
-      <div className="w-24 h-24 rounded-full bg-[#1D6076]/10 flex items-center justify-center mb-6">
-        <Navigation size={40} className="text-[#1D6076]" strokeWidth={1.5} />
+    <div className="mx-auto flex w-full max-w-5xl flex-1 items-center px-4 py-8 md:px-8 md:py-12">
+      <div className="grid w-full gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+        <div className="overflow-hidden rounded-[32px] bg-[linear-gradient(145deg,#0d3d50_0%,#1D6076_58%,#2a7a94_100%)] p-8 text-white shadow-[0_25px_80px_rgba(13,61,80,0.28)] md:p-10">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-xs font-semibold uppercase tracking-[0.24em] backdrop-blur-sm">
+            <Navigation size={14} strokeWidth={2.2} />
+            Nearby Discovery
+          </div>
+          <h2 className="max-w-xl text-3xl font-semibold tracking-tight md:text-4xl">
+            Find the best laundries around you in a cleaner, faster way.
+          </h2>
+          <p className="mt-4 max-w-lg text-sm leading-7 text-white/78 md:text-base">
+            Share your location once and we&apos;ll surface nearby laundries,
+            delivery timing, ratings, and live availability from the backend.
+          </p>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-3">
+            {[
+              { label: "Live Search", value: "GPS based" },
+              { label: "Availability", value: "Updated now" },
+              { label: "Fast Compare", value: "Distance + rating" },
+            ].map((item) => (
+              <div
+                key={item.label}
+                className="rounded-2xl border border-white/12 bg-white/10 px-4 py-4 backdrop-blur-sm"
+              >
+                <p className="text-xs uppercase tracking-[0.2em] text-white/55">
+                  {item.label}
+                </p>
+                <p className="mt-2 text-sm font-semibold text-white">{item.value}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="ndeef-page-card rounded-[32px] border border-slate-200/80 bg-white p-7 shadow-[0_18px_50px_rgba(15,23,42,0.08)] md:p-8">
+          <div className="mb-5 flex h-20 w-20 items-center justify-center rounded-[24px] bg-[#1D6076]/10">
+            <Navigation size={34} className="text-[#1D6076]" strokeWidth={1.7} />
+          </div>
+          <h3 className="text-2xl font-semibold tracking-tight text-slate-950">
+            Enable your location
+          </h3>
+          <p className="mt-3 text-sm leading-7 text-slate-500">
+            This helps us rank laundries by distance and show the options that
+            make the most sense for your area.
+          </p>
+          <div className="mt-6 space-y-3">
+            <button
+              onClick={onGrant}
+              className="w-full rounded-2xl bg-[#1D6076] px-5 py-4 text-sm font-semibold text-white shadow-[0_14px_30px_rgba(29,96,118,0.24)] transition-all hover:-translate-y-0.5 hover:bg-[#174d5f] active:scale-[0.98]"
+            >
+              Allow Location Access
+            </button>
+            <button
+              onClick={onDeny}
+              className="w-full rounded-2xl border border-slate-200 px-5 py-4 text-sm font-semibold text-slate-600 transition-all hover:bg-slate-50"
+            >
+              Not Now
+            </button>
+          </div>
+          <div className="mt-6 rounded-2xl bg-slate-50 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+              Privacy
+            </p>
+            <p className="mt-2 text-sm leading-6 text-slate-500">
+              Your location is only used to search nearby laundries and estimate
+              distance more accurately.
+            </p>
+          </div>
+        </div>
       </div>
-      <h2 className="text-2xl text-gray-900 mb-3">Find Laundries Near You</h2>
-      <p className="text-gray-500 text-base leading-relaxed mb-8 max-w-xs">
-        Nadeef needs your location to search the deployed backend for nearby
-        laundries and show live availability.
-      </p>
-      <button
-        onClick={onGrant}
-        className="w-full max-w-xs bg-[#1D6076] text-white py-4 rounded-2xl text-base font-medium mb-3 hover:bg-[#1D6076]/90 active:scale-[0.98] transition-all"
-      >
-        Allow Location Access
-      </button>
-      <button
-        onClick={onDeny}
-        className="w-full max-w-xs text-gray-500 py-3 rounded-2xl text-base hover:text-gray-700 transition-all"
-      >
-        Not Now
-      </button>
     </div>
   );
 }
 
 function LocatingScreen() {
   return (
-    <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center">
-      <div className="w-24 h-24 rounded-full bg-[#1D6076]/10 flex items-center justify-center mb-6 relative">
+    <div className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="relative mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-[#1D6076]/10">
         <MapPin size={40} className="text-[#1D6076]" strokeWidth={1.5} />
         <span className="absolute inset-0 rounded-full border-2 border-[#1D6076]/30 animate-ping" />
       </div>
-      <h2 className="text-xl text-gray-900 mb-2">Getting your location...</h2>
-      <p className="text-gray-400 text-sm">This only takes a moment</p>
+      <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
+        Getting your location...
+      </h2>
+      <p className="mt-2 text-sm text-gray-400">This only takes a moment</p>
+      <div className="mt-8 w-full max-w-md rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.06)] backdrop-blur">
+        <div className="mb-3 flex items-center gap-3 text-left">
+          <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1D6076]/10">
+            <Navigation size={18} className="text-[#1D6076]" />
+          </div>
+          <div>
+            <p className="text-sm font-semibold text-slate-900">Matching your area</p>
+            <p className="text-xs text-slate-400">
+              Detecting coordinates for nearby coverage
+            </p>
+          </div>
+        </div>
+        <div className="h-2 overflow-hidden rounded-full bg-slate-100">
+          <div className="h-full w-2/3 animate-pulse rounded-full bg-[linear-gradient(90deg,#1D6076_0%,#EBA050_100%)]" />
+        </div>
+      </div>
     </div>
   );
 }
 
 function FetchingScreen() {
   return (
-    <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center">
-      <div className="w-24 h-24 rounded-full bg-[#EBA050]/10 flex items-center justify-center mb-6">
+    <div className="mx-auto flex min-h-[70vh] max-w-3xl flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-[#EBA050]/10">
         <Search size={38} className="text-[#EBA050]" strokeWidth={1.5} />
       </div>
-      <h2 className="text-xl text-gray-900 mb-2">Checking the backend...</h2>
-      <p className="text-gray-400 text-sm">
+      <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
+        Checking the backend...
+      </h2>
+      <p className="mt-2 text-sm text-gray-400">
         Fetching laundries from the live API
       </p>
-      <div className="flex gap-1.5 mt-6">
+      <div className="mt-6 flex gap-1.5">
         {[0, 1, 2].map((i) => (
           <span
             key={i}
             className="w-2 h-2 rounded-full bg-[#1D6076] opacity-60 animate-bounce"
             style={{ animationDelay: `${i * 150}ms` }}
           />
+        ))}
+      </div>
+      <div className="mt-8 grid w-full max-w-lg gap-3 sm:grid-cols-3">
+        {["Searching area", "Ranking options", "Loading cards"].map((step) => (
+          <div
+            key={step}
+            className="rounded-2xl border border-slate-200/80 bg-white px-4 py-4 text-sm font-medium text-slate-600 shadow-[0_10px_24px_rgba(15,23,42,0.04)]"
+          >
+            {step}
+          </div>
         ))}
       </div>
     </div>
@@ -155,21 +236,36 @@ function ErrorScreen({
   const { icon: Icon, title, body, action } = config[type];
 
   return (
-    <div className="flex flex-col items-center justify-center flex-1 px-6 py-12 text-center">
-      <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mb-6">
+    <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-6 py-12 text-center">
+      <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-50">
         <Icon size={36} className="text-red-400" strokeWidth={1.5} />
       </div>
-      <h2 className="text-xl text-gray-900 mb-3">{title}</h2>
-      <p className="text-gray-500 text-sm leading-relaxed mb-8 max-w-xs">
+      <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
+        {title}
+      </h2>
+      <p className="mt-3 max-w-sm text-sm leading-relaxed text-gray-500">
         {body}
       </p>
-      <button
-        onClick={onRetry}
-        className="flex items-center gap-2 bg-[#1D6076] text-white px-8 py-3.5 rounded-2xl text-sm font-medium hover:bg-[#1D6076]/90 active:scale-[0.98] transition-all"
-      >
-        <RefreshCw size={16} strokeWidth={2} />
-        {action}
-      </button>
+      <div className="mt-8 w-full max-w-md rounded-[28px] border border-slate-200/80 bg-white p-6 shadow-[0_18px_45px_rgba(15,23,42,0.06)]">
+        <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
+          What you can do
+        </p>
+        <div className="mt-4 space-y-3 text-left text-sm text-slate-500">
+          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+            Check browser or device location permissions
+          </div>
+          <div className="rounded-2xl bg-slate-50 px-4 py-3">
+            Retry the lookup after refreshing your signal
+          </div>
+        </div>
+        <button
+          onClick={onRetry}
+          className="mt-5 flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1D6076] px-8 py-3.5 text-sm font-medium text-white transition-all hover:bg-[#1D6076]/90 active:scale-[0.98]"
+        >
+          <RefreshCw size={16} strokeWidth={2} />
+          {action}
+        </button>
+      </div>
     </div>
   );
 }
@@ -197,7 +293,7 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
     >
       <Link
         href={`/laundry/${laundry.id}`}
-        className="group block overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.08)] active:scale-[0.99] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
+        className="ndeef-page-card group block overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.08)] active:scale-[0.99] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
       >
         <motion.div
           className="relative h-56 overflow-hidden"
@@ -256,7 +352,7 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
 
         <div className="px-5 py-4">
           <div className="grid grid-cols-3 gap-2">
-            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+            <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-3 py-3">
               <div className="mb-1 flex items-center gap-1.5 text-slate-400">
                 <Star size={13} className="fill-amber-400 text-amber-400" />
                 <span className="text-[11px] font-semibold uppercase tracking-wide">Rating</span>
@@ -265,7 +361,7 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
               <p className="text-[11px] text-slate-400">{laundry.reviews} reviews</p>
             </div>
 
-            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+            <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-3 py-3">
               <div className="mb-1 flex items-center gap-1.5 text-slate-400">
                 <Clock size={13} className="text-[#1D6076]" strokeWidth={2} />
                 <span className="text-[11px] font-semibold uppercase tracking-wide">ETA</span>
@@ -274,7 +370,7 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
               <p className="text-[11px] text-slate-400">Estimated service</p>
             </div>
 
-            <div className="rounded-2xl bg-slate-50 px-3 py-3">
+            <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-3 py-3">
               <div className="mb-1 flex items-center gap-1.5 text-slate-400">
                 <MapPin size={13} className="text-[#1D6076]" strokeWidth={2} />
                 <span className="text-[11px] font-semibold uppercase tracking-wide">Distance</span>
@@ -381,14 +477,27 @@ export default function NearbyLaundries() {
     return next;
   }, [filterBy, laundryList, search, sortBy]);
 
+  const openNowCount = useMemo(
+    () => laundryList.filter((laundry) => laundry.isAvailable).length,
+    [laundryList],
+  );
+
+  const topRatedCount = useMemo(
+    () => laundryList.filter((laundry) => laundry.rating >= 4.5).length,
+    [laundryList],
+  );
+
   if (!isAuthReady || !isLoggedIn) {
     return null;
   }
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] pb-16" dir="ltr">
-      <div className="bg-white px-4 md:px-8 py-4 border-b border-gray-100 sticky top-16 z-10 shadow-sm">
-        <div className="max-w-3xl mx-auto">
+    <div
+      className="ndeef-page-shell min-h-screen bg-[radial-gradient(circle_at_top,#f6fbfd_0%,#f8fafc_32%,#f5f5f5_74%)] pb-16"
+      dir="ltr"
+    >
+      <div className="ndeef-page-header sticky top-16 z-20 border-b border-gray-100 bg-white/92 px-4 py-4 shadow-sm backdrop-blur-md md:px-8">
+        <div className="mx-auto max-w-6xl">
           <div className="flex items-center gap-3">
             <button
               onClick={() => router.back()}
@@ -397,13 +506,21 @@ export default function NearbyLaundries() {
               <ArrowLeft size={22} className="text-gray-800" strokeWidth={2} />
             </button>
             <div className="flex-1">
-              <h1 className="text-gray-900 text-lg">Nearby Laundries</h1>
+              <h1 className="text-lg text-gray-900">Nearby Laundries</h1>
               {flowState === "success" && (
-                <p className="text-gray-400 text-xs mt-0.5">
+                <p className="mt-0.5 text-xs text-gray-400">
                   {filteredLaundries.length} laundries available
                 </p>
               )}
             </div>
+            {flowState === "success" && (
+              <div className="hidden items-center gap-2 md:flex">
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700">
+                  <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                  {openNowCount} open now
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -424,38 +541,132 @@ export default function NearbyLaundries() {
       )}
 
       {flowState === "success" && (
-        <div className="max-w-3xl mx-auto px-4 md:px-8 py-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="relative flex-1">
+        <div className="mx-auto max-w-6xl px-4 py-5 md:px-8">
+          <div className="mb-5 overflow-hidden rounded-[34px] bg-[linear-gradient(135deg,#0d3d50_0%,#1D6076_60%,#2a7a94_100%)] text-white shadow-[0_24px_80px_rgba(13,61,80,0.22)]">
+            <div className="grid gap-6 px-6 py-7 md:grid-cols-[1.15fr_0.85fr] md:px-8 md:py-8">
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] backdrop-blur-sm">
+                  <Sparkles size={13} strokeWidth={2.3} />
+                  Curated nearby options
+                </div>
+                <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl">
+                  Compare trusted laundries around you with less scrolling.
+                </h2>
+                <p className="mt-3 max-w-xl text-sm leading-7 text-white/78 md:text-base">
+                  Search by name or area, sort by distance or rating, and focus
+                  on places that are open right now.
+                </p>
+
+                <div className="mt-6 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+                    {laundryList.length} total laundries
+                  </span>
+                  <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+                    {openNowCount} open now
+                  </span>
+                  <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+                    {topRatedCount} top rated
+                  </span>
+                </div>
+              </div>
+
+              <div className="ndeef-page-card rounded-[28px] border border-white/10 bg-white/95 p-5 text-slate-900 shadow-[0_18px_45px_rgba(2,19,26,0.12)] backdrop-blur-sm">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1D6076]/10">
+                    <ShieldCheck
+                      size={22}
+                      className="text-[#1D6076]"
+                      strokeWidth={1.9}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-950">
+                      Smart recommendations
+                    </p>
+                    <p className="text-xs text-slate-400">
+                      Ranked from your current location
+                    </p>
+                  </div>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1">
+                  {[
+                    {
+                      label: "Best for speed",
+                      value: filteredLaundries[0]?.deliveryTime ?? "Live lookup",
+                    },
+                    {
+                      label: "Closest match",
+                      value: filteredLaundries[0]?.distanceLabel ?? "Nearby first",
+                    },
+                    {
+                      label: "Search mode",
+                      value: filterBy === "available" ? "Open now only" : "All laundries",
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="rounded-2xl bg-slate-50 px-4 py-3"
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        {item.label}
+                      </p>
+                      <p className="mt-2 text-sm font-semibold text-slate-900">
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_auto]">
+            <div className="relative">
               <Search
-                size={16}
+                size={17}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
                 strokeWidth={2}
               />
               <input
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-                placeholder="Search by laundry or area"
-                className="w-full bg-white border border-gray-200 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:border-[#1D6076] focus:ring-[#1D6076]/20 transition-all"
+                placeholder="Search by laundry name or area"
+                className="ndeef-page-card w-full rounded-[24px] border border-gray-200 bg-white py-4 pl-12 pr-4 text-sm text-gray-900 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition-all placeholder-gray-400 focus:border-[#1D6076] focus:outline-none focus:ring-1 focus:ring-[#1D6076]/20"
               />
             </div>
+
             <button
               onClick={() => setShowFilters((value) => !value)}
-              className={`p-3.5 rounded-2xl border transition-all ${
+              className={`flex items-center justify-center gap-2 rounded-[24px] border px-5 py-4 text-sm font-semibold transition-all ${
                 showFilters
-                  ? "bg-[#1D6076] text-white border-[#1D6076]"
-                  : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50"
+                  ? "border-[#1D6076] bg-[#1D6076] text-white shadow-[0_14px_30px_rgba(29,96,118,0.18)]"
+                  : "ndeef-page-card border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
               }`}
             >
               <SlidersHorizontal size={16} strokeWidth={2} />
+              Filters
             </button>
           </div>
 
+          <div className="mb-4 flex flex-wrap gap-2">
+            <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/80">
+              Sorted by {sortBy === "distance" ? "distance" : "rating"}
+            </span>
+            <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/80">
+              {filterBy === "available" ? "Open now only" : "All availability"}
+            </span>
+            {search ? (
+              <span className="rounded-full bg-[#1D6076]/8 px-4 py-2 text-xs font-semibold text-[#1D6076] shadow-sm ring-1 ring-[#1D6076]/10">
+                Search: {search}
+              </span>
+            ) : null}
+          </div>
+
           {showFilters && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-4">
-              <div className="grid sm:grid-cols-2 gap-4">
+            <div className="ndeef-page-card mb-5 rounded-[28px] border border-gray-100 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)]">
+              <div className="grid gap-5 lg:grid-cols-[1fr_1fr_0.9fr]">
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 tracking-wider mb-2">
+                  <p className="mb-2 text-xs font-semibold tracking-wider text-gray-400">
                     SORT BY
                   </p>
                   <div className="flex gap-2">
@@ -466,7 +677,7 @@ export default function NearbyLaundries() {
                         className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
                           sortBy === option
                             ? "bg-[#1D6076] text-white"
-                            : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                            : "ndeef-page-soft bg-gray-50 text-gray-700 hover:bg-gray-100"
                         }`}
                       >
                         {option === "distance" ? "Distance" : "Rating"}
@@ -476,7 +687,7 @@ export default function NearbyLaundries() {
                 </div>
 
                 <div>
-                  <p className="text-xs font-semibold text-gray-400 tracking-wider mb-2">
+                  <p className="mb-2 text-xs font-semibold tracking-wider text-gray-400">
                     FILTER
                   </p>
                   <div className="flex gap-2">
@@ -487,7 +698,7 @@ export default function NearbyLaundries() {
                         className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
                           filterBy === option
                             ? "bg-[#1D6076] text-white"
-                            : "bg-gray-50 text-gray-700 hover:bg-gray-100"
+                            : "ndeef-page-soft bg-gray-50 text-gray-700 hover:bg-gray-100"
                         }`}
                       >
                         {option === "all" ? "All" : "Open Now"}
@@ -495,22 +706,51 @@ export default function NearbyLaundries() {
                     ))}
                   </div>
                 </div>
+
+                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+                  {[
+                    {
+                      label: "Total results",
+                      value: `${filteredLaundries.length}`,
+                    },
+                    {
+                      label: "Open now",
+                      value: `${openNowCount}`,
+                    },
+                    {
+                      label: "Top rated",
+                      value: `${topRatedCount}`,
+                    },
+                  ].map((item) => (
+                    <div
+                      key={item.label}
+                      className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3"
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                        {item.label}
+                      </p>
+                      <p className="mt-2 text-lg font-semibold text-slate-950">
+                        {item.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           )}
 
           {filteredLaundries.length === 0 ? (
-            <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-8 text-center">
-              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+            <div className="ndeef-page-card rounded-[32px] border border-gray-100 bg-white p-8 text-center shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
+              <div className="ndeef-page-soft mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
                 <Search size={24} className="text-gray-400" strokeWidth={1.8} />
               </div>
-              <h2 className="text-gray-900 text-lg mb-2">No matches found</h2>
-              <p className="text-gray-500 text-sm">
+              <h2 className="mb-2 text-lg text-gray-900">No matches found</h2>
+              <p className="text-sm text-gray-500">
                 Try a different search term or remove the availability filter.
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {filteredLaundries.map((laundry, index) => (
                 <LaundryCard key={laundry.id} laundry={laundry} index={index} />
               ))}

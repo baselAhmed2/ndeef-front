@@ -102,7 +102,7 @@ export default function CourierEarningsPage() {
   if (error || !earnings || !todayStats || !stats) {
     return (
       <div className="p-4 lg:p-6 max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-sm text-red-700">
+        <div className="ndeef-courier-soft bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-sm text-red-700">
           {error || "Unable to load courier earnings."}
         </div>
       </div>
@@ -164,7 +164,7 @@ export default function CourierEarningsPage() {
           </div>
         </div>
 
-        <div className="lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
+        <div className="ndeef-courier-card lg:col-span-2 bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-bold text-gray-800">Daily Earnings</p>
@@ -216,7 +216,7 @@ export default function CourierEarningsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
+        <div className="ndeef-courier-card bg-white rounded-2xl p-5 border border-gray-100 shadow-sm space-y-4">
           <p className="font-bold text-gray-800">Performance</p>
           {[
             {
@@ -258,7 +258,7 @@ export default function CourierEarningsPage() {
               </div>
             </div>
           ))}
-          <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+          <div className="ndeef-courier-soft flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
             <Info className="mt-0.5 w-4 h-4 shrink-0 text-amber-600" />
             <p className="text-xs text-amber-800">
               Backend does not currently provide tracked courier ratings, ranking, or hours worked. This page only shows earnings and completion metrics calculated directly by backend.
@@ -266,7 +266,7 @@ export default function CourierEarningsPage() {
           </div>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+        <div className="ndeef-courier-card bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
             <p className="font-bold text-gray-800">Recent Transactions</p>
             <span className="text-xs text-gray-400">{earnings.recentTransactions.length} orders</span>
@@ -293,7 +293,7 @@ export default function CourierEarningsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
+      <div className="ndeef-courier-card bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex items-center gap-4">
         <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBA050" }}>
           <Wallet className="w-6 h-6 text-white" />
         </div>

@@ -406,7 +406,7 @@ export async function getOrderById(id: string): Promise<any> {
         active: frontendStatus === "Processing",
       },
       {
-        label: "Ready for Pickup",
+        label: "Ready for Delivery",
         time: ["Ready", "Delivered"].includes(frontendStatus)
           ? formatDateTime(order.pickupTime)
           : "Pending",
@@ -433,6 +433,19 @@ export async function updateOrderStatus(
   await apiRequest(`/laundry-admin/orders/${id}/status`, {
     method: "PUT",
     body: JSON.stringify({ newStatus: toBackendOrderStatus(status) }),
+  });
+}
+
+export async function assignCourierToOrder(
+  orderId: string,
+  courierId: string,
+): Promise<void> {
+  await apiRequest("/laundry-admin/assign-courier", {
+    method: "POST",
+    body: JSON.stringify({
+      orderId: Number(orderId),
+      courierId: courierId.trim(),
+    }),
   });
 }
 

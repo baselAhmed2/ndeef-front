@@ -12,6 +12,7 @@ import {
   statusOrder,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 
 function progressPercent(status: UiOrder["status"]) {
   if (status === "cancelled") return 0;
@@ -26,7 +27,7 @@ function OrderCard({ order }: { order: UiOrder }) {
 
   return (
     <Link href={`/track-order/${order.id}`} className="block">
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md active:scale-[0.99] transition-all">
+      <div className="ndeef-page-card bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-md active:scale-[0.99] transition-all">
         <div className="px-5 py-4 border-b border-gray-50">
           <div className="flex items-start justify-between mb-3">
             <div className="flex-1 min-w-0">
@@ -68,7 +69,7 @@ function OrderCard({ order }: { order: UiOrder }) {
         </div>
 
         {isActive && (
-          <div className="px-5 py-3 bg-gray-50 border-b border-gray-100">
+          <div className="ndeef-page-soft px-5 py-3 bg-gray-50 border-b border-gray-100">
             <div className="flex justify-between items-center mb-1.5">
               <span className="text-xs text-gray-500">Order progress</span>
               <span className="text-xs font-medium" style={{ color: cfg.color }}>
@@ -103,6 +104,24 @@ export default function Orders() {
   const [activeTab, setActiveTab] = useState<"active" | "completed">("active");
   const [loading, setLoading] = useState(true);
 
+  const loadOrders = async (silent = false) => {
+    if (!user?.token) return;
+
+    try {
+      if (!silent) {
+        setLoading(true);
+      }
+      const response = await getOrdersRequest(user.token);
+      setOrders(response.data.map(mapOrderDtoToUiOrder));
+    } catch {
+      setOrders([]);
+    } finally {
+      if (!silent) {
+        setLoading(false);
+      }
+    }
+  };
+
   useEffect(() => {
     if (!isAuthReady) return;
     if (!isLoggedIn) {
@@ -111,24 +130,15 @@ export default function Orders() {
   }, [isAuthReady, isLoggedIn, router]);
 
   useEffect(() => {
-    const loadOrders = async () => {
-      if (!user?.token) return;
-
-      try {
-        setLoading(true);
-        const response = await getOrdersRequest(user.token);
-        setOrders(response.data.map(mapOrderDtoToUiOrder));
-      } catch {
-        setOrders([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     if (isAuthReady && isLoggedIn) {
-      loadOrders();
+      void loadOrders();
     }
   }, [isAuthReady, isLoggedIn, user?.token]);
+
+  useAutoRefresh(() => {
+    if (!isAuthReady || !isLoggedIn) return;
+    return loadOrders(true);
+  }, { enabled: isAuthReady && isLoggedIn, intervalMs: 10000 });
 
   useEffect(() => {
     const notice = searchParams?.get("notice");
@@ -152,16 +162,16 @@ export default function Orders() {
   if (!isAuthReady || !isLoggedIn) return null;
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5] pb-24" dir="ltr">
-      <div className="bg-white px-4 md:px-8 py-4 border-b border-gray-100 sticky top-16 z-10 shadow-sm">
+    <div className="ndeef-page-shell min-h-screen bg-[#f5f5f5] pb-24" dir="ltr">
+      <div className="ndeef-page-header bg-white px-4 md:px-8 py-4 border-b border-gray-100 sticky top-16 z-10 shadow-sm">
         <div className="max-w-2xl mx-auto">
           <h1 className="text-gray-900 text-lg">My Orders</h1>
           <p className="text-gray-400 text-xs mt-0.5">{orders.length} total orders</p>
         </div>
       </div>
 
-      <div className="bg-white border-b border-gray-100 px-4 md:px-8 py-3 sticky top-[129px] z-10">
-        <div className="max-w-2xl mx-auto flex gap-2 bg-gray-50 rounded-xl p-1">
+      <div className="ndeef-page-header bg-white border-b border-gray-100 px-4 md:px-8 py-3 sticky top-[129px] z-10">
+        <div className="max-w-2xl mx-auto flex gap-2 bg-gray-50 rounded-xl p-1 ndeef-page-soft">
           {(["active", "completed"] as const).map((tab) => (
             <button
               key={tab}

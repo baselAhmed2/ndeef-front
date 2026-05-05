@@ -260,9 +260,9 @@ export default function CourierOrderDetail() {
   useEffect(() => {
     let ignore = false;
 
-    async function loadOrder() {
-      setLoading(true);
-      setError("");
+    async function loadOrder(silent = false) {
+      if (!silent) setLoading(true);
+      if (!ignore) setError("");
       try {
         const result = await getCourierOrderById(id);
         if (ignore) return;
@@ -276,15 +276,27 @@ export default function CourierOrderDetail() {
         if (ignore) return;
         setError(loadError instanceof ApiError ? loadError.message : "Unable to load order details.");
       } finally {
-        if (!ignore) setLoading(false);
+        if (!ignore && !silent) setLoading(false);
       }
     }
 
-    loadOrder();
+    const refreshIfVisible = () => {
+      if (document.hidden || actionLoading) return;
+      void loadOrder(true);
+    };
+
+    void loadOrder();
+    const intervalId = window.setInterval(refreshIfVisible, 8000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
     return () => {
       ignore = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
     };
-  }, [id]);
+  }, [actionLoading, id]);
 
   if (loading) {
     return (

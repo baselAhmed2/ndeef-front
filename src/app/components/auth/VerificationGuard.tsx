@@ -59,10 +59,18 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
         }
 
         setIsChecking(false);
-      } catch {
+      } catch (error) {
         if (ignore) return;
 
-        if (currentUser.needsVerification && !isVerificationPage) {
+        const status =
+          typeof error === "object" && error !== null && "status" in error
+            ? Number((error as { status?: number }).status)
+            : null;
+        const shouldForceVerification =
+          currentUser.needsVerification || status === 401 || status === 403;
+
+        if (shouldForceVerification && !isVerificationPage) {
+          updateUser({ needsVerification: true });
           router.push("/laundry-admin/verification");
           return;
         }

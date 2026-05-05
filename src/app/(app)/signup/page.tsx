@@ -1,12 +1,10 @@
-"use client";
-
-import { Suspense } from "react";
 import SignupPage from "@/app/pages/SignupPage";
 
-export default function Page() {
-  return (
-    <Suspense>
-      <SignupPage />
-    </Suspense>
-  );
+export default async function Page({
+  searchParams,
+}: {
+  searchParams?: Promise<{ role?: string }>;
+}) {
+  const resolvedSearchParams = await searchParams;
+  return <SignupPage initialRole={resolvedSearchParams?.role ?? null} />;
 }

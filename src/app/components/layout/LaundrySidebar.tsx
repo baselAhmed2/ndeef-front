@@ -63,7 +63,10 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
       animate={{ width: collapsed ? 72 : 240 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
       className="relative flex flex-col h-screen shrink-0 overflow-hidden shadow-xl"
-      style={{ backgroundColor: "#1D5B70" }}
+      style={{
+        background:
+          "linear-gradient(180deg, #2f7b90 0%, #357f93 52%, #2b6f82 100%)",
+      }}
     >
       {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b border-white/10">
@@ -86,7 +89,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
                 <span className="text-white font-bold text-lg tracking-tight whitespace-nowrap">
                   Ndeef
                 </span>
-                <p className="text-white/50 text-[10px] leading-none mt-0.5 whitespace-nowrap">
+                <p className="text-white/70 text-[10px] leading-none mt-0.5 whitespace-nowrap">
                   Laundry Admin
                 </p>
               </motion.div>
@@ -107,8 +110,8 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
                 className={`
                   relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200
                   ${active
-                    ? "bg-white/20 text-white shadow-sm"
-                    : "text-white/60 hover:text-white hover:bg-white/10"
+                    ? "bg-white/22 text-white shadow-sm"
+                    : "text-white/80 hover:text-white hover:bg-white/12"
                   }
                 `}
                 title={collapsed ? item.label : undefined}
@@ -117,7 +120,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
                   <motion.div
                     layoutId="activePill"
                     className="absolute inset-0 rounded-xl"
-                    style={{ backgroundColor: "rgba(255,255,255,0.15)" }}
+                    style={{ backgroundColor: "rgba(255,255,255,0.18)" }}
                     transition={{ duration: 0.3, type: "spring", bounce: 0.2 }}
                   />
                 )}
@@ -156,8 +159,8 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
             className={`
               relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200
               ${currentPath === "/laundry-admin/settings"
-                ? "bg-white/20 text-white shadow-sm"
-                : "text-white/60 hover:text-white hover:bg-white/10"
+                ? "bg-white/22 text-white shadow-sm"
+                : "text-white/80 hover:text-white hover:bg-white/12"
               }
             `}
           >
@@ -179,7 +182,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
         </Link>
         <button
           onClick={() => setShowLogoutModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/60 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200"
+          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/80 hover:text-red-100 hover:bg-red-500/14 transition-all duration-200"
         >
           <LogOut className="w-5 h-5 shrink-0" />
           <AnimatePresence>

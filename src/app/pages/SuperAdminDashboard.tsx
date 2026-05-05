@@ -156,8 +156,7 @@ export function SuperAdminDashboard() {
         <p className="text-sm font-medium text-red-800 mb-1">Dashboard data unavailable</p>
         <p className="text-xs text-red-700/90 mb-4">{error ?? "No data returned."}</p>
         <p className="text-[11px] text-slate-500 mb-4">
-          Backend: <code className="bg-white/80 px-1 rounded">GET /api/analytics/system</code> requires role{" "}
-          <strong>SuperAdmin</strong> and a valid JWT (same session as the app).
+          System analytics require a valid Super Admin session.
         </p>
         <button
           type="button"
@@ -175,9 +174,7 @@ export function SuperAdminDashboard() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-[#1e293b]">Dashboard Overview</h1>
-          <p className="text-[13px] text-slate-500 mt-1">
-            Data from <code className="text-[11px] bg-slate-100 px-1 rounded">GET /api/analytics/system</code> (SuperAdmin).
-          </p>
+          <p className="text-[13px] text-slate-500 mt-1">Live system analytics overview.</p>
         </div>
         <div className="flex items-center gap-3">
           <select className="bg-white border border-slate-200 text-slate-700 text-[13px] rounded-xl px-4 py-2 outline-none focus:border-[#2A5C66] focus:ring-1 focus:ring-[#2A5C66]">

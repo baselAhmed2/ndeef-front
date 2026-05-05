@@ -232,7 +232,7 @@ export default function Profile() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="ndeef-page-shell min-h-screen bg-white flex items-center justify-center">
         <Loader2 className="animate-spin text-[#1D6076]" size={28} strokeWidth={2} />
       </div>
     );
@@ -240,7 +240,7 @@ export default function Profile() {
 
   if (isLoggedOut) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6 text-center">
+      <div className="ndeef-page-shell min-h-screen bg-white flex items-center justify-center px-6 text-center">
         <div>
           <p className="text-gray-900 text-lg font-semibold">Please log in to view your profile.</p>
           <button
@@ -255,8 +255,8 @@ export default function Profile() {
   }
 
   return (
-    <div className="min-h-screen bg-white" dir="ltr">
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-8 lg:px-12 py-4 z-10">
+    <div className="ndeef-page-shell min-h-screen bg-white" dir="ltr">
+      <div className="ndeef-page-header sticky top-0 bg-white border-b border-gray-200 px-4 md:px-8 lg:px-12 py-4 z-10">
         <div className="flex items-center justify-between max-w-3xl mx-auto">
           <button onClick={() => router.back()} className="hover:opacity-70 transition-opacity">
             <ArrowLeft size={24} className="text-gray-900" strokeWidth={2} />

@@ -53,9 +53,9 @@ export default function Services() {
   };
 
   return (
-    <div className="min-h-screen bg-white pb-32" dir="ltr">
+    <div className="ndeef-page-shell min-h-screen bg-white pb-32" dir="ltr">
       {/* Header */}
-      <div className="sticky top-0 bg-white border-b border-gray-200 px-4 md:px-8 lg:px-12 py-4 z-10">
+      <div className="ndeef-page-header sticky top-0 bg-white border-b border-gray-200 px-4 md:px-8 lg:px-12 py-4 z-10">
         <Link href="/" className="inline-block hover:opacity-70 transition-opacity">
           <ArrowLeft size={24} className="text-gray-900" strokeWidth={2} />
         </Link>
@@ -149,7 +149,7 @@ export default function Services() {
                 className={`px-4 py-2 md:px-6 md:py-3 rounded-full text-sm md:text-base font-medium transition-colors ${
                   activeCategory === cat.id
                     ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
+                    : 'ndeef-page-card bg-white text-gray-700 border border-gray-300 hover:border-gray-400'
                 }`}
               >
                 {cat.label}
@@ -215,7 +215,7 @@ export default function Services() {
       </div>
 
       {/* Fixed Bottom Bar - Pickup & Location */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 md:px-8 lg:px-12 py-4 md:py-5 z-20">
+      <div className="ndeef-page-bottom-bar fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-4 md:px-8 lg:px-12 py-4 md:py-5 z-20">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
           <div className="flex-1 grid grid-cols-2 gap-4 md:gap-6">
             <div>

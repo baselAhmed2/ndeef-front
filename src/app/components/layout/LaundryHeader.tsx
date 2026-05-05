@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search, ChevronDown, User, Settings, LogOut, AlertTriangle, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/app/context/AuthContext";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 import { getLaundryUnreadNotificationCount } from "@/app/lib/laundry-admin-client";
 
 const LOCAL_PROFILE_PHOTO_KEY = "nadeef_laundry_profile_photo";
@@ -65,6 +66,18 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
       active = false;
     };
   }, [pathname]);
+
+  useAutoRefresh(
+    async () => {
+      try {
+        const count = await getLaundryUnreadNotificationCount();
+        setUnreadCount(count);
+      } catch {
+        setUnreadCount(0);
+      }
+    },
+    { enabled: Boolean(pathname), intervalMs: 10000 },
+  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;

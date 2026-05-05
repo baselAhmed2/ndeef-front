@@ -36,6 +36,7 @@ import {
   type CourierProfileResponseDto,
   updateCourierStatus,
 } from "@/app/lib/courier-client";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 import { useAuth } from "@/app/context/AuthContext";
 import { DashboardAccessGuard } from "@/app/components/auth/DashboardAccessGuard";
 
@@ -166,7 +167,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
         announceCourierNotificationCountUpdated(unreadCount);
 
         if (activeRun) {
-          setActiveRunLabel(`${activeRun.totalStops}-stop run · ${activeRun.stopsDone} of ${activeRun.totalStops} done`);
+          setActiveRunLabel(`${activeRun.totalStops}-stop run - ${activeRun.stopsDone} of ${activeRun.totalStops} done`);
         } else if (todayStats && todayStats.inTransit > 0) {
           setActiveRunLabel(`${todayStats.inTransit} deliveries in transit`);
         } else {
@@ -182,6 +183,36 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
       ignore = true;
     };
   }, [isAuthReady, isCourier, isLoggedIn]);
+
+  useAutoRefresh(
+    async () => {
+      if (!isAuthReady || !isLoggedIn || !isCourier || notificationsOpen) return;
+
+      try {
+        const [profile, todayStats, activeRun, unreadCount] = await Promise.all([
+          getCourierProfile(),
+          getCourierTodayStats().catch(() => null),
+          getCourierActiveRun().catch(() => null),
+          getCourierUnreadNotificationCount().catch(() => 0),
+        ]);
+
+        applyProfileSnapshot(profile);
+        setUnreadNotifications(unreadCount);
+        announceCourierNotificationCountUpdated(unreadCount);
+
+        if (activeRun) {
+          setActiveRunLabel(`${activeRun.totalStops}-stop run - ${activeRun.stopsDone} of ${activeRun.totalStops} done`);
+        } else if (todayStats && todayStats.inTransit > 0) {
+          setActiveRunLabel(`${todayStats.inTransit} deliveries in transit`);
+        } else {
+          setActiveRunLabel("");
+        }
+      } catch {
+        return;
+      }
+    },
+    { enabled: isAuthReady && isLoggedIn && isCourier, intervalMs: 10000 },
+  );
 
   const isActive = (path: string, exact?: boolean) => {
     if (exact) return pathname === path;
@@ -257,7 +288,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            className="absolute right-0 top-12 z-30 w-[320px] rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden"
+            className="ndeef-courier-card absolute right-0 top-12 z-30 w-[320px] rounded-2xl border border-gray-100 bg-white shadow-xl overflow-hidden"
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div>
@@ -267,7 +298,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
               <button
                 onClick={handleMarkAllNotificationsRead}
                 disabled={markingNotificationsRead || unreadNotifications === 0}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 disabled:opacity-50"
+                className="ndeef-courier-soft inline-flex items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 disabled:opacity-50"
               >
                 {markingNotificationsRead ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCheck className="w-3 h-3" />}
                 Mark all read
@@ -406,26 +437,26 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
 
   return (
     <DashboardAccessGuard allowedRoles={["courier", "2"]} loginRoleHint="Courier">
-      <div className="flex h-screen overflow-hidden" style={{ backgroundColor: "#f1f5f9" }}>
+      <div className="ndeef-courier-shell flex h-screen overflow-hidden" style={{ backgroundColor: "#f1f5f9" }}>
       <AnimatePresence>
         {mobileMenuOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm" />}
       </AnimatePresence>
       <AnimatePresence>
         {mobileMenuOpen && (
-          <motion.aside initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="fixed inset-y-0 left-0 w-[280px] flex flex-col h-screen shrink-0 overflow-hidden shadow-2xl z-50 lg:hidden" style={{ backgroundColor: "#1D5B70" }}>
+          <motion.aside initial={{ x: "-100%" }} animate={{ x: 0 }} exit={{ x: "-100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="ndeef-courier-sidebar fixed inset-y-0 left-0 w-[280px] flex flex-col h-screen shrink-0 overflow-hidden shadow-2xl z-50 lg:hidden" style={{ backgroundColor: "#1D5B70" }}>
             {renderSidebarContent(true)}
           </motion.aside>
         )}
       </AnimatePresence>
 
-      <motion.aside animate={{ width: sidebarOpen ? 260 : 72 }} transition={{ duration: 0.28, ease: "easeInOut" }} className="hidden lg:flex flex-col h-screen shrink-0 overflow-hidden shadow-xl z-20 relative" style={{ backgroundColor: "#1D5B70" }}>
+      <motion.aside animate={{ width: sidebarOpen ? 260 : 72 }} transition={{ duration: 0.28, ease: "easeInOut" }} className="ndeef-courier-sidebar hidden lg:flex flex-col h-screen shrink-0 overflow-hidden shadow-xl z-20 relative" style={{ backgroundColor: "#1D5B70" }}>
         {renderSidebarContent(false)}
       </motion.aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="lg:hidden flex items-center justify-between h-16 px-4 bg-white border-b border-gray-100 shrink-0 shadow-sm z-20">
+        <header className="ndeef-courier-surface lg:hidden flex items-center justify-between h-16 px-4 bg-white border-b border-gray-100 shrink-0 shadow-sm z-20">
           <div className="flex items-center gap-3">
-            <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors">
+            <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-white/8 rounded-lg transition-colors">
               <Menu className="w-6 h-6" />
             </button>
             <div>
@@ -441,20 +472,20 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <header className="hidden lg:flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shrink-0 shadow-sm z-10">
+        <header className="ndeef-courier-surface hidden lg:flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shrink-0 shadow-sm z-10">
           <div>
             <h1 className="text-gray-900 font-bold">{currentNav?.label ?? "Courier App"}</h1>
             <p className="text-gray-400 text-xs">{currentNav?.description}</p>
           </div>
           <div className="flex items-center gap-3">
             {activeRunLabel && (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50">
+              <div className="ndeef-courier-soft flex items-center gap-2 px-3 py-1.5 rounded-xl border border-purple-200 bg-purple-50">
                 <div className="w-2 h-2 rounded-full bg-purple-500 animate-pulse" />
                 <span className="text-xs font-semibold text-purple-700">{activeRunLabel}</span>
               </div>
             )}
             {renderNotificationsButton()}
-            <button onClick={() => router.push("/courier/profile")} className="flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-all border border-gray-100">
+            <button onClick={() => router.push("/courier/profile")} className="ndeef-courier-soft flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-all border border-gray-100">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#EBA050" }}>
                 {profileAvatar}
               </div>
@@ -467,7 +498,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
           <AnimatePresence mode="wait">{children}</AnimatePresence>
         </main>
 
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-100 safe-area-pb">
+        <nav className="ndeef-courier-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-100 safe-area-pb">
           <div className="flex items-center h-16">
             {NAV_ITEMS.map((item) => {
               const active = isActive(item.path, item.exact);

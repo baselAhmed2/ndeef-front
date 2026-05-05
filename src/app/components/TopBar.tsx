@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { MapPin, Search } from 'lucide-react';
 import { NotificationBadge } from './NotificationBadge';
 import { apiRequest } from '../lib/admin-api';
+import { useAutoRefresh } from '../hooks/useAutoRefresh';
 
 interface TopBarProps {
   showSearch?: boolean;
@@ -32,6 +33,15 @@ export function TopBar({ showSearch = true, title }: TopBarProps) {
       active = false;
     };
   }, []);
+
+  useAutoRefresh(async () => {
+    try {
+      const response = await apiRequest<{ unreadCount?: number; UnreadCount?: number }>('/notifications/count');
+      setUnreadCount(Number(response.unreadCount ?? response.UnreadCount ?? 0));
+    } catch {
+      setUnreadCount(0);
+    }
+  }, { intervalMs: 10000 });
 
   return (
     <div className="relative">

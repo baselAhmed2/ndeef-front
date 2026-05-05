@@ -125,7 +125,7 @@ function ServiceRow({
     <button
       type="button"
       onClick={() => onToggle(service.id)}
-      className={`w-full flex items-center justify-between p-4 border rounded-[24px] active:scale-[0.99] transition-all duration-300 bg-white group ${
+      className={`ndeef-page-card w-full flex items-center justify-between p-4 border rounded-[24px] active:scale-[0.99] transition-all duration-300 bg-white group ${
         selected
           ? "border-[#1D6076] shadow-[0_10px_30px_rgba(29,96,118,0.12)] ring-2 ring-[#1D6076]/10"
           : "border-slate-200/80 hover:border-[#1D6076]/30 hover:shadow-[0_10px_25px_rgba(15,23,42,0.08)]"
@@ -273,8 +273,8 @@ export default function LaundryDetails() {
   ];
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#f6fbfd_0%,#f8fafc_28%,#f5f5f5_70%)]" dir="ltr">
-      <div className="sticky top-16 z-20 border-b border-slate-200/80 bg-white/90 px-4 md:px-8 py-4 flex items-center gap-3 shadow-sm backdrop-blur-md">
+    <div className="ndeef-page-shell ndeef-laundry-page min-h-screen bg-[radial-gradient(circle_at_top,#f6fbfd_0%,#f8fafc_28%,#f5f5f5_70%)]" dir="ltr">
+      <div className="ndeef-page-header sticky top-16 z-20 border-b border-slate-200/80 bg-white/90 px-4 md:px-8 py-4 flex items-center gap-3 shadow-sm backdrop-blur-md">
         <button
           onClick={() => router.back()}
           className="p-2 -ml-1 rounded-xl hover:bg-gray-50 active:scale-95 transition-all"
@@ -294,10 +294,10 @@ export default function LaundryDetails() {
         </div>
       </div>
 
-      {flowState === "loading" && (
+        {flowState === "loading" && (
         <div>
           <div className="h-56 bg-gray-200 animate-pulse" />
-          <div className="bg-white rounded-t-3xl -mt-6 relative z-10 shadow-sm">
+          <div className="ndeef-page-card bg-white rounded-t-3xl -mt-6 relative z-10 shadow-sm">
             <SkeletonLoader />
           </div>
         </div>
@@ -315,16 +315,16 @@ export default function LaundryDetails() {
 
       {flowState === "success" && laundry && (
         <div className="pb-10">
-          <div className="relative h-[340px] overflow-hidden bg-slate-200">
+          <div className="ndeef-laundry-hero relative h-[340px] overflow-hidden bg-slate-200">
             <img
               src={laundry.image}
               alt={laundry.name}
               className="w-full h-full object-cover scale-[1.04] saturate-[1.08] contrast-[1.04] brightness-[0.92]"
             />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.24),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(235,160,80,0.18),transparent_24%)]" />
-            <div className="absolute inset-0 bg-gradient-to-b from-slate-950/15 via-transparent to-transparent" />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/22 to-slate-950/12" />
-            <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/40 to-transparent" />
+            <div className="ndeef-laundry-hero-glow absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.24),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(235,160,80,0.18),transparent_24%)]" />
+            <div className="ndeef-laundry-hero-topfade absolute inset-0 bg-gradient-to-b from-slate-950/15 via-transparent to-transparent" />
+            <div className="ndeef-laundry-hero-bottomfade absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/22 to-slate-950/12" />
+            <div className="ndeef-laundry-hero-bottomedge absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/40 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 px-5 md:px-10 pb-8">
               <div className="mx-auto max-w-5xl">
                 <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -352,7 +352,7 @@ export default function LaundryDetails() {
           </div>
 
           <div className="relative z-10 -mt-10 mx-auto max-w-5xl px-4 md:px-8">
-            <div className="rounded-[32px] border border-slate-200/80 bg-white/96 px-6 pt-6 pb-5 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur">
+            <div className="ndeef-page-card rounded-[32px] border border-slate-200/80 bg-white/96 px-6 pt-6 pb-5 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur">
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
@@ -361,7 +361,7 @@ export default function LaundryDetails() {
                   <h2 className="mt-2 text-2xl font-semibold text-slate-950">{laundry.name}</h2>
                 </div>
               {!laundry.isAvailable && (
-                <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-full flex items-center gap-1 shrink-0 font-semibold">
+                <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-full flex items-center gap-1 shrink-0 font-semibold dark:text-orange-300 dark:bg-orange-500/10 dark:border-orange-400/20">
                   <Info size={10} strokeWidth={2.5} />
                   {laundry.availability}
                 </span>
@@ -369,7 +369,7 @@ export default function LaundryDetails() {
               </div>
 
               <div className="grid gap-3 sm:grid-cols-3">
-                <div className="rounded-2xl bg-amber-50 px-4 py-3">
+                <div className="ndeef-page-soft rounded-2xl bg-amber-50 px-4 py-3">
                   <div className="mb-1 flex items-center gap-1.5 text-amber-500">
                     <Star size={14} className="fill-amber-500" />
                     <span className="text-[11px] font-semibold uppercase tracking-wide">Rating</span>
@@ -377,7 +377,7 @@ export default function LaundryDetails() {
                   <p className="text-lg font-semibold text-slate-900">{laundry.rating.toFixed(1)}</p>
                   <p className="text-xs text-slate-400">{laundry.reviews} reviews</p>
                 </div>
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3">
                   <div className="mb-1 flex items-center gap-1.5 text-[#1D6076]">
                     <Clock size={14} strokeWidth={2.1} />
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ETA</span>
@@ -385,7 +385,7 @@ export default function LaundryDetails() {
                   <p className="text-lg font-semibold text-slate-900">{laundry.deliveryTime}</p>
                   <p className="text-xs text-slate-400">Estimated turnaround</p>
                 </div>
-                <div className="rounded-2xl bg-slate-50 px-4 py-3">
+                <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3">
                   <div className="mb-1 flex items-center gap-1.5 text-[#1D6076]">
                     <MapPin size={14} strokeWidth={2.1} />
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Distance</span>
@@ -425,7 +425,7 @@ export default function LaundryDetails() {
               </div>
             ))}
 
-            <div className="bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5 mt-2">
+            <div className="ndeef-page-card bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5 mt-2">
               <p className="text-xs font-semibold text-gray-500 tracking-wider mb-4 uppercase">
                 Why This Page Is Different Now
               </p>
@@ -433,7 +433,7 @@ export default function LaundryDetails() {
                 {features.map(({ icon: Icon, text, color }) => (
                   <div
                     key={text}
-                    className="rounded-2xl bg-gray-50 px-4 py-3.5 flex items-center gap-3"
+                    className="ndeef-page-soft rounded-2xl bg-gray-50 px-4 py-3.5 flex items-center gap-3"
                   >
                     <div
                       className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
@@ -449,7 +449,7 @@ export default function LaundryDetails() {
           </div>
 
           <div className="sticky bottom-4 z-20 px-4 md:px-8">
-            <div className="mx-auto max-w-5xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/80 shadow-[0_18px_50px_rgba(15,23,42,0.12)] p-4">
+            <div className="ndeef-page-bottom-bar mx-auto max-w-5xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/80 shadow-[0_18px_50px_rgba(15,23,42,0.12)] p-4">
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-950">

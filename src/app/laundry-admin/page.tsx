@@ -18,6 +18,7 @@ import {
   getRevenueMonthly,
   getServices,
 } from "@/app/lib/laundry-admin-client";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 
 interface DashboardStats {
   totalRevenue: number;
@@ -128,70 +129,74 @@ export default function LaundryDashboardPage() {
   const [revenueData, setRevenueData] = useState<RevenuePoint[]>([]);
   const [topServices, setTopServices] = useState<ServiceShare[]>([]);
 
-  useEffect(() => {
-    async function fetchDashboardData() {
-      try {
-        setLoading(true);
-        setError("");
+  const fetchDashboardData = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      setError("");
 
-        const [summary, orders, revenue, services] = await Promise.all([
-          getDashboardSummary(),
-          getIncomingOrders(),
-          getRevenueMonthly(new Date().getFullYear()),
-          getServices(),
-        ]);
+      const [summary, orders, revenue, services] = await Promise.all([
+        getDashboardSummary(),
+        getIncomingOrders(),
+        getRevenueMonthly(new Date().getFullYear()),
+        getServices(),
+      ]);
 
-        setStats({
-          totalRevenue: summary.stats?.totalRevenue ?? 0,
-          totalOrders: summary.stats?.totalOrders ?? 0,
-          completedOrders: summary.stats?.completedOrders ?? 0,
-          pendingOrders: summary.stats?.pendingOrders ?? 0,
-        });
+      setStats({
+        totalRevenue: summary.stats?.totalRevenue ?? 0,
+        totalOrders: summary.stats?.totalOrders ?? 0,
+        completedOrders: summary.stats?.completedOrders ?? 0,
+        pendingOrders: summary.stats?.pendingOrders ?? 0,
+      });
 
-        setRecentOrders(
-          orders.slice(0, 6).map((order: any) => ({
-            id: order.id || `ORD-${order.orderId}`,
-            customerName: order.customer || "Unknown",
-            serviceName: order.service || "Laundry Service",
-            items: order.items || 1,
-            total: order.amount || 0,
-            status: order.status || "Pending",
-            time: order.createdAt ? new Date(order.createdAt).toLocaleString() : "Recently",
-          })),
-        );
+      setRecentOrders(
+        orders.slice(0, 6).map((order: any) => ({
+          id: order.id || `ORD-${order.orderId}`,
+          customerName: order.customer || "Unknown",
+          serviceName: order.service || "Laundry Service",
+          items: order.items || 1,
+          total: order.amount || 0,
+          status: order.status || "Pending",
+          time: order.createdAt ? new Date(order.createdAt).toLocaleString() : "Recently",
+        })),
+      );
 
-        setRevenueData(
-          revenue.map((point) => ({
-            month: point.month,
-            revenue: point.revenue,
-            orders: point.orders,
-          })),
-        );
+      setRevenueData(
+        revenue.map((point) => ({
+          month: point.month,
+          revenue: point.revenue,
+          orders: point.orders,
+        })),
+      );
 
-        const serviceTotals = services.reduce<Record<string, number>>((acc, service) => {
-          acc[service.name] = (acc[service.name] ?? 0) + (service.price || 0);
-          return acc;
-        }, {});
-        const totalServiceValue = Object.values(serviceTotals).reduce((sum, value) => sum + value, 0);
-        setTopServices(
-          Object.entries(serviceTotals)
-            .map(([name, value]) => ({
-              name,
-              percentage: totalServiceValue > 0 ? Math.round((value / totalServiceValue) * 100) : 0,
-            }))
-            .sort((a, b) => b.percentage - a.percentage)
-            .slice(0, 5),
-        );
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to load dashboard data.";
-        setError(message);
-      } finally {
+      const serviceTotals = services.reduce<Record<string, number>>((acc, service) => {
+        acc[service.name] = (acc[service.name] ?? 0) + (service.price || 0);
+        return acc;
+      }, {});
+      const totalServiceValue = Object.values(serviceTotals).reduce((sum, value) => sum + value, 0);
+      setTopServices(
+        Object.entries(serviceTotals)
+          .map(([name, value]) => ({
+            name,
+            percentage: totalServiceValue > 0 ? Math.round((value / totalServiceValue) * 100) : 0,
+          }))
+          .sort((a, b) => b.percentage - a.percentage)
+          .slice(0, 5),
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to load dashboard data.";
+      setError(message);
+    } finally {
+      if (!silent) {
         setLoading(false);
       }
     }
+  };
 
-    fetchDashboardData();
+  useEffect(() => {
+    void fetchDashboardData();
   }, []);
+
+  useAutoRefresh(() => fetchDashboardData(true), { intervalMs: 10000 });
 
   if (loading) {
     return (

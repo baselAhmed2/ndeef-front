@@ -8,6 +8,7 @@ import {
   markAllLaundryNotificationsRead,
   markLaundryNotificationRead,
 } from "@/app/lib/laundry-admin-client";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bell,
@@ -51,23 +52,28 @@ export function Notifications() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function loadNotifications() {
-      try {
-        setLoading(true);
-        setError(null);
-        const data = await getLaundryNotifications();
-        setNotifications(data as Notification[]);
-      } catch (error) {
-        console.error("Failed to load notifications", error);
-        setNotifications([]);
-        setError("Failed to load notifications from backend.");
-      } finally {
+  const loadNotifications = async (silent = false) => {
+    try {
+      if (!silent) setLoading(true);
+      setError(null);
+      const data = await getLaundryNotifications();
+      setNotifications(data as Notification[]);
+    } catch (error) {
+      console.error("Failed to load notifications", error);
+      setNotifications([]);
+      setError("Failed to load notifications from backend.");
+    } finally {
+      if (!silent) {
         setLoading(false);
       }
     }
-    loadNotifications();
+  };
+
+  useEffect(() => {
+    void loadNotifications();
   }, []);
+
+  useAutoRefresh(() => loadNotifications(true), { intervalMs: 10000 });
 
   const filtered = notifications.filter((n) => {
     if (activeFilter === "All") return true;

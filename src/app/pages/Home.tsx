@@ -31,6 +31,12 @@ const testimonials = [
   { name: 'Sara Mansour', role: 'Zamalek',   rating: 5, text: 'Best laundry service in Cairo by far. Affordable, fast, and professional.' },
 ];
 
+const footerBottomLinks = [
+  { label: 'Privacy Policy', href: '/privacy-policy' },
+  { label: 'Terms of Service', href: '/terms-of-service' },
+  { label: 'Help Center', href: '/help' },
+];
+
 // ── Reusable scroll-reveal section ───────────────────────────────────────────
 function Section({ children, className = '', style }: { children: React.ReactNode; className?: string; style?: React.CSSProperties }) {
   const ref = useRef(null);
@@ -81,6 +87,42 @@ export default function Home() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [nearbyPreview, setNearbyPreview] = useState<UiLaundry[]>([]);
+  const footerSections = [
+    {
+      heading: 'Platform',
+      links: [
+        { label: 'Home', href: '/' },
+        { label: 'Find Laundries', href: '/nearby' },
+        { label: 'Services & Pricing', href: '/services' },
+        { label: 'Help Center', href: '/help' },
+      ],
+    },
+    {
+      heading: 'Account',
+      links: isLoggedIn
+        ? [
+            { label: 'My Orders', href: '/orders' },
+            { label: 'Wallet', href: '/wallet' },
+            { label: 'Profile', href: '/profile' },
+            { label: 'Preferences', href: '/preferences' },
+          ]
+        : [
+            { label: 'Sign In', href: '/login?from=%2F' },
+            { label: 'Create Account', href: '/signup?from=%2F' },
+            { label: 'Find Laundries', href: '/nearby' },
+            { label: 'Help Center', href: '/help' },
+          ],
+    },
+    {
+      heading: 'Support & Legal',
+      links: [
+        { label: 'Contact Support', href: '/help' },
+        { label: 'Track an Order', href: '/orders' },
+        { label: 'Privacy Policy', href: '/privacy-policy' },
+        { label: 'Terms of Service', href: '/terms-of-service' },
+      ],
+    },
+  ];
 
   const handleProtectedNavigation = (target: string) => {
     if (!isLoggedIn) {
@@ -112,10 +154,10 @@ export default function Home() {
   }, []);
 
   return (
-    <div className="min-h-screen overflow-x-clip" dir="ltr">
+    <div className="ndeef-home-page min-h-screen overflow-x-clip" dir="ltr">
 
       {/* ── HERO ──────────────────────────────────────────────────────────── */}
-      <section className="relative overflow-hidden bg-[#0d3d50] min-h-screen flex items-center">
+      <section className="ndeef-home-hero relative overflow-hidden bg-[#0d3d50] min-h-screen flex items-center">
         {/* Background image */}
         <div className="absolute inset-0">
           <ImageWithFallback
@@ -230,7 +272,7 @@ export default function Home() {
               style={{ perspective: 800 }}
             >
               {/* Main card */}
-              <div className="bg-white rounded-3xl p-6 shadow-2xl">
+              <div className="ndeef-home-card bg-white rounded-3xl p-6 shadow-2xl border border-white/10">
                 <div className="flex items-center gap-3 mb-4">
                   <div className="w-12 h-12 rounded-2xl bg-[#1D6076]/10 flex items-center justify-center">
                     <Sparkles size={22} className="text-[#1D6076]" strokeWidth={1.8} />
@@ -247,7 +289,7 @@ export default function Home() {
                       initial={{ opacity: 0, x: -16 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ delay: 0.6 + i * 0.12, duration: 0.4, ease: 'easeOut' }}
-                      className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2.5"
+                      className="ndeef-home-card-soft flex items-center justify-between bg-gray-50 rounded-xl px-4 py-2.5"
                     >
                       <span className="text-sm text-gray-700">{s}</span>
                       <span className="text-xs font-semibold text-[#1D6076]">{['18', '45', '8'][i]} EGP</span>
@@ -274,7 +316,7 @@ export default function Home() {
 
               {/* Floating delivered badge */}
               <motion.div
-                className="absolute bottom-3 left-3 bg-white rounded-2xl px-3 py-2 shadow-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-100"
+                className="ndeef-home-card-soft absolute bottom-3 left-3 bg-white rounded-2xl px-3 py-2 shadow-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-100"
                 animate={{ y: [0, 6, 0] }}
                 transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.7 }}
               >
@@ -347,9 +389,9 @@ export default function Home() {
       </Section>
 
       {/* ── NEARBY LAUNDRIES PREVIEW ──────────────────────────────────────── */}
-      <Section className="py-14 md:py-16 lg:py-20" style={{ background: 'linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)' }}>
+      <Section className="ndeef-home-brand-section py-14 md:py-16 lg:py-20" style={{ background: 'linear-gradient(135deg, #1D6076 0%, #0d3d50 100%)' }}>
         <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-7 rounded-[2rem] border border-white/10 bg-white/8 p-5 backdrop-blur-sm md:mb-8 md:p-7">
+          <div className="ndeef-home-muted-panel mb-7 rounded-[2rem] border border-white/10 bg-white/8 p-5 backdrop-blur-sm md:mb-8 md:p-7">
             <div className="flex flex-col gap-5 md:flex-row md:items-end md:justify-between">
               <div className="max-w-2xl">
                 <motion.span
@@ -417,7 +459,7 @@ export default function Home() {
                   whileTap={{ scale: 0.99 }}
                   transition={{ type: 'spring', stiffness: 300, damping: 22 }}
                 >
-                  <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-white/96 shadow-[0_24px_60px_rgba(2,19,26,0.20)]">
+                  <div className="ndeef-home-card overflow-hidden rounded-[2rem] border border-white/10 bg-white/96 shadow-[0_24px_60px_rgba(2,19,26,0.20)]">
                     <div className="relative h-48 overflow-hidden">
                       <motion.div whileHover={{ scale: 1.06 }} transition={{ duration: 0.5 }} className="h-full">
                         <ImageWithFallback
@@ -487,7 +529,7 @@ export default function Home() {
             )) : (
               <motion.div
                 variants={itemVariants}
-                className="md:col-span-3 rounded-[2rem] border border-white/12 bg-white/10 p-10 text-center backdrop-blur-sm"
+                className="ndeef-home-muted-panel md:col-span-3 rounded-[2rem] border border-white/12 bg-white/10 p-10 text-center backdrop-blur-sm"
               >
                 <p className="text-white text-lg font-semibold mb-2">No live laundries yet</p>
                 <p className="text-white/65 text-sm max-w-md mx-auto">
@@ -633,7 +675,7 @@ export default function Home() {
       </Section>
 
       {/* ── CTA BANNER ───────────────────────────────────────────────────── */}
-      <Section className="py-14 md:py-16" style={{ background: 'linear-gradient(135deg, #EBA050 0%, #d4832a 100%)' }}>
+      <Section className="ndeef-home-warm-section py-14 md:py-16" style={{ background: 'linear-gradient(135deg, #EBA050 0%, #d4832a 100%)' }}>
         <div className="w-full max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <motion.div
             className="text-5xl mb-5 select-none"
@@ -690,7 +732,7 @@ export default function Home() {
       </Section>
 
       {/* ── FOOTER ────────────────────────────────────────────────────────── */}
-      <footer className="bg-[#0d3d50] text-white py-10 md:py-12">
+      <footer className="ndeef-home-footer bg-[#0d3d50] text-white py-10 md:py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8 mb-8">
             <div>
@@ -700,19 +742,25 @@ export default function Home() {
                 </div>
                 <span className="text-white font-bold text-lg">Ndeef</span>
               </div>
-              <p className="text-white/50 text-sm leading-relaxed">Smart laundry platform connecting residents with local laundries in Egypt.</p>
+              <p className="text-white/50 text-sm leading-relaxed">
+                Smart laundry platform connecting residents with verified local laundries across Egypt.
+              </p>
+              <div className="mt-4 space-y-2 text-sm text-white/65">
+                <p>Pickup, cleaning, and delivery from one simple dashboard.</p>
+                <Link href="/help" className="inline-flex text-white/80 transition-colors hover:text-white">
+                  Support available through Help Center, live chat, and AI assistant.
+                </Link>
+              </div>
             </div>
-            {[
-              { heading: 'Platform', links: ['Find Laundries', 'My Orders', 'How It Works', 'Pricing'] },
-              { heading: 'Account',  links: ['Sign In', 'Register', 'Profile', 'Preferences'] },
-              { heading: 'Support',  links: ['Help Center', 'Contact Us', 'Terms of Service', 'Privacy Policy'] },
-            ].map(({ heading, links }) => (
+            {footerSections.map(({ heading, links }) => (
               <div key={heading}>
                 <p className="text-white font-semibold text-sm mb-4">{heading}</p>
                 <ul className="space-y-2.5">
-                  {links.map(l => (
-                    <li key={l}>
-                      <span className="text-white/45 text-sm hover:text-white/80 cursor-pointer transition-colors">{l}</span>
+                  {links.map(({ label, href }) => (
+                    <li key={`${heading}-${label}`}>
+                      <Link href={href} className="text-white/45 text-sm transition-colors hover:text-white/80">
+                        {label}
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -721,9 +769,11 @@ export default function Home() {
           </div>
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
             <p className="text-white/30 text-sm">© 2026 Ndeef. All rights reserved.</p>
-            <div className="flex gap-5">
-              {['Privacy', 'Terms', 'Cookies'].map(t => (
-                <span key={t} className="text-white/30 text-sm hover:text-white/60 cursor-pointer transition-colors">{t}</span>
+            <div className="flex flex-wrap items-center gap-5">
+              {footerBottomLinks.map(({ label, href }) => (
+                <Link key={label} href={href} className="text-white/30 text-sm transition-colors hover:text-white/60">
+                  {label}
+                </Link>
               ))}
             </div>
           </div>

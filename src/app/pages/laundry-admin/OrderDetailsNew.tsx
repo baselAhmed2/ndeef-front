@@ -15,7 +15,23 @@ import {
   Truck,
   XCircle,
 } from "lucide-react";
-import { getOrderById, updateOrderStatus } from "@/app/lib/laundry-admin-client";
+import {
+  assignCourierToOrder,
+  getLaundryCouriers,
+  getOrderById,
+  type LaundryCourierDTO,
+  updateOrderStatus,
+} from "@/app/lib/laundry-admin-client";
+
+const ORDER_ASSIGNMENTS_STORAGE_KEY = "nadeef:laundry-order-courier-assignments";
+
+type StoredCourierAssignment = {
+  courierId: string;
+  name: string;
+  phoneNumber: string;
+  isAvailable: boolean;
+  savedAt: string;
+};
 
 interface OrderItem {
   name: string;
@@ -41,6 +57,47 @@ interface AdminOrder {
   timeline?: Array<{ label: string; time: string; done: boolean; active?: boolean }>;
 }
 
+function readStoredAssignments(): Record<string, StoredCourierAssignment> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(ORDER_ASSIGNMENTS_STORAGE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, StoredCourierAssignment>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function readStoredAssignment(orderId: string) {
+  return readStoredAssignments()[orderId] ?? null;
+}
+
+function writeStoredAssignment(orderId: string, assignment: StoredCourierAssignment) {
+  if (typeof window === "undefined") return;
+
+  const assignments = readStoredAssignments();
+  assignments[orderId] = assignment;
+  window.localStorage.setItem(ORDER_ASSIGNMENTS_STORAGE_KEY, JSON.stringify(assignments));
+}
+
+function isSameAssignment(
+  left: StoredCourierAssignment | null,
+  right: StoredCourierAssignment | null,
+) {
+  if (left === right) return true;
+  if (!left || !right) return false;
+
+  return (
+    left.courierId === right.courierId &&
+    left.name === right.name &&
+    left.phoneNumber === right.phoneNumber &&
+    left.isAvailable === right.isAvailable &&
+    left.savedAt === right.savedAt
+  );
+}
+
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
   Delivered: { color: "#22c55e", bg: "#f0fdf4", icon: CheckCircle2 },
   Processing: { color: "#1D5B70", bg: "#f0f9ff", icon: Loader2 },
@@ -49,7 +106,24 @@ const statusConfig: Record<string, { color: string; bg: string; icon: React.Elem
   Cancelled: { color: "#ef4444", bg: "#fef2f2", icon: XCircle },
 };
 
-const statusActions = ["Processing", "Ready", "Delivered", "Cancelled"];
+const statusActions = ["Processing", "Ready", "Cancelled"];
+
+function getStatusLabel(status: string) {
+  switch (status) {
+    case "Ready":
+      return "Ready for Delivery";
+    case "Delivered":
+      return "Delivered";
+    case "Processing":
+      return "Processing";
+    case "Pending":
+      return "Pending";
+    case "Cancelled":
+      return "Cancelled";
+    default:
+      return status;
+  }
+}
 
 const currency = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -65,30 +139,140 @@ export function OrderDetailsNew() {
   const [order, setOrder] = useState<AdminOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [assigningCourier, setAssigningCourier] = useState(false);
+  const [couriersLoading, setCouriersLoading] = useState(true);
+  const [couriers, setCouriers] = useState<LaundryCourierDTO[]>([]);
+  const [selectedCourierId, setSelectedCourierId] = useState("");
+  const [assignedCourier, setAssignedCourier] = useState<StoredCourierAssignment | null>(null);
+  const [courierMessage, setCourierMessage] = useState("");
   const [error, setError] = useState("");
 
   useEffect(() => {
-    async function loadOrder() {
+    let cancelled = false;
+
+    async function loadOrder(silent = false) {
       if (!id) {
-        setError("Missing order id.");
-        setLoading(false);
+        if (!cancelled) {
+          setError("Missing order id.");
+          setLoading(false);
+        }
         return;
       }
 
       try {
-        setLoading(true);
-        setError("");
-        setOrder(await getOrderById(id));
+        if (!silent) setLoading(true);
+        if (!cancelled) setError("");
+        const nextOrder = await getOrderById(id);
+        if (!cancelled) {
+          setOrder(nextOrder);
+          setAssignedCourier(readStoredAssignment(String(nextOrder.id)));
+        }
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to load order.";
-        setError(message);
+        if (!cancelled) {
+          setError(message);
+        }
       } finally {
-        setLoading(false);
+        if (!cancelled && !silent) {
+          setLoading(false);
+        }
       }
     }
 
-    loadOrder();
-  }, [id]);
+    const refreshIfVisible = () => {
+      if (document.hidden || updating || assigningCourier) return;
+      void loadOrder(true);
+    };
+
+    void loadOrder();
+    const intervalId = window.setInterval(refreshIfVisible, 8000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [assigningCourier, id, updating]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadCouriers(silent = false) {
+      try {
+        if (!silent) setCouriersLoading(true);
+        const nextCouriers = await getLaundryCouriers();
+        if (!cancelled) {
+          setCouriers(nextCouriers);
+        }
+      } catch {
+        if (!cancelled) {
+          setCouriers([]);
+        }
+      } finally {
+        if (!cancelled && !silent) {
+          setCouriersLoading(false);
+        }
+      }
+    }
+
+    const refreshIfVisible = () => {
+      if (document.hidden || assigningCourier) return;
+      void loadCouriers(true);
+    };
+
+    void loadCouriers();
+    const intervalId = window.setInterval(refreshIfVisible, 15000);
+    window.addEventListener("focus", refreshIfVisible);
+    document.addEventListener("visibilitychange", refreshIfVisible);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.removeEventListener("focus", refreshIfVisible);
+      document.removeEventListener("visibilitychange", refreshIfVisible);
+    };
+  }, [assigningCourier]);
+
+  useEffect(() => {
+    if (!order) return;
+
+    const stored = readStoredAssignment(order.id);
+    if (stored) {
+      setAssignedCourier(stored);
+      setSelectedCourierId((current) => current || stored.courierId);
+    }
+  }, [order]);
+
+  useEffect(() => {
+    if (!couriers.length) return;
+
+    if (assignedCourier) {
+      const refreshedCourier = couriers.find((courier) => courier.courierId === assignedCourier.courierId);
+      if (refreshedCourier && order) {
+        const nextAssignment: StoredCourierAssignment = {
+          courierId: refreshedCourier.courierId,
+          name: refreshedCourier.name || assignedCourier.name || "Courier",
+          phoneNumber: refreshedCourier.phoneNumber || assignedCourier.phoneNumber || "",
+          isAvailable: refreshedCourier.isAvailable,
+          savedAt: assignedCourier.savedAt,
+        };
+        if (!isSameAssignment(assignedCourier, nextAssignment)) {
+          setAssignedCourier(nextAssignment);
+          writeStoredAssignment(order.id, nextAssignment);
+        }
+      }
+    }
+
+    if (!selectedCourierId && order) {
+      const stored = readStoredAssignment(order.id);
+      if (stored?.courierId) {
+        setSelectedCourierId(stored.courierId);
+      }
+    }
+  }, [assignedCourier, couriers, order, selectedCourierId]);
 
   const handleStatusChange = async (status: string) => {
     if (!order) return;
@@ -103,6 +287,46 @@ export function OrderDetailsNew() {
       setError(message);
     } finally {
       setUpdating(false);
+    }
+  };
+
+  const handleAssignCourier = async () => {
+    if (!order) return;
+    if (!selectedCourierId) {
+      setError("Choose a courier first.");
+      return;
+    }
+
+    try {
+      setAssigningCourier(true);
+      setError("");
+      setCourierMessage("");
+      await assignCourierToOrder(order.id, selectedCourierId);
+      const [freshOrder, freshCouriers] = await Promise.all([
+        getOrderById(order.id),
+        getLaundryCouriers().catch(() => couriers),
+      ]);
+      const chosenCourier =
+        freshCouriers.find((courier) => courier.courierId === selectedCourierId) ??
+        couriers.find((courier) => courier.courierId === selectedCourierId);
+      const nextAssignment: StoredCourierAssignment = {
+        courierId: selectedCourierId,
+        name: chosenCourier?.name || "Courier",
+        phoneNumber: chosenCourier?.phoneNumber || "",
+        isAvailable: chosenCourier?.isAvailable ?? false,
+        savedAt: new Date().toISOString(),
+      };
+      setOrder(freshOrder);
+      setCouriers(freshCouriers);
+      setAssignedCourier(nextAssignment);
+      setSelectedCourierId(selectedCourierId);
+      writeStoredAssignment(order.id, nextAssignment);
+      setCourierMessage("Courier assigned successfully.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to assign courier.";
+      setError(message);
+    } finally {
+      setAssigningCourier(false);
     }
   };
 
@@ -170,7 +394,7 @@ export function OrderDetailsNew() {
                 style={{ color: cfg.color, backgroundColor: cfg.bg }}
               >
                 <StatusIcon className="h-3.5 w-3.5" />
-                {order.status}
+                {getStatusLabel(order.status)}
               </span>
             </div>
             <p className="mt-1 text-sm text-gray-400">Placed on {order.date}</p>
@@ -199,7 +423,7 @@ export function OrderDetailsNew() {
                   : {}
               }
             >
-              {updating && order.status !== status ? "Updating..." : status}
+              {updating && order.status !== status ? "Updating..." : getStatusLabel(status)}
             </button>
           ))}
         </div>
@@ -313,13 +537,86 @@ export function OrderDetailsNew() {
             </div>
           </div>
 
+          <div className="rounded-2xl border border-gray-100 bg-white p-5">
+            <div className="mb-4 flex items-center gap-2">
+              <Truck className="h-4 w-4 text-[#1D5B70]" />
+              <h3 className="font-semibold text-gray-900">Assign Delivery</h3>
+            </div>
+
+            {couriersLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-500">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading couriers...
+              </div>
+            ) : couriers.length === 0 ? (
+              <p className="text-sm leading-6 text-gray-500">
+                No couriers are assigned to this laundry yet. Add drivers first from the drivers page.
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {assignedCourier && (
+                  <div className="rounded-xl border border-[#1D5B70]/15 bg-[#1D5B70]/5 px-3 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-[#1D5B70]">
+                      Current assigned courier
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-gray-900">
+                      {assignedCourier.name || "Courier"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      {assignedCourier.phoneNumber || "No phone available"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {assignedCourier.isAvailable ? "Available" : "Offline"} · saved in dashboard
+                    </p>
+                  </div>
+                )}
+
+                <select
+                  value={selectedCourierId}
+                  onChange={(event) => {
+                    setSelectedCourierId(event.target.value);
+                    setCourierMessage("");
+                    setError("");
+                  }}
+                  className="h-11 w-full rounded-xl border border-gray-200 bg-white px-3 text-sm text-gray-700 outline-none transition focus:border-[#1D5B70] focus:ring-4 focus:ring-[#1D5B70]/10"
+                >
+                  <option value="">Select a courier</option>
+                  {couriers.map((courier) => (
+                    <option key={courier.courierId} value={courier.courierId}>
+                      {courier.name || "Courier"}{courier.isAvailable ? " - Available" : " - Offline"}
+                    </option>
+                  ))}
+                </select>
+
+                <button
+                  onClick={handleAssignCourier}
+                  disabled={assigningCourier || !selectedCourierId}
+                  className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#1D5B70] text-sm font-semibold text-white transition hover:bg-[#17495a] disabled:opacity-50"
+                >
+                  {assigningCourier ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Truck className="h-4 w-4" />
+                  )}
+                  Assign courier to order
+                </button>
+
+                {courierMessage && (
+                  <div className="rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-sm font-medium text-green-700">
+                    {courierMessage}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="rounded-2xl border border-orange-100 bg-orange-50 p-5">
             <div className="flex items-start gap-3">
               <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-[#EBA050]" />
               <div>
                 <h3 className="font-semibold text-gray-900">Status Sync</h3>
                 <p className="mt-1 text-sm leading-6 text-gray-600">
-                  Status updates are sent directly to the backend order endpoint.
+                  Mark the order as ready for delivery here. Delivered status is set automatically when the courier confirms delivery to the customer.
                 </p>
               </div>
             </div>
@@ -353,7 +650,7 @@ export function OrderDetailsNew() {
                     ) : (
                       <ActionIcon className="h-4 w-4" />
                     )}
-                    {status}
+                    {getStatusLabel(status)}
                   </button>
                 );
               })}

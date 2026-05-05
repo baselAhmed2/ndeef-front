@@ -1,6 +1,7 @@
 import { laundries } from '../data/laundries';
 
 export const BACKEND_PROXY_BASE = "/api/backend";
+const ENABLE_MOCK_LAUNDRY_FALLBACK = false;
 
 function getMockBackendLaundries(): BackendLaundryDto[] {
   return laundries.map(l => ({
@@ -167,6 +168,36 @@ export interface BackendOrderTrackDto {
   estimatedDeliveryTime: string | null;
   courierLatitude: number | null;
   courierLongitude: number | null;
+}
+
+export interface BackendOrderReviewCheckDto {
+  hasRating: boolean;
+  rating?: number | null;
+  comment?: string | null;
+  HasRating?: boolean;
+  Rating?: number | null;
+  Comment?: string | null;
+}
+
+export interface BackendReviewDto {
+  id: number;
+  orderId: number;
+  laundryId: number;
+  laundryName?: string | null;
+  customerName?: string | null;
+  rating: number;
+  comment?: string | null;
+  tags?: string[] | null;
+  createdAt: string;
+  Id?: number;
+  OrderId?: number;
+  LaundryId?: number;
+  LaundryName?: string | null;
+  CustomerName?: string | null;
+  Rating?: number;
+  Comment?: string | null;
+  Tags?: string[] | null;
+  CreatedAt?: string;
 }
 
 export interface PaginatedResponse<T> {
@@ -855,7 +886,10 @@ export async function getLaundriesRequest(params?: {
     const response = await request<PaginatedResponse<BackendLaundryDto>>(
       `/Laundries${query.toString() ? `?${query.toString()}` : ""}`,
     );
-    if (!response || !response.data || response.data.length === 0) {
+    if (
+      ENABLE_MOCK_LAUNDRY_FALLBACK &&
+      (!response || !response.data || response.data.length === 0)
+    ) {
       return {
         pageIndex: params?.pageIndex || 1,
         pageSize: params?.pageSize || 50,
@@ -866,6 +900,9 @@ export async function getLaundriesRequest(params?: {
     }
     return response;
   } catch (error) {
+    if (!ENABLE_MOCK_LAUNDRY_FALLBACK) {
+      throw error;
+    }
     return {
       pageIndex: params?.pageIndex || 1,
       pageSize: params?.pageSize || 50,
@@ -896,7 +933,10 @@ export async function searchLaundriesRequest(params: {
     const response = await request<PaginatedResponse<BackendLaundryDto>>(
       `/Laundries/search?${query.toString()}`,
     );
-    if (!response || !response.data || response.data.length === 0) {
+    if (
+      ENABLE_MOCK_LAUNDRY_FALLBACK &&
+      (!response || !response.data || response.data.length === 0)
+    ) {
       return {
         pageIndex: params?.pageIndex || 1,
         pageSize: params?.pageSize || 50,
@@ -907,6 +947,9 @@ export async function searchLaundriesRequest(params: {
     }
     return response;
   } catch (error) {
+    if (!ENABLE_MOCK_LAUNDRY_FALLBACK) {
+      throw error;
+    }
     return {
       pageIndex: params?.pageIndex || 1,
       pageSize: params?.pageSize || 50,
@@ -921,6 +964,9 @@ export async function getLaundryRequest(id: string | number) {
   try {
     return await request<BackendLaundryDto>(`/Laundries/${id}`);
   } catch (error) {
+    if (!ENABLE_MOCK_LAUNDRY_FALLBACK) {
+      throw error;
+    }
     const mock = getMockBackendLaundries().find(l => String(l.id) === String(id));
     if (mock) return mock;
     throw error;
@@ -930,12 +976,15 @@ export async function getLaundryRequest(id: string | number) {
 export async function getLaundryServicesRequest(id: string | number) {
   try {
     const res = await request<BackendServiceDto[]>(`/Laundries/${id}/services`);
-    if (!res || res.length === 0) {
+    if (ENABLE_MOCK_LAUNDRY_FALLBACK && (!res || res.length === 0)) {
       const mock = getMockBackendLaundries().find(l => String(l.id) === String(id));
       if (mock) return mock.services;
     }
     return res;
   } catch (error) {
+    if (!ENABLE_MOCK_LAUNDRY_FALLBACK) {
+      throw error;
+    }
     const mock = getMockBackendLaundries().find(l => String(l.id) === String(id));
     if (mock) return mock.services;
     throw error;
@@ -999,6 +1048,30 @@ export async function getOrderByIdRequest(token: string, id: string | number) {
 
 export async function trackOrderRequest(token: string, id: string | number) {
   return request<BackendOrderTrackDto>(`/Orders/${id}/track`, undefined, token);
+}
+
+export async function checkOrderReviewRequest(token: string, orderId: string | number) {
+  return request<BackendOrderReviewCheckDto>(`/Reviews/order/${orderId}`, undefined, token);
+}
+
+export async function addReviewRequest(
+  token: string,
+  payload: {
+    orderId: number;
+    laundryId: number;
+    rating: number;
+    tags?: string[];
+    comment?: string | null;
+  },
+) {
+  return request<BackendReviewDto>(
+    "/Reviews",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
 }
 
 export async function cancelOrderRequest(

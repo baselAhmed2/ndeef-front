@@ -160,7 +160,7 @@ export default function Wallet() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+      <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] flex items-center justify-center">
         <Loader2 className="animate-spin text-[#1D6076]" size={28} strokeWidth={2} />
       </div>
     );
@@ -168,7 +168,7 @@ export default function Wallet() {
 
   if (isAuthReady && !user?.token) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center px-6">
+      <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] flex items-center justify-center px-6">
         <div className="text-center">
           <p className="text-lg font-semibold text-gray-900">Please log in to access your wallet.</p>
           <Link
@@ -183,8 +183,8 @@ export default function Wallet() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc]" dir="ltr">
-      <div className="sticky top-[72px] z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
+    <div className="ndeef-page-shell min-h-screen bg-[#f8fafc]" dir="ltr">
+      <div className="ndeef-page-header sticky top-[72px] z-10 border-b border-gray-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-4xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link
             href="/"
@@ -230,7 +230,7 @@ export default function Wallet() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+          <div className="ndeef-page-card rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1D6076]/10 text-[#1D6076]">
               <Clock3 size={20} strokeWidth={2} />
             </div>

@@ -75,8 +75,8 @@ function formatHallucinatedOrders(text: string) {
 
 function normalizeArabicSpacing(text: string) {
   const phraseReplacements: Array<[string, string]> = [
-    ["تمإلغاءالطلبرقم", "تم إلغاء الطلب رقم "],
-    ["تمالغاءالطلبرقم", "تم الغاء الطلب رقم "],
+    ["تمإلغاءالطلب رقم", "تم إلغاء الطلب رقم "],
+    ["تمالغاءالطلب رقم", "تم الغاء الطلب رقم "],
     ["بنجاح.لو", "بنجاح. لو "],
     ["بنجاح،لو", "بنجاح، لو "],
     ["لوفيه", "لو فيه "],
@@ -265,6 +265,76 @@ function formatAssistantText(text: string) {
     .trim();
 }
 
+function isMostlyArabic(text: string) {
+  const arabicChars = text.match(/[\u0600-\u06FF]/g)?.length ?? 0;
+  const latinChars = text.match(/[A-Za-z]/g)?.length ?? 0;
+  return arabicChars > 0 && arabicChars >= latinChars;
+}
+
+function hasSuspiciousArabicSpacing(text: string) {
+  const arabicChars = text.match(/[\u0600-\u06FF]/g)?.length ?? 0;
+  const spaces = text.match(/\s/g)?.length ?? 0;
+  return arabicChars >= 20 && spaces <= Math.max(2, Math.floor(arabicChars / 18));
+}
+
+function improveArabicWordSpacing(text: string) {
+  let formatted = formatAssistantText(text);
+
+  if (!isMostlyArabic(formatted) || !hasSuspiciousArabicSpacing(formatted)) {
+    return formatted;
+  }
+
+  formatted = formatted
+    .replace(/([.،,:!؟])(?=\S)/g, "$1 ")
+    .replace(/([()])(?=\S)/g, "$1 ")
+    .replace(/(?<=\S)([()])/g, " $1")
+    .replace(/(\d)(?=[\u0600-\u06FF])/g, "$1 ")
+    .replace(/([\u0600-\u06FF])(?=\d)/g, "$1 ");
+
+  const glueWords = [
+    "الطلب",
+    "الطلبات",
+    "المغسلة",
+    "المغاسل",
+    "الخدمة",
+    "الخدمات",
+    "التوصيل",
+    "الاستلام",
+    "التنفيذ",
+    "التأكيد",
+    "الإلغاء",
+    "الغاء",
+    "الدفع",
+    "الاسعار",
+    "الأسعار",
+    "السعر",
+    "الحالة",
+    "المعلومات",
+    "المساعدة",
+    "مشكلة",
+    "مشكلتك",
+    "الموعد",
+    "العنوان",
+    "طلبك",
+    "طلباتك",
+    "اوردر",
+  ];
+
+  for (const word of glueWords) {
+    formatted = formatted
+      .replace(new RegExp(`([\\u0600-\\u06FF])(${word})`, "g"), "$1 $2")
+      .replace(new RegExp(`(${word})([\\u0600-\\u06FF])`, "g"), "$1 $2");
+  }
+
+  return formatted
+    .replace(/(مش)\s*(موجود)/g, "$1 $2")
+    .replace(/(لو)\s*(عايز|عندك|في|محتاج|حابب)/g, "$1 $2")
+    .replace(/(تم)\s*(التأكيد|الإلغاء|الغاء|التوصيل|الاستلام)/g, "$1 $2")
+    .replace(/(في)\s*(حالة|انتظار|المغسلة|الخدمة|التوصيل)/g, "$1 $2")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function TableCell({ content }: { content: string }) {
   const s = content.trim();
 
@@ -426,7 +496,16 @@ function renderMarkdownWithTables(rawText: string) {
 
   // If no table detected, render as a single whitespace-preserving block
   if (!text.includes("|")) {
-    return <div className="whitespace-pre-wrap break-words leading-relaxed text-sm">{formatAssistantText(text)}</div>;
+    const formattedText = improveArabicWordSpacing(text);
+    const arabic = isMostlyArabic(formattedText);
+    return (
+      <div
+        dir={arabic ? "rtl" : "ltr"}
+        className={`whitespace-pre-wrap break-words text-sm ${arabic ? "text-right leading-8" : "leading-relaxed"}`}
+      >
+        {formattedText}
+      </div>
+    );
   }
 
   const lines = text.split("\n");
@@ -491,9 +570,15 @@ function renderMarkdownWithTables(rawText: string) {
     }
 
     // Default text line
+    const formattedLine = improveArabicWordSpacing(lines[i]);
+    const arabic = isMostlyArabic(formattedLine);
     nodes.push(
-      <div key={`text-${i}`} className="whitespace-pre-wrap break-words leading-relaxed mt-1">
-        {formatAssistantText(lines[i])}
+      <div
+        key={`text-${i}`}
+        dir={arabic ? "rtl" : "ltr"}
+        className={`whitespace-pre-wrap break-words mt-1 ${arabic ? "text-right leading-8" : "leading-relaxed"}`}
+      >
+        {formattedLine}
       </div>
     );
     i += 1;
@@ -743,7 +828,7 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
                 className={
                   m.role === "user"
                     ? "max-w-full bg-[#0D47A1] text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm whitespace-pre-wrap shadow-sm inline-block"
-                    : "w-full max-w-full bg-white/95 border border-slate-200/80 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-800 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.45)] whitespace-pre-wrap overflow-hidden"
+                    : "w-full max-w-full bg-white/95 border border-slate-200/80 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-slate-800 shadow-[0_18px_42px_-32px_rgba(15,23,42,0.45)] whitespace-pre-wrap overflow-hidden leading-8 text-right"
                 }
               >
                 {m.role === "assistant" ? (

@@ -16,6 +16,7 @@ import {
   UserPlus,
   XCircle,
 } from "lucide-react";
+import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 
 function StatCard({
   label,
@@ -67,6 +68,11 @@ export default function LaundryDriversPage() {
   useEffect(() => {
     loadCouriers();
   }, []);
+
+  useAutoRefresh(() => {
+    if (saving) return;
+    return loadCouriers();
+  }, { intervalMs: 10000 });
 
   const handleAssign = async () => {
     if (!phoneNumber.trim()) {
