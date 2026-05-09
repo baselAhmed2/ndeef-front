@@ -72,6 +72,7 @@ export interface BackendUserProfileDto {
   lastName: string;
   email: string;
   phone: string | null;
+  avatarUrl?: string | null;
   createdAt: string;
 }
 
@@ -198,6 +199,70 @@ export interface BackendReviewDto {
   Comment?: string | null;
   Tags?: string[] | null;
   CreatedAt?: string;
+}
+
+export interface BackendRatingSummaryDto {
+  averageRating: number;
+  totalReviews: number;
+  starCounts?: Record<string, number> | null;
+  AverageRating?: number;
+  TotalReviews?: number;
+  StarCounts?: Record<string, number> | null;
+}
+
+export interface BackendUserStatsDto {
+  completedOrders: number;
+  activeOrders: number;
+  totalSpent: number;
+  points: number;
+  savedAddresses: number;
+  favoriteLaundries: number;
+}
+
+export interface BackendUserPaymentMethodDto {
+  id: number;
+  type: string | number;
+  cardLast4: string;
+  cardBrand: string | number;
+  expiryMonth: string;
+  expiryYear: string;
+  cardholderName: string;
+  isDefault: boolean;
+  createdAt: string;
+}
+
+export interface BackendFavoriteLaundryDto {
+  id: number;
+  laundryId: number;
+  laundryName: string;
+  laundryAddress: string;
+  averageRating: number;
+  addedAt: string;
+}
+
+export interface BackendPointTransactionDto {
+  id: number;
+  points: number;
+  type: string | number;
+  description: string;
+  orderId?: number | null;
+  createdAt: string;
+}
+
+export interface BackendUserPointsDto {
+  totalPoints: number;
+  history: BackendPointTransactionDto[];
+}
+
+export interface BackendUserSettingsDto {
+  language: string | number;
+  currency: string | number;
+  pushNotifications: boolean;
+  emailNotifications: boolean;
+  smsNotifications: boolean;
+  whatsappNotifications: boolean;
+  showProfile: boolean;
+  shareData: boolean;
 }
 
 export interface PaginatedResponse<T> {
@@ -719,6 +784,31 @@ export async function getUserProfileRequest(token: string) {
   return request<BackendUserProfileDto>("/User/profile", undefined, token);
 }
 
+export async function uploadUserAvatarRequest(token: string, formData: FormData) {
+  const headers = new Headers();
+  headers.set("authorization", `Bearer ${token}`);
+
+  const response = await fetch(`${BACKEND_PROXY_BASE}/User/avatar`, {
+    method: "POST",
+    body: formData,
+    headers,
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+  const data = text ? safeJsonParse(text) : null;
+
+  if (!response.ok) {
+    throw new ApiError(
+      getErrorMessage(data, `Request failed with status ${response.status}.`),
+      response.status,
+      data,
+    );
+  }
+
+  return data as { avatarUrl?: string; AvatarUrl?: string };
+}
+
 export async function updateUserProfileRequest(
   token: string,
   payload: {
@@ -740,6 +830,22 @@ export async function updateUserProfileRequest(
 
 export async function getUserAddressesRequest(token: string) {
   return request<BackendAddressDto[]>("/User/addresses", undefined, token);
+}
+
+export async function deleteUserAddressRequest(token: string, addressId: number) {
+  return request<{ message?: string; Message?: string }>(
+    `/User/addresses/${addressId}`,
+    { method: "DELETE" },
+    token,
+  );
+}
+
+export async function setDefaultUserAddressRequest(token: string, addressId: number) {
+  return request<{ message?: string; Message?: string }>(
+    `/User/addresses/${addressId}/set-default`,
+    { method: "PUT" },
+    token,
+  );
 }
 
 export async function addUserAddressRequest(
@@ -832,6 +938,115 @@ export async function chargeWalletRequest(token: string, amount: number) {
 
 export async function getPaymentHistoryRequest(token: string) {
   return request<BackendWalletHistoryItemDto[]>("/Payments/history", undefined, token);
+}
+
+export async function getOrderPaymentRequest(token: string, orderId: string | number) {
+  return request<BackendPaymentDto>(`/Orders/${orderId}/payment`, undefined, token);
+}
+
+export async function getUserStatsRequest(token: string) {
+  return request<BackendUserStatsDto>("/User/stats", undefined, token);
+}
+
+export async function getUserPaymentMethodsRequest(token: string) {
+  return request<BackendUserPaymentMethodDto[]>("/User/payment-methods", undefined, token);
+}
+
+export async function addUserPaymentMethodRequest(
+  token: string,
+  payload: {
+    type: string;
+    cardNumber: string;
+    cardholderName: string;
+    expiryMonth: string;
+    expiryYear: string;
+    cvv: string;
+    isDefault?: boolean;
+  },
+) {
+  return request<BackendUserPaymentMethodDto>(
+    "/User/payment-methods",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function deleteUserPaymentMethodRequest(token: string, paymentMethodId: number) {
+  return request<{ message?: string; Message?: string }>(
+    `/User/payment-methods/${paymentMethodId}`,
+    { method: "DELETE" },
+    token,
+  );
+}
+
+export async function setDefaultUserPaymentMethodRequest(token: string, paymentMethodId: number) {
+  return request<{ message?: string; Message?: string }>(
+    `/User/payment-methods/${paymentMethodId}/set-default`,
+    { method: "PUT" },
+    token,
+  );
+}
+
+export async function getUserFavoritesRequest(token: string) {
+  return request<BackendFavoriteLaundryDto[]>("/User/favorites", undefined, token);
+}
+
+export async function addUserFavoriteRequest(token: string, laundryId: number) {
+  return request<{ message?: string; Message?: string }>(
+    "/User/favorites",
+    {
+      method: "POST",
+      body: JSON.stringify(laundryId),
+    },
+    token,
+  );
+}
+
+export async function removeUserFavoriteRequest(token: string, laundryId: number) {
+  return request<{ message?: string; Message?: string }>(
+    `/User/favorites/${laundryId}`,
+    { method: "DELETE" },
+    token,
+  );
+}
+
+export async function getUserPointsRequest(token: string) {
+  return request<BackendUserPointsDto>("/User/points", undefined, token);
+}
+
+export async function redeemUserPointsRequest(
+  token: string,
+  payload: { points: number; rewardId: string },
+) {
+  return request<{ message?: string; Message?: string }>(
+    "/User/points/redeem",
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}
+
+export async function getUserSettingsRequest(token: string) {
+  return request<BackendUserSettingsDto>("/User/settings", undefined, token);
+}
+
+export async function updateUserSettingsRequest(
+  token: string,
+  payload: Partial<BackendUserSettingsDto>,
+) {
+  return request<BackendUserSettingsDto>(
+    "/User/settings",
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
 }
 
 export async function changePasswordRequest(
@@ -989,6 +1204,14 @@ export async function getLaundryServicesRequest(id: string | number) {
     if (mock) return mock.services;
     throw error;
   }
+}
+
+export async function getLaundryReviewsRequest(id: string | number) {
+  return request<BackendReviewDto[]>(`/Laundries/${id}/reviews`);
+}
+
+export async function getLaundryRatingSummaryRequest(id: string | number) {
+  return request<BackendRatingSummaryDto>(`/Laundries/${id}/rating-summary`);
 }
 
 export async function calculatePriceRequest(

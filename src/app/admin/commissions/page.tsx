@@ -8,7 +8,6 @@ import {
   ArrowUpRight,
   CheckCircle2,
   LoaderCircle,
-  Mail,
   RefreshCw,
   Search,
   Wallet,
@@ -20,7 +19,6 @@ import {
   apiRequest,
   ApiError,
   getAllLaundryCommissions,
-  sendPaymentReminder,
 } from "@/app/lib/admin-api";
 import type {
   LaundryDebtRecord,
@@ -71,7 +69,6 @@ export default function CommissionsPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "laundries" | "transactions">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [sendingReminder, setSendingReminder] = useState<string | null>(null);
 
   useEffect(() => {
     void fetchCommissions();
@@ -137,19 +134,6 @@ export default function CommissionsPage() {
     paid: laundryCommissions?.filter((l) => l.paymentStatus === "paid").length ?? 0,
     pending: laundryCommissions?.filter((l) => l.paymentStatus === "pending").length ?? 0,
     overdue: laundryCommissions?.filter((l) => l.paymentStatus === "overdue").length ?? 0,
-  };
-
-  // Handle sending payment reminder
-  const handleSendReminder = async (laundryId: string) => {
-    try {
-      setSendingReminder(laundryId);
-      await sendPaymentReminder(laundryId);
-      alert("Payment reminder sent successfully!");
-    } catch (error) {
-      alert("Failed to send reminder. Please try again.");
-    } finally {
-      setSendingReminder(null);
-    }
   };
 
   const highestDebt = data.laundryDebts.reduce<LaundryDebtRecord | null>(
@@ -345,6 +329,11 @@ export default function CommissionsPage() {
                 </div>
               </div>
 
+              <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                This section uses the real backend route <code className="rounded bg-white px-1">GET /api/admin/laundries/commission-status</code>.
+                Manual reminders and payment actions are hidden because the current backend does not expose them yet.
+              </div>
+
               {/* Laundries Table */}
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
@@ -357,7 +346,6 @@ export default function CommissionsPage() {
                       <th className="font-semibold text-slate-500 text-sm py-4 px-6">Paid</th>
                       <th className="font-semibold text-slate-500 text-sm py-4 px-6">Status</th>
                       <th className="font-semibold text-slate-500 text-sm py-4 px-6">Last Payment</th>
-                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -384,26 +372,12 @@ export default function CommissionsPage() {
                           </span>
                         </td>
                         <td className="py-4 px-6 text-slate-400 text-sm">
-                          {laundry.lastPaymentDate ? formatDateTime(laundry.lastPaymentDate) : "Never"}
-                        </td>
-                        <td className="py-4 px-6">
-                          <button
-                            onClick={() => handleSendReminder(laundry.laundryId)}
-                            disabled={sendingReminder === laundry.laundryId}
-                            className="p-2 text-slate-400 hover:text-[#2A5C66] hover:bg-[#2A5C66]/10 rounded-lg transition-colors disabled:opacity-50"
-                            title="Send payment reminder"
-                          >
-                            {sendingReminder === laundry.laundryId ? (
-                              <LoaderCircle size={18} className="animate-spin" />
-                            ) : (
-                              <Mail size={18} />
-                            )}
-                          </button>
+                          {laundry.lastPaymentDate ? formatDateTime(laundry.lastPaymentDate) : "Unavailable"}
                         </td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={8} className="py-8 text-center text-slate-500">
+                        <td colSpan={7} className="py-8 text-center text-slate-500">
                           {laundryCommissions === null ? "Loading..." : "No laundries found."}
                         </td>
                       </tr>

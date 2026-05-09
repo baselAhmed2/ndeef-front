@@ -129,7 +129,37 @@ export async function getAllLaundryCommissions(): Promise<Array<{
     status: "completed" | "pending" | "failed";
   }>;
 }>> {
-  return apiRequest("/superadmin/commissions");
+  const payload = await apiRequest<Array<{
+    laundryId: number;
+    laundryName: string;
+    adminId?: string;
+    adminName?: string;
+    adminPhone?: string;
+    totalRevenue: number;
+    commissionRate: number;
+    commissionPaid: number;
+    commissionDue: number;
+    status: string;
+    pendingPaymentsCount?: number;
+  }>>("/admin/laundries/commission-status");
+
+  return payload.map((entry) => ({
+    laundryId: String(entry.laundryId),
+    laundryName: entry.laundryName,
+    ownerName: entry.adminName ?? "Laundry admin",
+    totalRevenue: Number(entry.totalRevenue ?? 0),
+    commissionRate: Number(entry.commissionRate ?? 0),
+    commissionDue: Number(entry.commissionDue ?? 0),
+    commissionPaid: Number(entry.commissionPaid ?? 0),
+    lastPaymentDate: null,
+    paymentStatus:
+      Number(entry.commissionDue ?? 0) <= 0
+        ? "paid"
+        : Number(entry.pendingPaymentsCount ?? 0) > 0
+          ? "overdue"
+          : "pending",
+    paymentHistory: [],
+  }));
 }
 
 // Super Admin: Get commission payment details for a specific laundry
@@ -156,7 +186,29 @@ export async function getLaundryCommissionDetails(laundryId: string): Promise<{
     reference?: string;
   }>;
 }> {
-  return apiRequest(`/superadmin/commissions/${laundryId}`);
+  const laundries = await getAllLaundryCommissions();
+  const match = laundries.find((entry) => entry.laundryId === laundryId);
+
+  if (!match) {
+    throw new ApiError("Laundry commission details were not found.", 404);
+  }
+
+  return {
+    laundryId: match.laundryId,
+    laundryName: match.laundryName,
+    ownerName: match.ownerName,
+    email: "",
+    phone: "",
+    totalRevenue: match.totalRevenue,
+    commissionRate: match.commissionRate,
+    commissionDue: match.commissionDue,
+    commissionPaid: match.commissionPaid,
+    remainingBalance: Math.max(match.commissionDue - match.commissionPaid, 0),
+    lastPaymentDate: match.lastPaymentDate,
+    paymentStatus: match.paymentStatus,
+    ordersCount: 0,
+    paymentHistory: [],
+  };
 }
 
 // Super Admin: Record manual commission payment (cash/bank transfer)
@@ -166,15 +218,16 @@ export async function recordCommissionPayment(laundryId: string, payment: {
   reference?: string;
   notes?: string;
 }): Promise<{ success: boolean; message: string; paymentId: string }> {
-  return apiRequest(`/superadmin/commissions/${laundryId}/payments`, {
-    method: "POST",
-    body: JSON.stringify(payment),
-  });
+  throw new ApiError(
+    "Manual commission payments are not exposed by the current backend endpoints yet.",
+    501,
+  );
 }
 
 // Super Admin: Send payment reminder to laundry admin
 export async function sendPaymentReminder(laundryId: string): Promise<{ success: boolean; message: string }> {
-  return apiRequest(`/superadmin/commissions/${laundryId}/remind`, {
-    method: "POST",
-  });
+  throw new ApiError(
+    `Payment reminders are not exposed by the current backend for laundry ${laundryId}.`,
+    501,
+  );
 }

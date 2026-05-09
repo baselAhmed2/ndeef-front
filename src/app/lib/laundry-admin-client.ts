@@ -1461,17 +1461,11 @@ function mapRecentOrder(order: BackendRecentOrder) {
 }
 
 export async function uploadCommercialRegister(
-  formData: FormData,
+  _formData: FormData,
 ): Promise<any> {
-  const { getStoredAuthToken } = await import("@/app/lib/auth-storage");
-  const token = getStoredAuthToken();
-  const res = await fetch("/api/backend/verification/commercial-register", {
-    method: "POST",
-    headers: token ? { Authorization: `Bearer ${token}` } : {},
-    body: formData,
-  });
-  if (!res.ok) throw new Error("Failed to upload register");
-  return res.json();
+  throw new Error(
+    "Commercial register upload is not exposed by the current backend. Use the identity verification flow instead.",
+  );
 }
 
 export async function getVerificationStatus(): Promise<{
@@ -1483,7 +1477,7 @@ export async function getVerificationStatus(): Promise<{
   return {
     isIdentityVerified: Boolean(status.isIdentityVerified ?? status.isVerified),
     role: status.role ?? "",
-    commercialRegisterDocumentUrl: status.commercialRegisterDocumentUrl ?? null,
+    commercialRegisterDocumentUrl: null,
   };
 }
 

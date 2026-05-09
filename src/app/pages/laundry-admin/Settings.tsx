@@ -8,7 +8,6 @@ import {
   getProfile,
   saveLaundryProfile,
   startVerificationSession,
-  uploadCommercialRegister,
   uploadServiceImage,
 } from "@/app/lib/laundry-admin-client";
 import {
@@ -36,8 +35,6 @@ import {
   AlertCircle,
   WashingMachine,
   ShieldCheck,
-  FileCheck2,
-  UploadCloud,
   Loader2,
 } from "lucide-react";
 
@@ -231,10 +228,7 @@ export function Settings() {
   };
 
   const photoInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [commRegFile, setCommRegFile] = useState<File | null>(null);
   const [verifying, setVerifying] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
   const handleYakeenVerification = async () => {
     try {
@@ -244,21 +238,6 @@ export function Settings() {
     } catch (e) {
       console.error(e);
       setTimeout(() => setVerifying(false), 2000);
-    }
-  };
-
-  const handleUploadRegister = async () => {
-    if (!commRegFile) return;
-    try {
-      setUploading(true);
-      const formData = new FormData();
-      formData.append("file", commRegFile);
-      await uploadCommercialRegister(formData);
-      setCommRegFile(null);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setUploading(false);
     }
   };
 
@@ -710,37 +689,15 @@ export function Settings() {
                 <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex flex-col justify-between">
                   <div>
                     <h4 className="font-medium text-gray-900 text-sm mb-1">Commercial Register</h4>
-                    <p className="text-xs text-gray-400 mb-4">Upload your CR certificate</p>
+                    <p className="text-xs text-gray-400 mb-4">Follow the current backend-supported verification guidance</p>
                   </div>
-                  <div className="space-y-2">
-                    <input 
-                      type="file" 
-                      className="hidden" 
-                      ref={fileInputRef} 
-                      onChange={(e) => setCommRegFile(e.target.files?.[0] || null)}
-                    />
-                    {!commRegFile ? (
-                      <button 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full h-9 flex items-center justify-center gap-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-white transition-colors"
-                      >
-                        <UploadCloud className="w-4 h-4" /> Select PDF/Image
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 min-w-0 bg-white border border-gray-200 h-9 px-3 rounded-lg flex items-center">
-                          <span className="text-xs text-gray-600 truncate">{commRegFile.name}</span>
-                        </div>
-                        <button 
-                          onClick={handleUploadRegister}
-                          disabled={uploading}
-                          className="h-9 px-3 shrink-0 flex items-center justify-center text-sm font-medium rounded-lg text-white bg-green-600 hover:bg-green-700 transition-colors disabled:opacity-50"
-                        >
-                          {uploading ? "..." : <FileCheck2 className="w-4 h-4" />}
-                        </button>
-                      </div>
-                    )}
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => router.push("/laundry-admin/commercial-register")}
+                    className="w-full h-9 flex items-center justify-center gap-2 text-sm font-medium rounded-lg border border-gray-200 text-gray-600 hover:bg-white transition-colors"
+                  >
+                    Open Guidance
+                  </button>
                 </div>
               </div>
             </div>

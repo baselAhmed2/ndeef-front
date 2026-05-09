@@ -10,6 +10,7 @@ import {
   Shield,
   Zap,
   CreditCard,
+  Heart,
   AlertCircle,
   WifiOff,
   Package,
@@ -20,13 +21,23 @@ import {
 } from "lucide-react";
 import {
   ApiError,
+  BackendFavoriteLaundryDto,
+  BackendRatingSummaryDto,
+  BackendReviewDto,
   UiLaundry,
   UiServiceItem,
+  addUserFavoriteRequest,
   categoryLabels,
   categoryOrder,
   getLaundryRequest,
+  getLaundryRatingSummaryRequest,
+  getLaundryReviewsRequest,
+  getUserFavoritesRequest,
   mapLaundryDtoToUiLaundry,
+  removeUserFavoriteRequest,
 } from "@/app/lib/api";
+import { useAuth } from "../context/AuthContext";
+import { toast } from "sonner";
 
 type FlowState =
   | "loading"
@@ -173,9 +184,13 @@ export default function LaundryDetails() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
   const router = useRouter();
+  const { user } = useAuth();
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [laundry, setLaundry] = useState<UiLaundry | null>(null);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [reviews, setReviews] = useState<BackendReviewDto[]>([]);
+  const [ratingSummary, setRatingSummary] = useState<BackendRatingSummaryDto | null>(null);
+  const [favoriteLaundryIds, setFavoriteLaundryIds] = useState<number[]>([]);
 
   useEffect(() => {
     const runFlow = async () => {
@@ -220,6 +235,35 @@ export default function LaundryDetails() {
     runFlow();
   }, [id]);
 
+  useEffect(() => {
+    let active = true;
+
+    async function loadReviewsAndFavorites() {
+      if (!id) return;
+
+      try {
+        const [loadedReviews, loadedSummary, loadedFavorites] = await Promise.all([
+          getLaundryReviewsRequest(id).catch(() => []),
+          getLaundryRatingSummaryRequest(id).catch(() => null),
+          user?.token ? getUserFavoritesRequest(user.token).catch(() => []) : Promise.resolve([] as BackendFavoriteLaundryDto[]),
+        ]);
+
+        if (!active) return;
+        setReviews(loadedReviews);
+        setRatingSummary(loadedSummary);
+        setFavoriteLaundryIds(loadedFavorites.map((favorite) => favorite.laundryId));
+      } catch {
+        if (!active) return;
+      }
+    }
+
+    void loadReviewsAndFavorites();
+
+    return () => {
+      active = false;
+    };
+  }, [id, user?.token]);
+
   const grouped = useMemo(() => {
     if (!laundry) return [];
 
@@ -263,6 +307,29 @@ export default function LaundryDetails() {
     const params = new URLSearchParams();
     params.set("services", selectedServiceIds.join(","));
     router.push(`/order/${laundry.id}?${params.toString()}`);
+  };
+
+  const isFavorite = laundry ? favoriteLaundryIds.includes(Number(laundry.id)) : false;
+
+  const handleFavoriteToggle = async () => {
+    if (!user?.token || !laundry) {
+      router.push(`/login?from=/laundry/${id}`);
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await removeUserFavoriteRequest(user.token, Number(laundry.id));
+        setFavoriteLaundryIds((current) => current.filter((entry) => entry !== Number(laundry.id)));
+        toast.success("Removed from favorites.");
+      } else {
+        await addUserFavoriteRequest(user.token, Number(laundry.id));
+        setFavoriteLaundryIds((current) => [...current, Number(laundry.id)]);
+        toast.success("Added to favorites.");
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to update favorites.");
+    }
   };
 
   const features = [
@@ -360,6 +427,20 @@ export default function LaundryDetails() {
                   </p>
                   <h2 className="mt-2 text-2xl font-semibold text-slate-950">{laundry.name}</h2>
                 </div>
+              <button
+                type="button"
+                onClick={() => void handleFavoriteToggle()}
+                className={`shrink-0 rounded-2xl border px-4 py-2 text-sm font-semibold transition ${
+                  isFavorite
+                    ? "border-red-200 bg-red-50 text-red-600"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Heart size={15} fill={isFavorite ? "currentColor" : "none"} />
+                  {isFavorite ? "Saved" : "Save"}
+                </span>
+              </button>
               {!laundry.isAvailable && (
                 <span className="text-xs text-orange-600 bg-orange-50 border border-orange-200 px-3 py-1.5 rounded-full flex items-center gap-1 shrink-0 font-semibold dark:text-orange-300 dark:bg-orange-500/10 dark:border-orange-400/20">
                   <Info size={10} strokeWidth={2.5} />
@@ -445,6 +526,61 @@ export default function LaundryDetails() {
                   </div>
                 ))}
               </div>
+            </div>
+
+            <div className="ndeef-page-card bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5">
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <p className="text-xs font-semibold text-slate-500 tracking-[0.22em] uppercase">
+                    Reviews
+                  </p>
+                  <h3 className="mt-2 text-xl font-semibold text-slate-950">
+                    Real customer feedback
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-slate-950">
+                    {Number(
+                      ratingSummary?.averageRating ??
+                        ratingSummary?.AverageRating ??
+                        laundry.rating,
+                    ).toFixed(1)}
+                  </p>
+                  <p className="text-xs text-slate-400">
+                    {Number(
+                      ratingSummary?.totalReviews ??
+                        ratingSummary?.TotalReviews ??
+                        laundry.reviews,
+                    )}{" "}
+                    reviews
+                  </p>
+                </div>
+              </div>
+
+              {reviews.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+                  No reviews were returned by the backend for this laundry yet.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {reviews.slice(0, 4).map((review) => (
+                    <div key={review.id ?? review.Id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="font-semibold text-slate-900">
+                          {review.customerName ?? review.CustomerName ?? "Customer"}
+                        </p>
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-700">
+                          <Star size={11} className="fill-current" />
+                          {Number(review.rating ?? review.Rating ?? 0).toFixed(1)}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-6 text-slate-600">
+                        {(review.comment ?? review.Comment ?? "").trim() || "No written comment was added."}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
