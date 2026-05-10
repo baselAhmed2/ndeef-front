@@ -1331,3 +1331,43 @@ export async function processPaymentRequest(
     token,
   );
 }
+
+// ── Payout Profile ─────────────────────────────────────────────────────────
+
+export enum PayoutTransferMethod {
+  BankAccount = 1,
+  MobileWallet = 2,
+  Card = 3,
+  OctoCard = 4,
+}
+
+export enum PayoutTransferType {
+  Standard = 1,
+  Instant = 2,
+}
+
+export interface UpsertPayoutProfileRequest {
+  transferMethod: PayoutTransferMethod;
+  transferType?: PayoutTransferType | null;
+  recipientFullName: string;
+  recipientMobileNumber?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  cardNumber?: string | null;
+  nationalId?: string | null;
+}
+
+export async function getPayoutProfile(token: string) {
+  return request<UpsertPayoutProfileRequest>("/laundry-admin/payout-profile", { method: "GET" }, token);
+}
+
+export async function upsertPayoutProfile(token: string, payload: UpsertPayoutProfileRequest) {
+  return request<UpsertPayoutProfileRequest>(
+    "/laundry-admin/payout-profile",
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+    token,
+  );
+}

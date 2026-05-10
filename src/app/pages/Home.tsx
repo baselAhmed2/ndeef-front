@@ -8,27 +8,27 @@ import { getLaundriesRequest, mapLaundryDtoToUiLaundry, UiLaundry } from '@/app/
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 
-const HERO_IMG       = 'https://images.unsplash.com/photo-1596433904747-e8b061219a71?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1400';
-const DELIVERY_IMG   = 'https://images.unsplash.com/photo-1576192350050-d9e08ee1f122?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
-const WASHING_IMG    = 'https://images.unsplash.com/photo-1631323272727-6418cf55f287?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const HERO_IMG = 'https://images.unsplash.com/photo-1596433904747-e8b061219a71?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1400';
+const DELIVERY_IMG = 'https://images.unsplash.com/photo-1576192350050-d9e08ee1f122?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
+const WASHING_IMG = 'https://images.unsplash.com/photo-1631323272727-6418cf55f287?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
 
 const steps = [
-  { n: '01', title: 'Find a Laundry',    desc: 'Browse verified laundries near your location, compare prices and ratings.',              icon: MapPin,      color: '#1D6076', bg: '#EFF8FB' },
-  { n: '02', title: 'Place Your Order',  desc: 'Choose services, set a pickup time, and confirm your order in seconds.',               icon: Sparkles,   color: '#EBA050', bg: '#FFF7ED' },
-  { n: '03', title: 'Track & Receive',   desc: 'Follow your order in real time and receive your clean clothes at your door.',           icon: CheckCircle, color: '#059669', bg: '#ECFDF5' },
+  { n: '01', title: 'Find a Laundry', desc: 'Browse verified laundries near your location, compare prices and ratings.', icon: MapPin, color: '#1D6076', bg: '#EFF8FB' },
+  { n: '02', title: 'Place Your Order', desc: 'Choose services, set a pickup time, and confirm your order in seconds.', icon: Sparkles, color: '#EBA050', bg: '#FFF7ED' },
+  { n: '03', title: 'Track & Receive', desc: 'Follow your order in real time and receive your clean clothes at your door.', icon: CheckCircle, color: '#059669', bg: '#ECFDF5' },
 ];
 
 const features = [
-  { icon: ShieldCheck, title: 'Verified Laundries',  desc: 'Every partner laundry is vetted for quality and reliability.',       color: '#1D6076' },
-  { icon: Clock,       title: 'Smart Scheduling',    desc: 'Pick a time slot that suits you — no waiting, no surprises.',        color: '#EBA050' },
-  { icon: Zap,         title: 'Real-Time Tracking',  desc: 'Know exactly where your order is at every step of the process.',     color: '#059669' },
-  { icon: Star,        title: 'Transparent Pricing', desc: 'See exact costs before you order — no hidden fees, ever.',           color: '#7c3aed' },
+  { icon: ShieldCheck, title: 'Verified Laundries', desc: 'Every partner laundry is vetted for quality and reliability.', color: '#1D6076' },
+  { icon: Clock, title: 'Smart Scheduling', desc: 'Pick a time slot that suits you — no waiting, no surprises.', color: '#EBA050' },
+  { icon: Zap, title: 'Real-Time Tracking', desc: 'Know exactly where your order is at every step of the process.', color: '#059669' },
+  { icon: Star, title: 'Transparent Pricing', desc: 'See exact costs before you order — no hidden fees, ever.', color: '#7c3aed' },
 ];
 
 const testimonials = [
-  { name: 'Nour Khalil',  role: 'New Cairo', rating: 5, text: 'Nadeef saved me so much time. My clothes come back perfectly clean every single time!' },
-  { name: 'Ahmed Tarek',  role: 'Maadi',     rating: 5, text: 'The tracking feature is a game-changer. I always know when to expect my delivery.' },
-  { name: 'Sara Mansour', role: 'Zamalek',   rating: 5, text: 'Best laundry service in Cairo by far. Affordable, fast, and professional.' },
+  { name: 'Nour Khalil', role: 'New Cairo', rating: 5, text: 'Nadeef saved me so much time. My clothes come back perfectly clean every single time!' },
+  { name: 'Ahmed Tarek', role: 'Maadi', rating: 5, text: 'The tracking feature is a game-changer. I always know when to expect my delivery.' },
+  { name: 'Sara Mansour', role: 'Zamalek', rating: 5, text: 'Best laundry service in Cairo by far. Affordable, fast, and professional.' },
 ];
 
 const footerBottomLinks = [
@@ -62,7 +62,7 @@ const listVariants = {
 } as const;
 const itemVariants = {
   hidden: { opacity: 0, y: 32, scale: 0.97 },
-  show:   { opacity: 1, y: 0,  scale: 1, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const } },
+  show: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.55, ease: [0.22, 1, 0.36, 1] as const } },
 } as const;
 
 // ── Count-up stat ────────────────────────────────────────────────────────────
@@ -101,17 +101,17 @@ export default function Home() {
       heading: 'Account',
       links: isLoggedIn
         ? [
-            { label: 'My Orders', href: '/orders' },
-            { label: 'Wallet', href: '/wallet' },
-            { label: 'Profile', href: '/profile' },
-            { label: 'Preferences', href: '/preferences' },
-          ]
+          { label: 'My Orders', href: '/orders' },
+          { label: 'Wallet', href: '/wallet' },
+          { label: 'Profile', href: '/profile' },
+          { label: 'Preferences', href: '/preferences' },
+        ]
         : [
-            { label: 'Sign In', href: '/login?from=%2F' },
-            { label: 'Create Account', href: '/signup?from=%2F' },
-            { label: 'Find Laundries', href: '/nearby' },
-            { label: 'Help Center', href: '/help' },
-          ],
+          { label: 'Sign In', href: '/login?from=%2F' },
+          { label: 'Create Account', href: '/signup?from=%2F' },
+          { label: 'Find Laundries', href: '/nearby' },
+          { label: 'Help Center', href: '/help' },
+        ],
     },
     {
       heading: 'Support & Legal',
@@ -229,7 +229,7 @@ export default function Home() {
               className="flex flex-wrap gap-3 mb-7 md:mb-8"
             >
               <Link
-                 href="/nearby"
+                href="/nearby"
                 className="flex items-center gap-2 px-7 py-4 rounded-2xl text-sm font-semibold text-white shadow-lg shadow-[#EBA050]/25 hover:shadow-xl hover:-translate-y-0.5 active:scale-[0.98] transition-all"
                 style={{ background: 'linear-gradient(135deg, #EBA050 0%, #d4832a 100%)' }}
               >
@@ -238,7 +238,7 @@ export default function Home() {
               </Link>
               {!isLoggedIn && (
                 <Link
-                   href="/signup"
+                  href="/signup"
                   className="flex items-center gap-2 px-7 py-4 rounded-2xl text-sm font-semibold text-white border border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white/20 active:scale-[0.98] transition-all"
                 >
                   Get Started Free
@@ -256,7 +256,7 @@ export default function Home() {
             >
               {[
                 { v: '500+', l: 'Orders Delivered' },
-                { v: '50+',  l: 'Partner Laundries' },
+                { v: '50+', l: 'Partner Laundries' },
                 { v: '4.9★', l: 'Average Rating' },
               ].map(({ v, l }) => <StatItem key={l} v={v} l={l} />)}
             </motion.div>
@@ -297,7 +297,7 @@ export default function Home() {
                   ))}
                 </div>
                 <Link
-                   href="/nearby"
+                  href="/nearby"
                   className="mt-4 flex items-center justify-center gap-2 w-full py-3.5 rounded-2xl text-sm font-semibold text-white transition-all"
                   style={{ background: 'linear-gradient(135deg, #1D6076 0%, #2a7a94 100%)' }}
                 >
@@ -711,7 +711,7 @@ export default function Home() {
             className="flex flex-wrap gap-3 justify-center"
           >
             <Link
-               href="/nearby"
+              href="/nearby"
               className="flex items-center gap-2 bg-white font-semibold px-8 py-4 rounded-2xl hover:bg-gray-50 hover:-translate-y-0.5 shadow-xl transition-all text-sm"
               style={{ color: '#1D6076' }}
             >
@@ -720,7 +720,7 @@ export default function Home() {
             </Link>
             {!isLoggedIn && (
               <Link
-                 href="/signup"
+                href="/signup"
                 className="flex items-center gap-2 font-semibold px-8 py-4 rounded-2xl hover:-translate-y-0.5 shadow-xl transition-all text-sm text-white"
                 style={{ background: '#0d3d50' }}
               >

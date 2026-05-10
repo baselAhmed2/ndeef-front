@@ -10,9 +10,9 @@ function NadeefLogo({ compact = false }: { compact?: boolean }) {
     <Link href="/" className="flex items-center gap-2 group shrink-0">
       <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#1D6076] to-[#2a7a94] flex items-center justify-center shadow-sm group-hover:shadow-md transition-shadow">
         <svg viewBox="0 0 24 24" fill="none" className="w-4.5 h-4.5">
-          <path d="M12 3C7.5 3 4 6.8 4 11.5C4 14.5 5.5 17.1 7.8 18.7L7 21l3-1.2c.6.2 1.3.2 2 .2 4.5 0 8-3.8 8-8.5C20 6.8 16.5 3 12 3z" fill="white" opacity="0.9"/>
-          <path d="M8.5 10.5c0-1.1.9-2 2-2s2 .9 2 2v3h-1.5v-2.5c0-.3-.2-.5-.5-.5s-.5.2-.5.5V13.5H8.5V10.5z" fill="#EBA050"/>
-          <circle cx="15" cy="11.5" r="1.5" fill="#EBA050"/>
+          <path d="M12 3C7.5 3 4 6.8 4 11.5C4 14.5 5.5 17.1 7.8 18.7L7 21l3-1.2c.6.2 1.3.2 2 .2 4.5 0 8-3.8 8-8.5C20 6.8 16.5 3 12 3z" fill="white" opacity="0.9" />
+          <path d="M8.5 10.5c0-1.1.9-2 2-2s2 .9 2 2v3h-1.5v-2.5c0-.3-.2-.5-.5-.5s-.5.2-.5.5V13.5H8.5V10.5z" fill="#EBA050" />
+          <circle cx="15" cy="11.5" r="1.5" fill="#EBA050" />
         </svg>
       </div>
       {!compact && (
@@ -74,11 +74,10 @@ export function TopNav() {
               <Link
                 key={href}
                 href={href}
-                className={`px-3.5 lg:px-4 py-2 rounded-xl text-[15px] font-medium transition-all ${
-                  isActive(href)
+                className={`px-3.5 lg:px-4 py-2 rounded-xl text-[15px] font-medium transition-all ${isActive(href)
                     ? 'ndeef-topnav-link-active bg-[#1D6076]/10 dark:bg-[#1D6076]/25'
                     : 'ndeef-topnav-link hover:bg-gray-50 dark:hover:bg-white/8'
-                }`}
+                  }`}
               >
                 {label}
               </Link>
@@ -194,11 +193,10 @@ export function TopNav() {
                   key={href}
                   href={href}
                   onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${
-                    isActive(href)
+                  className={`flex items-center gap-3 px-4 py-3.5 rounded-xl text-sm font-medium transition-all ${isActive(href)
                       ? 'bg-[#1D6076] text-white dark:bg-[#1D6076]/85'
                       : 'text-gray-700 hover:bg-gray-50 dark:text-slate-200 dark:hover:bg-white/8'
-                  }`}
+                    }`}
                 >
                   <Icon size={18} strokeWidth={2} />
                   {label}

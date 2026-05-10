@@ -23,6 +23,7 @@ import {
   Truck,
   Headphones,
   BarChart3,
+  Wallet,
 } from "lucide-react";
 
 interface LaundrySidebarProps {
@@ -39,6 +40,7 @@ const navItems = [
   { path: "/laundry-admin/drivers", label: "Drivers", icon: Truck },
   { path: "/laundry-admin/notifications", label: "Notifications", icon: Bell },
   { path: "/laundry-admin/payments", label: "Payments", icon: CreditCard },
+  { path: "/laundry-admin/payout-profile", label: "Payout Profile", icon: Wallet },
   { path: "/laundry-admin/analytics", label: "Analytics", icon: BarChart3 },
   { path: "/laundry-admin/support", label: "Support", icon: Headphones },
 ];

@@ -591,19 +591,26 @@ function TypewriterText({ content, isStreaming }: { content: string; isStreaming
   const [displayedText, setDisplayedText] = useState("");
 
   useEffect(() => {
-    if (!isStreaming && displayedText === content) return;
+    if (displayedText === content) return;
 
-    if (displayedText.length < content.length) {
+    // Use Array.from to correctly handle unicode surrogate pairs (emojis)
+    const contentChars = Array.from(content);
+    const displayedChars = Array.from(displayedText);
+
+    if (displayedChars.length < contentChars.length) {
       const timeout = setTimeout(() => {
-        const diff = content.length - displayedText.length;
+        const diff = contentChars.length - displayedChars.length;
         const increment = diff > 50 ? 5 : (diff > 10 ? 2 : 1);
-        setDisplayedText(content.slice(0, displayedText.length + increment));
+        const nextChars = contentChars.slice(0, displayedChars.length + increment);
+        setDisplayedText(nextChars.join(""));
       }, 15);
       return () => clearTimeout(timeout);
+    } else if (displayedChars.length > contentChars.length || !content.startsWith(displayedText)) {
+      setDisplayedText(content);
     }
-  }, [content, displayedText, isStreaming]);
+  }, [content, displayedText]);
 
-  let finalContent = isStreaming ? displayedText : content;
+  let finalContent = displayedText;
   // Automatically inject newlines before bullet points, but avoid double newlines
   finalContent = finalContent.replace(/([^\n])\s*•/g, "$1\n•");
 

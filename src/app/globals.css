@@ -15,16 +15,16 @@
 }
 
 html.dark {
-  --ndeef-page-bg: #07131f;
-  --ndeef-surface: #0f1c2b;
-  --ndeef-muted-surface: #132235;
-  --ndeef-elevated-surface: #18293d;
-  --ndeef-border: #284155;
-  --ndeef-text: #ecf3fb;
-  --ndeef-muted-text: #9fb1c5;
-  --ndeef-brand-surface: #081b2a;
-  --ndeef-brand-surface-soft: #12384d;
-  --ndeef-brand-border: rgba(148, 163, 184, 0.18);
+  --ndeef-page-bg: #020617;
+  --ndeef-surface: #0f172a;
+  --ndeef-muted-surface: #1e293b;
+  --ndeef-elevated-surface: #1e293b;
+  --ndeef-border: #334155;
+  --ndeef-text: #f8fafc;
+  --ndeef-muted-text: #94a3b8;
+  --ndeef-brand-surface: #082f49;
+  --ndeef-brand-surface-soft: #0c4a6e;
+  --ndeef-brand-border: rgba(255, 255, 255, 0.1);
   color-scheme: dark;
 }
 
@@ -91,7 +91,7 @@ html.dark .bg-\[\#0d3d50\] {
 html.dark .bg-\[\#f8fafb\],
 html.dark .bg-\[\#f8fafc\],
 html.dark .bg-\[\#f5f5f5\] {
-  background-color: #0c1827 !important;
+  background-color: #020617 !important;
 }
 
 html.dark .bg-red-50,
@@ -104,7 +104,7 @@ html.dark [class*="bg-white/95"],
 html.dark [class*="bg-white/96"],
 html.dark [class*="bg-white/90"],
 html.dark [class*="bg-white/80"] {
-  background-color: rgba(15, 28, 43, 0.92) !important;
+  background-color: rgba(15, 23, 42, 0.92) !important;
 }
 
 html.dark .text-black,
@@ -180,28 +180,28 @@ html.dark .ndeef-home-page .ndeef-home-hero::before {
 }
 
 html.dark .ndeef-home-page .ndeef-home-card {
-  background: linear-gradient(180deg, rgba(18, 34, 53, 0.96), rgba(12, 24, 39, 0.96)) !important;
-  border-color: rgba(148, 163, 184, 0.16) !important;
-  box-shadow: 0 28px 60px rgba(1, 8, 20, 0.42) !important;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96)) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
+  box-shadow: 0 28px 60px rgba(0, 0, 0, 0.42) !important;
 }
 
 html.dark .ndeef-home-page .ndeef-home-card-soft {
-  background: rgba(19, 34, 53, 0.92) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: rgba(30, 41, 59, 0.92) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
 }
 
 html.dark .ndeef-home-page .ndeef-home-muted-panel {
-  background: rgba(15, 28, 43, 0.88) !important;
-  border-color: rgba(148, 163, 184, 0.15) !important;
+  background: rgba(15, 23, 42, 0.88) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
 }
 
 html.dark .ndeef-home-page .ndeef-home-footer {
   background:
-    linear-gradient(180deg, rgba(8, 27, 42, 0.98), rgba(5, 16, 26, 1)) !important;
+    linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(2, 6, 23, 1)) !important;
 }
 
 html.dark .ndeef-home-page .ndeef-home-brand-section {
-  background: linear-gradient(135deg, #0f2a3d 0%, #081b2a 100%) !important;
+  background: linear-gradient(135deg, #0f172a 0%, #020617 100%) !important;
 }
 
 html.dark .ndeef-home-page .ndeef-home-warm-section {
@@ -209,29 +209,29 @@ html.dark .ndeef-home-page .ndeef-home-warm-section {
 }
 
 html.dark .ndeef-page-shell {
-  background: linear-gradient(180deg, #08121d 0%, #0b1725 100%) !important;
+  background: linear-gradient(180deg, #020617 0%, #0f172a 100%) !important;
 }
 
 html.dark .ndeef-page-header {
-  background: rgba(9, 21, 34, 0.92) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.22) !important;
 }
 
 html.dark .ndeef-page-card {
-  background: linear-gradient(180deg, rgba(18, 32, 50, 0.96), rgba(13, 24, 38, 0.96)) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: linear-gradient(180deg, rgba(30, 41, 59, 0.96), rgba(15, 23, 42, 0.96)) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24) !important;
 }
 
 html.dark .ndeef-page-soft {
-  background: rgba(19, 34, 53, 0.72) !important;
-  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: rgba(30, 41, 59, 0.72) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
 }
 
 html.dark .ndeef-page-bottom-bar {
-  background: rgba(9, 21, 34, 0.96) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: rgba(15, 23, 42, 0.96) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
   box-shadow: 0 -12px 30px rgba(0, 0, 0, 0.26) !important;
 }
 
@@ -239,7 +239,7 @@ html.dark .ndeef-auth-page {
   background:
     radial-gradient(circle at top right, rgba(29, 96, 118, 0.16), transparent 28%),
     radial-gradient(circle at bottom left, rgba(235, 160, 80, 0.12), transparent 24%),
-    linear-gradient(180deg, #08121d 0%, #0b1725 100%) !important;
+    linear-gradient(180deg, #020617 0%, #0f172a 100%) !important;
 }
 
 html.dark .ndeef-auth-panel {
@@ -247,28 +247,28 @@ html.dark .ndeef-auth-panel {
 }
 
 html.dark .ndeef-auth-segment {
-  background: rgba(19, 34, 53, 0.76) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: rgba(30, 41, 59, 0.76) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
 }
 
 html.dark .ndeef-auth-segment-active {
-  background: rgba(15, 28, 43, 0.96) !important;
+  background: rgba(15, 23, 42, 0.96) !important;
   box-shadow: 0 12px 24px rgba(0, 0, 0, 0.26) !important;
 }
 
 html.dark .ndeef-auth-input {
-  background: rgba(15, 28, 43, 0.92) !important;
-  border-color: rgba(148, 163, 184, 0.18) !important;
+  background: rgba(15, 23, 42, 0.92) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
   color: var(--ndeef-text) !important;
 }
 
 html.dark .ndeef-auth-input::placeholder {
-  color: #7f94ab !important;
+  color: #64748b !important;
 }
 
 html.dark .ndeef-auth-muted-box {
-  background: rgba(15, 28, 43, 0.72) !important;
-  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: rgba(30, 41, 59, 0.72) !important;
+  border-color: rgba(148, 163, 184, 0.1) !important;
 }
 
 .ndeef-auth-heading {
@@ -491,6 +491,7 @@ html.dark .ndeef-preference-button:hover {
     opacity: 0;
     transform: translateY(10px) scale(0.96);
   }
+
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
