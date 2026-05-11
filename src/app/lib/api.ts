@@ -273,6 +273,16 @@ export interface PaginatedResponse<T> {
   data: T[];
 }
 
+type CollectionResponse<T> =
+  | T[]
+  | PaginatedResponse<T>
+  | {
+      data?: T[] | null;
+      Data?: T[] | null;
+      items?: T[] | null;
+      Items?: T[] | null;
+    };
+
 export interface UiServiceItem {
   id: string;
   name: string;
@@ -486,6 +496,18 @@ function safeJsonParse(text: string) {
   } catch {
     return text;
   }
+}
+
+function unwrapCollection<T>(payload: CollectionResponse<T> | null | undefined): T[] {
+  if (Array.isArray(payload)) return payload;
+  if (!payload || typeof payload !== "object") return [];
+
+  if ("data" in payload && Array.isArray(payload.data)) return payload.data;
+  if ("Data" in payload && Array.isArray(payload.Data)) return payload.Data;
+  if ("items" in payload && Array.isArray(payload.items)) return payload.items;
+  if ("Items" in payload && Array.isArray(payload.Items)) return payload.Items;
+
+  return [];
 }
 
 function normalizeBase64(input: string) {
@@ -1207,7 +1229,10 @@ export async function getLaundryServicesRequest(id: string | number) {
 }
 
 export async function getLaundryReviewsRequest(id: string | number) {
-  return request<BackendReviewDto[]>(`/Laundries/${id}/reviews`);
+  const response = await request<CollectionResponse<BackendReviewDto>>(
+    `/Laundries/${id}/reviews`,
+  );
+  return unwrapCollection(response);
 }
 
 export async function getLaundryRatingSummaryRequest(id: string | number) {

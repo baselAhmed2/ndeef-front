@@ -294,6 +294,8 @@ export default function LaundryDetails() {
     [selectedServices],
   );
 
+  const visibleReviews = Array.isArray(reviews) ? reviews : [];
+
   const toggleService = (serviceId: string) => {
     setSelectedServiceIds((current) =>
       current.includes(serviceId)
@@ -557,13 +559,13 @@ export default function LaundryDetails() {
                 </div>
               </div>
 
-              {reviews.length === 0 ? (
+              {visibleReviews.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
                   No reviews were returned by the backend for this laundry yet.
                 </div>
               ) : (
                 <div className="space-y-3">
-                  {reviews.slice(0, 4).map((review) => (
+                  {visibleReviews.slice(0, 4).map((review) => (
                     <div key={review.id ?? review.Id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-semibold text-slate-900">
