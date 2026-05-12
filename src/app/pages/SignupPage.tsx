@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -275,6 +275,7 @@ export default function SignupPage({
 }) {
   const router = useRouter();
   const { signup, socialLogin } = useAuth();
+  const pageRef = useRef<HTMLDivElement | null>(null);
 
   const [step, setStep] = useState(0);
   const [accountType, setAccountType] = useState<AccountType>(
@@ -299,6 +300,45 @@ export default function SignupPage({
   const [latitude, setLatitude] = useState(30.0444);
   const [longitude, setLongitude] = useState(31.2357);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    const clearForm = () => {
+      setStep(0);
+      setAccountType(
+        initialRole === "LaundryAdmin"
+          ? "LaundryAdmin"
+          : initialRole === "Courier"
+            ? "Courier"
+            : "Customer",
+      );
+      setShowPwd(false);
+      setLoading(false);
+      setSocialLoad("");
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setPassword("");
+      setPhone("");
+      setAddress("");
+      setLaundryName("");
+      setLaundryAddress("");
+      setLatitude(30.0444);
+      setLongitude(31.2357);
+      setErrors({});
+      pageRef.current
+        ?.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>("input, textarea")
+        .forEach((field) => {
+          field.value = "";
+        });
+    };
+
+    clearForm();
+    window.addEventListener("pageshow", clearForm);
+
+    return () => {
+      window.removeEventListener("pageshow", clearForm);
+    };
+  }, [initialRole]);
 
   const isFieldValid = (field: string, value: string): boolean => {
     switch (field) {
@@ -483,7 +523,11 @@ export default function SignupPage({
   };
 
   return (
-    <div className="ndeef-auth-page min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex" dir="ltr">
+    <div
+      ref={pageRef}
+      className="ndeef-auth-page min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 flex"
+      dir="ltr"
+    >
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "motion/react";
@@ -37,6 +37,7 @@ type FlowState =
 
 type SortOption = "distance" | "rating";
 type FilterOption = "all" | "available";
+const NEARBY_STATE_KEY = "ndeef_nearby_state";
 
 function getCurrentLocation(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve, reject) => {
@@ -292,28 +293,28 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
       }}
     >
       <Link
-        href={`/laundry/${laundry.id}`}
-        className="ndeef-page-card group block overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_12px_35px_rgba(15,23,42,0.08)] active:scale-[0.99] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_18px_45px_rgba(15,23,42,0.12)]"
+        href={`/laundry/${laundry.id}?from=${encodeURIComponent("/nearby")}`}
+        className="ndeef-page-card group mx-auto block w-full max-w-[980px] overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.08)] active:scale-[0.99] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
       >
         <motion.div
-          className="relative h-56 overflow-hidden"
+          className="relative h-60 overflow-hidden md:h-72"
           whileHover={{ scale: 1.02 }}
           transition={{ type: "spring", stiffness: 300, damping: 20 }}
         >
           <motion.img
             src={laundry.image}
             alt={laundry.name}
-            className="w-full h-full object-cover"
-            whileHover={{ scale: 1.06 }}
+            className="h-full w-full object-cover object-center brightness-[1.02] contrast-[1.05] saturate-[1.08]"
+            whileHover={{ scale: 1.04 }}
             transition={{ duration: 0.4 }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/10 to-transparent" />
-          <div className="absolute inset-x-0 bottom-0 p-4">
+          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/62 via-slate-950/8 to-transparent" />
+          <div className="absolute inset-x-0 bottom-0 p-3.5">
             <div className="flex items-end justify-between gap-3">
               <div className="min-w-0">
-                <div className="mb-2 flex items-center gap-2 flex-wrap">
+                <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-[11px] font-semibold backdrop-blur-sm ${availabilityMeta.tone}`}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-[10px] font-semibold backdrop-blur-sm ${availabilityMeta.tone}`}
                   >
                     <span
                       className={`h-1.5 w-1.5 rounded-full ${laundry.isAvailable ? "bg-emerald-500" : "bg-slate-500"}`}
@@ -321,62 +322,62 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
                     {availabilityMeta.label}
                   </span>
                   {laundry.rating >= 4.5 && (
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[#1D6076]/20 bg-[#1D6076]/90 px-3 py-1 text-[11px] font-semibold text-white shadow-sm">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[#1D6076]/20 bg-[#1D6076]/90 px-2.5 py-1 text-[10px] font-semibold text-white shadow-sm">
                       <Zap size={11} fill="currentColor" strokeWidth={0} />
                       Top Pick
                     </span>
                   )}
                 </div>
-                <h3 className="truncate text-xl font-semibold tracking-tight text-white">
+                <h3 className="truncate text-lg font-semibold tracking-tight text-white md:text-[19px]">
                   {laundry.name}
                 </h3>
-                <p className="mt-1 line-clamp-1 text-sm text-white/75">
+                <p className="mt-0.5 line-clamp-1 text-[13px] text-white/75">
                   {laundry.address}
                 </p>
               </div>
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl border border-white/15 bg-white/10 text-white backdrop-blur-md transition-transform duration-300 group-hover:translate-x-0.5">
-                <ChevronRight size={18} strokeWidth={2.2} />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-white/15 bg-white/10 text-white backdrop-blur-md transition-transform duration-300 group-hover:translate-x-0.5">
+                <ChevronRight size={16} strokeWidth={2.2} />
               </div>
             </div>
           </div>
           {laundry.isAvailable && laundry.rating >= 4.5 && (
-            <div className="absolute top-4 right-4 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-[11px] font-semibold text-white backdrop-blur-md">
+            <div className="absolute right-3 top-3 rounded-full border border-white/15 bg-white/10 px-2.5 py-1 text-[10px] font-semibold text-white backdrop-blur-md">
               Featured
             </div>
           )}
-          <div className="absolute left-4 top-4 bg-white/95 backdrop-blur-md text-slate-700 text-xs px-3 py-1.5 rounded-full flex items-center gap-1.5 font-semibold shadow-sm">
+          <div className="absolute left-3 top-3 flex items-center gap-1.5 rounded-full bg-white/95 px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 shadow-sm backdrop-blur-md">
             <MapPin size={10} className="text-[#1D6076]" strokeWidth={2.5} />
             {laundry.distanceLabel}
           </div>
         </motion.div>
 
-        <div className="px-5 py-4">
+        <div className="px-4 py-3.5">
           <div className="grid grid-cols-3 gap-2">
-            <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-3 py-3">
-              <div className="mb-1 flex items-center gap-1.5 text-slate-400">
-                <Star size={13} className="fill-amber-400 text-amber-400" />
-                <span className="text-[11px] font-semibold uppercase tracking-wide">Rating</span>
+            <div className="ndeef-page-soft rounded-xl bg-slate-50 px-2.5 py-2.5">
+              <div className="mb-1 flex items-center gap-1 text-slate-400">
+                <Star size={12} className="fill-amber-400 text-amber-400" />
+                <span className="text-[10px] font-semibold uppercase tracking-wide">Rating</span>
               </div>
-              <p className="text-base font-semibold text-slate-900">{laundry.rating.toFixed(1)}</p>
-              <p className="text-[11px] text-slate-400">{laundry.reviews} reviews</p>
+              <p className="text-sm font-semibold text-slate-900">{laundry.rating.toFixed(1)}</p>
+              <p className="text-[10px] text-slate-400">{laundry.reviews} reviews</p>
             </div>
 
-            <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-3 py-3">
-              <div className="mb-1 flex items-center gap-1.5 text-slate-400">
-                <Clock size={13} className="text-[#1D6076]" strokeWidth={2} />
-                <span className="text-[11px] font-semibold uppercase tracking-wide">ETA</span>
+            <div className="ndeef-page-soft rounded-xl bg-slate-50 px-2.5 py-2.5">
+              <div className="mb-1 flex items-center gap-1 text-slate-400">
+                <Clock size={12} className="text-[#1D6076]" strokeWidth={2} />
+                <span className="text-[10px] font-semibold uppercase tracking-wide">ETA</span>
               </div>
-              <p className="text-base font-semibold text-slate-900">{laundry.deliveryTime}</p>
-              <p className="text-[11px] text-slate-400">Estimated service</p>
+              <p className="text-sm font-semibold text-slate-900">{laundry.deliveryTime}</p>
+              <p className="text-[10px] text-slate-400">Estimated service</p>
             </div>
 
-            <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-3 py-3">
-              <div className="mb-1 flex items-center gap-1.5 text-slate-400">
-                <MapPin size={13} className="text-[#1D6076]" strokeWidth={2} />
-                <span className="text-[11px] font-semibold uppercase tracking-wide">Distance</span>
+            <div className="ndeef-page-soft rounded-xl bg-slate-50 px-2.5 py-2.5">
+              <div className="mb-1 flex items-center gap-1 text-slate-400">
+                <MapPin size={12} className="text-[#1D6076]" strokeWidth={2} />
+                <span className="text-[10px] font-semibold uppercase tracking-wide">Distance</span>
               </div>
-              <p className="text-base font-semibold text-slate-900">{laundry.distanceLabel}</p>
-              <p className="text-[11px] text-slate-400">From your location</p>
+              <p className="text-sm font-semibold text-slate-900">{laundry.distanceLabel}</p>
+              <p className="text-[10px] text-slate-400">From your location</p>
             </div>
           </div>
         </div>
@@ -388,6 +389,8 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
 export default function NearbyLaundries() {
   const router = useRouter();
   const { isLoggedIn, isAuthReady } = useAuth();
+  const filterAnchorRef = useRef<HTMLDivElement | null>(null);
+  const mobileSheetRef = useRef<HTMLDivElement | null>(null);
   const [flowState, setFlowState] = useState<FlowState>("permission_request");
   const [errorType, setErrorType] = useState<
     "location_error" | "no_laundries" | "permission_denied"
@@ -404,6 +407,32 @@ export default function NearbyLaundries() {
       router.replace("/login?from=/nearby");
     }
   }, [isAuthReady, isLoggedIn, router]);
+
+  useEffect(() => {
+    if (!isAuthReady || !isLoggedIn || typeof window === "undefined") return;
+
+    const raw = window.sessionStorage.getItem(NEARBY_STATE_KEY);
+    if (!raw) return;
+
+    try {
+      const saved = JSON.parse(raw) as {
+        laundryList?: UiLaundry[];
+        search?: string;
+        sortBy?: SortOption;
+        filterBy?: FilterOption;
+      };
+
+      if (Array.isArray(saved.laundryList) && saved.laundryList.length > 0) {
+        setLaundryList(saved.laundryList);
+        setSearch(saved.search ?? "");
+        setSortBy(saved.sortBy ?? "distance");
+        setFilterBy(saved.filterBy ?? "all");
+        setFlowState("success");
+      }
+    } catch {
+      window.sessionStorage.removeItem(NEARBY_STATE_KEY);
+    }
+  }, [isAuthReady, isLoggedIn]);
 
   const handleGrantPermission = async () => {
     if (!isLoggedIn) {
@@ -487,6 +516,165 @@ export default function NearbyLaundries() {
     [laundryList],
   );
 
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (sortBy !== "distance") count += 1;
+    if (filterBy !== "all") count += 1;
+    if (search.trim()) count += 1;
+    return count;
+  }, [filterBy, search, sortBy]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || flowState !== "success" || laundryList.length === 0) {
+      return;
+    }
+
+    window.sessionStorage.setItem(
+      NEARBY_STATE_KEY,
+      JSON.stringify({
+        laundryList,
+        search,
+        sortBy,
+        filterBy,
+      }),
+    );
+  }, [filterBy, flowState, laundryList, search, sortBy]);
+
+  useEffect(() => {
+    if (!showFilters) return;
+
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+
+      const clickedDesktopArea = filterAnchorRef.current?.contains(target);
+      const clickedMobileSheet = mobileSheetRef.current?.contains(target);
+
+      if (!clickedDesktopArea && !clickedMobileSheet) {
+        setShowFilters(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setShowFilters(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("touchstart", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("touchstart", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [showFilters]);
+
+  const filterPanelContent = (
+    <>
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <p className="text-sm font-semibold text-slate-950">Quick filters</p>
+          <p className="text-xs text-slate-400">Sort and narrow results faster</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowFilters(false)}
+          className="rounded-full px-2 py-1 text-xs font-semibold text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+        >
+          Close
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <p className="mb-2 text-[11px] font-semibold tracking-[0.18em] text-gray-400">
+            SORT BY
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(["distance", "rating"] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setSortBy(option)}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+                  sortBy === option
+                    ? "bg-[#1D6076] text-white"
+                    : "ndeef-page-soft bg-gray-50 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                {option === "distance" ? "Distance" : "Rating"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <p className="mb-2 text-[11px] font-semibold tracking-[0.18em] text-gray-400">
+            AVAILABILITY
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {(["all", "available"] as const).map((option) => (
+              <button
+                key={option}
+                onClick={() => setFilterBy(option)}
+                className={`rounded-2xl px-4 py-3 text-sm font-medium transition-all ${
+                  filterBy === option
+                    ? "bg-[#1D6076] text-white"
+                    : "ndeef-page-soft bg-gray-50 text-gray-700 hover:bg-gray-100"
+                }`}
+              >
+                {option === "all" ? "All" : "Open Now"}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {[
+            { label: "Results", value: `${filteredLaundries.length}` },
+            { label: "Open", value: `${openNowCount}` },
+            { label: "Top", value: `${topRatedCount}` },
+          ].map((item) => (
+            <div
+              key={item.label}
+              className="rounded-2xl bg-slate-50 px-3 py-3 text-center"
+            >
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400">
+                {item.label}
+              </p>
+              <p className="mt-1 text-base font-semibold text-slate-950">
+                {item.value}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-2 border-t border-slate-100 pt-4">
+        <button
+          type="button"
+          onClick={() => {
+            setSortBy("distance");
+            setFilterBy("all");
+            setSearch("");
+          }}
+          className="flex-1 rounded-2xl border border-slate-200 px-4 py-2.5 text-xs font-semibold text-slate-600 transition hover:bg-slate-50"
+        >
+          Reset
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowFilters(false)}
+          className="flex-1 rounded-2xl bg-[#1D6076] px-4 py-2.5 text-xs font-semibold text-white transition hover:bg-[#174d5f]"
+        >
+          Apply
+        </button>
+      </div>
+    </>
+  );
+
   if (!isAuthReady || !isLoggedIn) {
     return null;
   }
@@ -541,40 +729,40 @@ export default function NearbyLaundries() {
       )}
 
       {flowState === "success" && (
-        <div className="mx-auto max-w-6xl px-4 py-5 md:px-8">
-          <div className="mb-5 overflow-hidden rounded-[34px] bg-[linear-gradient(135deg,#0d3d50_0%,#1D6076_60%,#2a7a94_100%)] text-white shadow-[0_24px_80px_rgba(13,61,80,0.22)]">
-            <div className="grid gap-6 px-6 py-7 md:grid-cols-[1.15fr_0.85fr] md:px-8 md:py-8">
+        <div className="mx-auto max-w-[1160px] px-4 py-5 md:px-8">
+          <div className="mb-4 overflow-hidden rounded-[30px] bg-[linear-gradient(135deg,#0d3d50_0%,#1D6076_60%,#2a7a94_100%)] text-white shadow-[0_18px_56px_rgba(13,61,80,0.18)]">
+            <div className="grid gap-4 px-5 py-5 md:grid-cols-[1.15fr_0.85fr] md:px-7 md:py-6">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[11px] font-semibold uppercase tracking-[0.24em] backdrop-blur-sm">
+                <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] backdrop-blur-sm">
                   <Sparkles size={13} strokeWidth={2.3} />
                   Curated nearby options
                 </div>
-                <h2 className="mt-4 max-w-2xl text-3xl font-semibold tracking-tight md:text-4xl">
+                <h2 className="mt-3 max-w-xl text-[31px] font-semibold tracking-tight leading-tight md:text-[38px]">
                   Compare trusted laundries around you with less scrolling.
                 </h2>
-                <p className="mt-3 max-w-xl text-sm leading-7 text-white/78 md:text-base">
+                <p className="mt-2.5 max-w-xl text-sm leading-6 text-white/78 md:text-[15px]">
                   Search by name or area, sort by distance or rating, and focus
                   on places that are open right now.
                 </p>
 
-                <div className="mt-6 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+                <div className="mt-5 flex flex-wrap gap-2">
+                  <span className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
                     {laundryList.length} total laundries
                   </span>
-                  <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+                  <span className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
                     {openNowCount} open now
                   </span>
-                  <span className="rounded-full border border-white/15 bg-white/10 px-4 py-2 text-sm font-medium backdrop-blur-sm">
+                  <span className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
                     {topRatedCount} top rated
                   </span>
                 </div>
               </div>
 
-              <div className="ndeef-page-card rounded-[28px] border border-white/10 bg-white/95 p-5 text-slate-900 shadow-[0_18px_45px_rgba(2,19,26,0.12)] backdrop-blur-sm">
-                <div className="mb-4 flex items-center gap-3">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1D6076]/10">
+              <div className="ndeef-page-card rounded-[24px] border border-white/10 bg-white/95 p-4 text-slate-900 shadow-[0_14px_36px_rgba(2,19,26,0.10)] backdrop-blur-sm">
+                <div className="mb-3 flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-[#1D6076]/10">
                     <ShieldCheck
-                      size={22}
+                      size={20}
                       className="text-[#1D6076]"
                       strokeWidth={1.9}
                     />
@@ -588,7 +776,7 @@ export default function NearbyLaundries() {
                     </p>
                   </div>
                 </div>
-                <div className="grid gap-3 sm:grid-cols-3 md:grid-cols-1">
+                <div className="grid gap-2.5 sm:grid-cols-3 md:grid-cols-1">
                   {[
                     {
                       label: "Best for speed",
@@ -605,7 +793,7 @@ export default function NearbyLaundries() {
                   ].map((item) => (
                     <div
                       key={item.label}
-                      className="rounded-2xl bg-slate-50 px-4 py-3"
+                      className="rounded-2xl bg-slate-50 px-3.5 py-3"
                     >
                       <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
                         {item.label}
@@ -620,7 +808,7 @@ export default function NearbyLaundries() {
             </div>
           </div>
 
-          <div className="mb-4 grid gap-4 lg:grid-cols-[1fr_auto]">
+          <div className="relative mb-3 grid gap-3 lg:grid-cols-[1fr_auto]">
             <div className="relative">
               <Search
                 size={17}
@@ -631,24 +819,59 @@ export default function NearbyLaundries() {
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
                 placeholder="Search by laundry name or area"
-                className="ndeef-page-card w-full rounded-[24px] border border-gray-200 bg-white py-4 pl-12 pr-4 text-sm text-gray-900 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition-all placeholder-gray-400 focus:border-[#1D6076] focus:outline-none focus:ring-1 focus:ring-[#1D6076]/20"
+                className="ndeef-page-card w-full rounded-[22px] border border-gray-200 bg-white py-3.5 pl-12 pr-4 text-sm text-gray-900 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition-all placeholder-gray-400 focus:border-[#1D6076] focus:outline-none focus:ring-1 focus:ring-[#1D6076]/20"
               />
             </div>
 
-            <button
-              onClick={() => setShowFilters((value) => !value)}
-              className={`flex items-center justify-center gap-2 rounded-[24px] border px-5 py-4 text-sm font-semibold transition-all ${
-                showFilters
-                  ? "border-[#1D6076] bg-[#1D6076] text-white shadow-[0_14px_30px_rgba(29,96,118,0.18)]"
-                  : "ndeef-page-card border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              <SlidersHorizontal size={16} strokeWidth={2} />
-              Filters
-            </button>
+            <div ref={filterAnchorRef} className="relative">
+              <button
+                onClick={() => setShowFilters((value) => !value)}
+                className={`flex items-center justify-center gap-2 rounded-[22px] border px-5 py-3.5 text-sm font-semibold transition-all ${
+                  showFilters
+                    ? "border-[#1D6076] bg-[#1D6076] text-white shadow-[0_14px_30px_rgba(29,96,118,0.18)]"
+                    : "ndeef-page-card border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <SlidersHorizontal size={16} strokeWidth={2} />
+                Filters
+                {activeFilterCount > 0 ? (
+                  <span
+                    className={`inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${
+                      showFilters ? "bg-white/18 text-white" : "bg-[#1D6076]/10 text-[#1D6076]"
+                    }`}
+                  >
+                    {activeFilterCount}
+                  </span>
+                ) : null}
+              </button>
+
+              {showFilters && (
+                <div className="absolute right-0 top-[calc(100%+12px)] z-30 hidden w-[min(92vw,420px)] overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-[0_20px_50px_rgba(15,23,42,0.16)] md:block">
+                  {filterPanelContent}
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="mb-4 flex flex-wrap gap-2">
+          {showFilters && (
+            <div className="fixed inset-0 z-40 md:hidden">
+              <button
+                type="button"
+                aria-label="Close filters"
+                onClick={() => setShowFilters(false)}
+                className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px]"
+              />
+              <div
+                ref={mobileSheetRef}
+                className="absolute inset-x-0 bottom-0 rounded-t-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_-20px_50px_rgba(15,23,42,0.18)]"
+              >
+                <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-200" />
+                {filterPanelContent}
+              </div>
+            </div>
+          )}
+
+          <div className="mb-3 flex flex-wrap gap-2">
             <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/80">
               Sorted by {sortBy === "distance" ? "distance" : "rating"}
             </span>
@@ -662,83 +885,6 @@ export default function NearbyLaundries() {
             ) : null}
           </div>
 
-          {showFilters && (
-            <div className="ndeef-page-card mb-5 rounded-[28px] border border-gray-100 bg-white p-5 shadow-[0_14px_36px_rgba(15,23,42,0.06)]">
-              <div className="grid gap-5 lg:grid-cols-[1fr_1fr_0.9fr]">
-                <div>
-                  <p className="mb-2 text-xs font-semibold tracking-wider text-gray-400">
-                    SORT BY
-                  </p>
-                  <div className="flex gap-2">
-                    {(["distance", "rating"] as const).map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setSortBy(option)}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                          sortBy === option
-                            ? "bg-[#1D6076] text-white"
-                            : "ndeef-page-soft bg-gray-50 text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        {option === "distance" ? "Distance" : "Rating"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs font-semibold tracking-wider text-gray-400">
-                    FILTER
-                  </p>
-                  <div className="flex gap-2">
-                    {(["all", "available"] as const).map((option) => (
-                      <button
-                        key={option}
-                        onClick={() => setFilterBy(option)}
-                        className={`flex-1 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                          filterBy === option
-                            ? "bg-[#1D6076] text-white"
-                            : "ndeef-page-soft bg-gray-50 text-gray-700 hover:bg-gray-100"
-                        }`}
-                      >
-                        {option === "all" ? "All" : "Open Now"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
-                  {[
-                    {
-                      label: "Total results",
-                      value: `${filteredLaundries.length}`,
-                    },
-                    {
-                      label: "Open now",
-                      value: `${openNowCount}`,
-                    },
-                    {
-                      label: "Top rated",
-                      value: `${topRatedCount}`,
-                    },
-                  ].map((item) => (
-                    <div
-                      key={item.label}
-                      className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3"
-                    >
-                      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-400">
-                        {item.label}
-                      </p>
-                      <p className="mt-2 text-lg font-semibold text-slate-950">
-                        {item.value}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
           {filteredLaundries.length === 0 ? (
             <div className="ndeef-page-card rounded-[32px] border border-gray-100 bg-white p-8 text-center shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
               <div className="ndeef-page-soft mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
@@ -750,7 +896,7 @@ export default function NearbyLaundries() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-5">
               {filteredLaundries.map((laundry, index) => (
                 <LaundryCard key={laundry.id} laundry={laundry} index={index} />
               ))}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -130,6 +130,7 @@ export default function Login() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { login, logout, socialLogin, updateUser } = useAuth();
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const from = searchParams?.get("from") || "/";
   const initialRole = searchParams?.get("role");
@@ -148,6 +149,40 @@ export default function Login() {
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loginProgress, setLoginProgress] = useState("");
+
+  useEffect(() => {
+    const clearForm = () => {
+      setAccountType(
+        initialRole === "LaundryAdmin"
+          ? "LaundryAdmin"
+          : initialRole === "Courier"
+            ? "Courier"
+            : "Customer",
+      );
+      setEmail("");
+      setPassword("");
+      setShowPwd(false);
+      setLoading(false);
+      setSocialLoad("");
+      setLoginPhase("idle");
+      setLoginProgress("");
+      setError("");
+      setErrors({});
+      formRef.current?.reset();
+      formRef.current
+        ?.querySelectorAll<HTMLInputElement>("input")
+        .forEach((input) => {
+          input.value = "";
+        });
+    };
+
+    clearForm();
+    window.addEventListener("pageshow", clearForm);
+
+    return () => {
+      window.removeEventListener("pageshow", clearForm);
+    };
+  }, [initialRole]);
 
   const validatePasswordField = (value: string) => {
     if (!value) return "Password is required";
@@ -437,6 +472,7 @@ export default function Login() {
 
           {/* Form */}
           <motion.form
+            ref={formRef}
             onSubmit={handleLogin}
             className="space-y-5"
             initial={{ opacity: 0, y: 20 }}

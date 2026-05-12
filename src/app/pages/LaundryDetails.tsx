@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   Star,
@@ -184,6 +184,7 @@ export default function LaundryDetails() {
   const params = useParams<{ id: string }>();
   const id = params?.id ?? "";
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [laundry, setLaundry] = useState<UiLaundry | null>(null);
@@ -341,11 +342,21 @@ export default function LaundryDetails() {
     { icon: CreditCard, text: "Real Payments", color: "#2a7a94" },
   ];
 
+  const handleBack = () => {
+    const from = searchParams?.get("from");
+    if (from === "/nearby") {
+      router.push("/nearby");
+      return;
+    }
+
+    router.back();
+  };
+
   return (
     <div className="ndeef-page-shell ndeef-laundry-page min-h-screen bg-[radial-gradient(circle_at_top,#f6fbfd_0%,#f8fafc_28%,#f5f5f5_70%)]" dir="ltr">
       <div className="ndeef-page-header sticky top-16 z-20 border-b border-slate-200/80 bg-white/90 px-4 md:px-8 py-4 flex items-center gap-3 shadow-sm backdrop-blur-md">
         <button
-          onClick={() => router.back()}
+          onClick={handleBack}
           className="p-2 -ml-1 rounded-xl hover:bg-gray-50 active:scale-95 transition-all"
         >
           <ArrowLeft size={22} className="text-gray-800" strokeWidth={2} />

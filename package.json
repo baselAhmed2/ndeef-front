@@ -4,8 +4,9 @@
   "version": "0.0.1",
   "type": "module",
   "scripts": {
-    "build": "next build",
-    "dev": "next dev",
+    "build": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next build",
+    "dev": "node --max-old-space-size=4096 ./node_modules/next/dist/bin/next dev",
+    "dev:clean": "node -e \"require('fs').rmSync('.next',{ recursive: true, force: true })\"",
     "start": "next start",
     "lint": "next lint"
   },

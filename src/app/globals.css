@@ -42,6 +42,20 @@ body {
   min-height: 100vh;
 }
 
+button,
+input[type="button"],
+input[type="submit"],
+input[type="reset"] {
+  cursor: pointer;
+}
+
+button:disabled,
+input[type="button"]:disabled,
+input[type="submit"]:disabled,
+input[type="reset"]:disabled {
+  cursor: not-allowed;
+}
+
 html[dir="rtl"] body {
   direction: rtl;
   text-align: right;
