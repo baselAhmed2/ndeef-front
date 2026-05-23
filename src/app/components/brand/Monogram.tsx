@@ -17,20 +17,20 @@ export function Monogram({
   // Styling configurations for the 3 distinct brand variants
   const variantStyles = {
     orange: {
-      svgBg: "bg-white",
-      border: "border border-[#EBA050]/30",
+      svgBg: "bg-white dark:bg-[#0e2030]",
+      border: "border-2 border-[#EBA050]/40 dark:border-[#EBA050]/70",
       textColor: "text-[#EBA050]",
-      shadow: "shadow-sm",
+      shadow: "shadow-sm dark:shadow-[0_0_0_1px_rgba(235,160,80,0.25)]",
     },
     navy: {
-      svgBg: "bg-[#1D6076]",
-      border: "border border-[#1D6076]/20",
+      svgBg: "bg-[#1D6076] dark:bg-[#4AA8C0]",
+      border: "border border-[#1D6076]/20 dark:border-[#4AA8C0]/30",
       textColor: "text-white",
       shadow: "shadow-sm",
     },
     light: {
-      svgBg: "bg-white/10 backdrop-blur-sm",
-      border: "border border-white/20",
+      svgBg: "bg-white/15 backdrop-blur-sm",
+      border: "border border-white/25",
       textColor: "text-white",
       shadow: "shadow-none",
     },

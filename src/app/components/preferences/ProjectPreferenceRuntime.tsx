@@ -147,13 +147,13 @@ export function ProjectPreferenceRuntime() {
     observerRef.current = new MutationObserver(scheduleApply);
     observerRef.current.observe(document.body, OBSERVER_OPTIONS);
 
-    window.addEventListener("nadeef:preferences-changed", scheduleSettledApply);
+    window.addEventListener("nazeef:preferences-changed", scheduleSettledApply);
     scheduleSettledApply();
 
     return () => {
       observerRef.current?.disconnect();
       observerRef.current = null;
-      window.removeEventListener("nadeef:preferences-changed", scheduleSettledApply);
+      window.removeEventListener("nazeef:preferences-changed", scheduleSettledApply);
       if (frameRef.current !== null) {
         window.cancelAnimationFrame(frameRef.current);
         frameRef.current = null;

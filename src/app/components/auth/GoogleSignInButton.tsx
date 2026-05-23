@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+import { usePreferences } from "@/app/context/PreferencesContext";
 
 const RAW_GOOGLE_CLIENT_ID =
   process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
@@ -90,6 +91,7 @@ export function GoogleSignInButton({
   const googleClientId = getGoogleClientId();
   const elementId = useId();
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const { isDark } = usePreferences();
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -136,7 +138,7 @@ export function GoogleSignInButton({
 
         window.google.accounts.id.renderButton(containerRef.current, {
           type: "standard",
-          theme: "outline",
+          theme: isDark ? "filled_black" : "outline",
           size: "large",
           text,
           shape: "pill",
@@ -161,7 +163,7 @@ export function GoogleSignInButton({
     return () => {
       active = false;
     };
-  }, [disabled, googleClientId, onCredential, text]);
+  }, [disabled, googleClientId, onCredential, text, isDark]);
 
   return (
     <div className="space-y-2">

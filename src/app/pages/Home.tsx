@@ -202,8 +202,7 @@ export default function Home() {
               className="text-4xl md:text-5xl lg:text-6xl text-white mb-4 md:mb-5 leading-tight"
               style={{ fontWeight: 800, letterSpacing: '-0.02em' }}
             >
-              Your Neighbourhood<br />
-              Laundry,{' '}
+              <span className="block">Your Neighbourhood Laundry,</span>
               <motion.span
                 style={{ color: '#EBA050' }}
                 initial={{ opacity: 0 }}
@@ -365,7 +364,7 @@ export default function Home() {
               <motion.div key={n} className="group relative" variants={itemVariants}>
                 <div className="hidden md:block absolute top-10 left-[60%] w-full h-px" style={{ background: `linear-gradient(to right, ${color}30, transparent)` }} />
                 <motion.div
-                  className="bg-gray-50 rounded-3xl p-8 border border-gray-100 relative"
+                  className="bg-gray-50 dark:bg-[#102231] rounded-3xl p-8 border border-gray-100 dark:border-white/6 relative"
                   whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,0.10)' }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 >
@@ -378,10 +377,13 @@ export default function Home() {
                     >
                       <Icon size={26} style={{ color }} strokeWidth={1.8} />
                     </motion.div>
-                    <span className="text-5xl font-black mt-1" style={{ color: `${color}15`, lineHeight: 1 }}>{n}</span>
+                    <span
+                      className="text-5xl font-black mt-1"
+                      style={{ color, opacity: 0.22, lineHeight: 1 }}
+                    >{n}</span>
                   </div>
-                  <h3 className="text-gray-900 text-xl mb-2" style={{ fontWeight: 700 }}>{title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed">{desc}</p>
+                  <h3 className="text-gray-900 dark:text-[#EEF4F8] text-xl mb-2" style={{ fontWeight: 700 }}>{title}</h3>
+                  <p className="text-gray-500 dark:text-[#7AAFC2] text-sm leading-relaxed">{desc}</p>
                 </motion.div>
               </motion.div>
             ))}
@@ -556,7 +558,7 @@ export default function Home() {
                 Why Nazeef
               </span>
               <h2 className="text-3xl md:text-4xl text-gray-900 mb-5" style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
-                Built for the modern<br />Egyptian lifestyle
+                Built for the modern Egyptian lifestyle
               </h2>
               <p className="text-gray-500 text-base leading-relaxed max-w-md">
                 We solve the chaos of informal laundry communication by bringing transparency, speed, and accountability to your doorstep.

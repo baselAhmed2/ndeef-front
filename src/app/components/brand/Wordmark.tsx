@@ -16,7 +16,7 @@ export function Wordmark({
   // Brand color presets
   const colors = {
     navy: {
-      text: "text-[#0d3d50]",
+      text: "text-[#0d3d50] dark:text-[#EEF4F8]",
       tag: "text-[#EBA050]",
       line: "bg-[#EBA050]/40",
     },
@@ -27,8 +27,8 @@ export function Wordmark({
     },
     gold: {
       text: "text-[#EBA050]",
-      tag: "text-[#0d3d50]/70",
-      line: "bg-[#0d3d50]/20",
+      tag: "text-[#0d3d50]/70 dark:text-[#B8D4DE]/70",
+      line: "bg-[#0d3d50]/20 dark:bg-white/10",
     },
   };
 

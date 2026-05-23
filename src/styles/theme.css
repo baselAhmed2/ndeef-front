@@ -1,133 +1,177 @@
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────────────────────────────
+   NAZEEF — LIGHT MODE (default)
+───────────────────────────────────────────────────────────────────────── */
 :root {
   --font-size: 16px;
-  --background: #f8fafb;
-  --foreground: #1a2432;
-  --card: #ffffff;
-  --card-foreground: #1a2432;
-  --popover: #ffffff;
-  --popover-foreground: #1a2432;
-  --primary: #1D6076;
-  --primary-foreground: #ffffff;
-  --secondary: #f0f4f5;
-  --secondary-foreground: #1a2432;
-  --muted: #e8eef0;
-  --muted-foreground: #5a6c7d;
-  --accent: #EBA050;
-  --accent-foreground: #ffffff;
-  --destructive: #d4183d;
+
+  --background:           #f8fafb;
+  --foreground:           #0d2331;
+  --card:                 #ffffff;
+  --card-foreground:      #0d2331;
+  --popover:              #ffffff;
+  --popover-foreground:   #0d2331;
+
+  --primary:              #1D6076;
+  --primary-foreground:   #ffffff;
+  --secondary:            #f0f4f5;
+  --secondary-foreground: #0d2331;
+  --muted:                #e8eef0;
+  --muted-foreground:     #5a6c7d;
+  --accent:               #EBA050;
+  --accent-foreground:    #ffffff;
+  --destructive:          #d4183d;
   --destructive-foreground: #ffffff;
-  --border: rgba(29, 96, 118, 0.1);
-  --input: transparent;
-  --input-background: #f8fafb;
-  --switch-background: #d1dce0;
-  --font-weight-medium: 500;
-  --font-weight-normal: 400;
-  --ring: #1D6076;
-  
-  /* Nadeef Brand Colors */
-  --nadeef-teal: #1D6076;
-  --nadeef-teal-light: #2a7a94;
-  --nadeef-orange: #EBA050;
-  --nadeef-orange-dark: #d68b3a;
-  --nadeef-gray: #5a6c7d;
-  --nadeef-gray-light: #f0f4f5;
-  
+
+  --border:               rgba(29, 96, 118, 0.10);
+  --input:                transparent;
+  --input-background:     #f8fafb;
+  --switch-background:    #d1dce0;
+  --ring:                 #1D6076;
+
+  --font-weight-medium:   500;
+  --font-weight-normal:   400;
+
+  /* Nazeef Brand Tokens */
+  --nazeef-teal:          #1D6076;
+  --nazeef-teal-light:    #2a7a94;
+  --nazeef-gold:          #EBA050;
+  --nazeef-gold-dark:     #C07C1A;
+  --nazeef-gray:          #5a6c7d;
+  --nazeef-gray-light:    #f0f4f5;
+
+  /* Charts */
   --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-2: oklch(0.600 0.118 184.704);
+  --chart-3: oklch(0.398 0.070 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
+  --chart-5: oklch(0.769 0.188 70.080);
+
   --radius: 0.75rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #1D6076;
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: #1D6076;
+
+  --sidebar:                    #ffffff;
+  --sidebar-foreground:         #0d2331;
+  --sidebar-primary:            #1D6076;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent:             #f0f4f5;
+  --sidebar-accent-foreground:  #0d2331;
+  --sidebar-border:             rgba(29, 96, 118, 0.10);
+  --sidebar-ring:               #1D6076;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   NAZEEF NIGHT — DARK MODE
+   Palette: Deep Navy (#0B1E28) base · Nazeef Gold (#EBA050) accent
+   Philosophy: Extend the brand into the night — not generic gray dark.
+───────────────────────────────────────────────────────────────────────── */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
+  color-scheme: dark;
+
+  /* ── Surfaces ── */
+  --background:           #0B1E28;   /* midnight ocean base */
+  --card:                 #102231;   /* card surface, slightly raised */
+  --popover:              #162E3E;   /* floating elements (modals, dropdowns) */
+  --sidebar:              #0e2030;   /* sidebar a touch deeper */
+
+  /* ── Text ── */
+  --foreground:           #EEF4F8;   /* warm off-white — not pure white */
+  --card-foreground:      #EEF4F8;
+  --popover-foreground:   #EEF4F8;
+  --sidebar-foreground:   #EEF4F8;
+
+  /* ── Brand Primary (Teal, lightened for dark bg) ── */
+  --primary:              #4AA8C0;   /* lighter teal for contrast on dark */
+  --primary-foreground:   #0B1E28;   /* navy text on teal buttons */
+
+  /* ── Secondary & Muted ── */
+  --secondary:            #1A3347;   /* mid-navy for chips, tags */
+  --secondary-foreground: #B8D4DE;
+  --muted:                #16293A;   /* subtle backgrounds */
+  --muted-foreground:     #7AAFC2;   /* soft teal-gray for placeholders */
+
+  /* ── Gold Accent (unchanged — pops beautifully on dark) ── */
+  --accent:               #EBA050;
+  --accent-foreground:    #0B1E28;
+
+  /* ── Semantic ── */
+  --destructive:          #e05252;
+  --destructive-foreground: #ffffff;
+
+  /* ── Borders & Inputs ── */
+  --border:               rgba(235, 160, 80, 0.12);   /* subtle gold border */
+  --input:                #1A3347;
+  --input-background:     #162E3E;
+  --switch-background:    #1A3347;
+  --ring:                 #EBA050;   /* gold focus ring */
+
+  /* ── Weights ── */
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+
+  /* ── Charts (warmer for dark) ── */
+  --chart-1: #EBA050;   /* gold */
+  --chart-2: #4AA8C0;   /* teal */
+  --chart-3: #6BC5A0;   /* mint */
+  --chart-4: #C07C1A;   /* amber */
+  --chart-5: #85D4E8;   /* sky */
+
+  /* ── Sidebar (extends dark theme) ── */
+  --sidebar-primary:            #EBA050;
+  --sidebar-primary-foreground: #0B1E28;
+  --sidebar-accent:             #1A3347;
+  --sidebar-accent-foreground:  #B8D4DE;
+  --sidebar-border:             rgba(235, 160, 80, 0.10);
+  --sidebar-ring:               #EBA050;
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Tailwind v4 Theme Mapping
+───────────────────────────────────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-input-background: var(--input-background);
-  --color-switch-background: var(--switch-background);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
+  --color-background:               var(--background);
+  --color-foreground:               var(--foreground);
+  --color-card:                     var(--card);
+  --color-card-foreground:          var(--card-foreground);
+  --color-popover:                  var(--popover);
+  --color-popover-foreground:       var(--popover-foreground);
+  --color-primary:                  var(--primary);
+  --color-primary-foreground:       var(--primary-foreground);
+  --color-secondary:                var(--secondary);
+  --color-secondary-foreground:     var(--secondary-foreground);
+  --color-muted:                    var(--muted);
+  --color-muted-foreground:         var(--muted-foreground);
+  --color-accent:                   var(--accent);
+  --color-accent-foreground:        var(--accent-foreground);
+  --color-destructive:              var(--destructive);
+  --color-destructive-foreground:   var(--destructive-foreground);
+  --color-border:                   var(--border);
+  --color-input:                    var(--input);
+  --color-input-background:         var(--input-background);
+  --color-switch-background:        var(--switch-background);
+  --color-ring:                     var(--ring);
+  --color-chart-1:                  var(--chart-1);
+  --color-chart-2:                  var(--chart-2);
+  --color-chart-3:                  var(--chart-3);
+  --color-chart-4:                  var(--chart-4);
+  --color-chart-5:                  var(--chart-5);
+  --radius-sm:                      calc(var(--radius) - 4px);
+  --radius-md:                      calc(var(--radius) - 2px);
+  --radius-lg:                      var(--radius);
+  --radius-xl:                      calc(var(--radius) + 4px);
+  --color-sidebar:                  var(--sidebar);
+  --color-sidebar-foreground:       var(--sidebar-foreground);
+  --color-sidebar-primary:          var(--sidebar-primary);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent:           var(--sidebar-accent);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border:           var(--sidebar-border);
+  --color-sidebar-ring:             var(--sidebar-ring);
 }
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Base Layer
+───────────────────────────────────────────────────────────────────────── */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -136,11 +180,6 @@
   body {
     @apply bg-background text-foreground;
   }
-
-  /**
-  * Default typography styles for HTML elements (h1-h4, p, label, button, input).
-  * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
-  */
 
   html {
     font-size: var(--font-size);

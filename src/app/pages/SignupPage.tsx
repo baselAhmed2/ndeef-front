@@ -193,28 +193,28 @@ function SegmentedControl({
     { key: "Courier", label: "Courier", icon: Truck },
   ];
   return (
-    <div className="ndeef-auth-segment flex p-1.5 bg-gray-100/80 backdrop-blur-sm rounded-2xl border border-gray-200/50">
+    <div className="ndeef-auth-segment flex p-1 bg-gray-100/80 dark:bg-[#122633]/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-white/5 shadow-inner">
       {options.map(({ key, label, icon: Icon }) => (
         <motion.button
           key={key}
           type="button"
           onClick={() => onChange(key)}
           whileTap={{ scale: 0.98 }}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium transition-all duration-300 relative ${value === key
-              ? "text-[#0f4c5c]"
-              : "text-gray-500 hover:text-gray-700"
+          className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 relative ${value === key
+              ? "text-[#0f4c5c] dark:text-[#EBA050]"
+              : "text-gray-500 hover:text-gray-700 dark:text-[#7AAFC2] dark:hover:text-[#EEF4F8]"
             }`}
         >
           {value === key && (
             <motion.div
               layoutId="activeSignupTab"
-              className="ndeef-auth-segment-active absolute inset-0 bg-white rounded-xl shadow-md shadow-black/5"
-              transition={{ type: "spring", bounce: 0.2, duration: 0.6 }}
+              className="ndeef-auth-segment-active absolute inset-0 bg-white dark:bg-[#1A3347] rounded-xl shadow-sm border border-gray-200/20 dark:border-white/5"
+              transition={{ type: "spring", bounce: 0.15, duration: 0.55 }}
             />
           )}
-          <span className="relative z-10 flex items-center gap-2">
-            <Icon size={16} className={value === key ? "text-[#0f4c5c]" : ""} />
-            {label}
+          <span className="relative z-10 flex items-center gap-1 sm:gap-2">
+            <Icon size={15} className={`shrink-0 ${value === key ? "text-[#0f4c5c] dark:text-[#EBA050]" : "text-gray-400 dark:text-[#7AAFC2]"}`} />
+            <span className="max-[370px]:hidden truncate whitespace-nowrap">{label}</span>
           </span>
         </motion.button>
       ))}
@@ -593,7 +593,7 @@ export default function SignupPage({
                 className="ndeef-auth-subheading text-[15px] mb-8"
               >
                 Join Nazeef for free.{" "}
-                <Link href="/login" className="text-[#0f4c5c] font-semibold hover:underline transition-colors">
+                <Link href="/login" className="text-[#1D6076] dark:text-[#EBA050] font-semibold hover:underline transition-colors">
                   Already have an account?
                 </Link>
               </motion.p>

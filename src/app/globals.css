@@ -15,16 +15,16 @@
 }
 
 html.dark {
-  --ndeef-page-bg: #020617;
-  --ndeef-surface: #0f172a;
-  --ndeef-muted-surface: #1e293b;
-  --ndeef-elevated-surface: #1e293b;
-  --ndeef-border: #334155;
-  --ndeef-text: #f8fafc;
-  --ndeef-muted-text: #94a3b8;
-  --ndeef-brand-surface: #082f49;
-  --ndeef-brand-surface-soft: #0c4a6e;
-  --ndeef-brand-border: rgba(255, 255, 255, 0.1);
+  --ndeef-page-bg: #0B1E28;
+  --ndeef-surface: #102231;
+  --ndeef-muted-surface: #162E3E;
+  --ndeef-elevated-surface: #1A3347;
+  --ndeef-border: rgba(235, 160, 80, 0.12);
+  --ndeef-text: #EEF4F8;
+  --ndeef-muted-text: #7AAFC2;
+  --ndeef-brand-surface: #0e2030;
+  --ndeef-brand-surface-soft: #1A3347;
+  --ndeef-brand-border: rgba(235, 160, 80, 0.10);
   color-scheme: dark;
 }
 
@@ -105,7 +105,7 @@ html.dark .bg-\[\#0d3d50\] {
 html.dark .bg-\[\#f8fafb\],
 html.dark .bg-\[\#f8fafc\],
 html.dark .bg-\[\#f5f5f5\] {
-  background-color: #020617 !important;
+  background-color: #0B1E28 !important;
 }
 
 html.dark .bg-red-50,
@@ -166,13 +166,13 @@ html.dark input:not([type="checkbox"]):not([type="radio"]),
 html.dark textarea,
 html.dark select {
   background-color: var(--ndeef-muted-surface) !important;
-  border-color: #334155 !important;
+  border-color: var(--ndeef-border) !important;
   color: var(--ndeef-text) !important;
 }
 
 html.dark input::placeholder,
 html.dark textarea::placeholder {
-  color: #64748b !important;
+  color: var(--ndeef-muted-text) !important;
 }
 
 html.dark .shadow-sm,
@@ -251,9 +251,9 @@ html.dark .ndeef-page-bottom-bar {
 
 html.dark .ndeef-auth-page {
   background:
-    radial-gradient(circle at top right, rgba(29, 96, 118, 0.16), transparent 28%),
+    radial-gradient(circle at top right, rgba(74, 168, 192, 0.16), transparent 28%),
     radial-gradient(circle at bottom left, rgba(235, 160, 80, 0.12), transparent 24%),
-    linear-gradient(180deg, #020617 0%, #0f172a 100%) !important;
+    linear-gradient(180deg, #0B1E28 0%, #102231 100%) !important;
 }
 
 html.dark .ndeef-auth-panel {
@@ -346,12 +346,12 @@ html.dark .ndeef-topnav-link-active {
 
 html.dark .ndeef-laundry-page {
   background:
-    radial-gradient(circle at top, rgba(29, 96, 118, 0.16), transparent 24%),
-    linear-gradient(180deg, #07131f 0%, #0b1725 100%) !important;
+    radial-gradient(circle at top, rgba(74, 168, 192, 0.16), transparent 24%),
+    linear-gradient(180deg, #0B1E28 0%, #102231 100%) !important;
 }
 
 html.dark .ndeef-laundry-hero {
-  background-color: #0c1827 !important;
+  background-color: #102231 !important;
 }
 
 html.dark .ndeef-laundry-hero img {
@@ -365,15 +365,15 @@ html.dark .ndeef-laundry-hero-glow {
 }
 
 html.dark .ndeef-laundry-hero-topfade {
-  background: linear-gradient(180deg, rgba(2, 6, 23, 0.28), transparent 42%) !important;
+  background: linear-gradient(180deg, rgba(11, 30, 40, 0.28), transparent 42%) !important;
 }
 
 html.dark .ndeef-laundry-hero-bottomfade {
-  background: linear-gradient(0deg, rgba(2, 6, 23, 0.96), rgba(2, 6, 23, 0.42) 42%, rgba(2, 6, 23, 0.16) 100%) !important;
+  background: linear-gradient(0deg, rgba(11, 30, 40, 0.96), rgba(11, 30, 40, 0.42) 42%, rgba(11, 30, 40, 0.16) 100%) !important;
 }
 
 html.dark .ndeef-laundry-hero-bottomedge {
-  background: linear-gradient(0deg, rgba(2, 6, 23, 0.62), transparent) !important;
+  background: linear-gradient(0deg, rgba(11, 30, 40, 0.62), transparent) !important;
 }
 
 .ndeef-topnav-user {
@@ -445,39 +445,39 @@ html.dark .ndeef-topnav-menu-text {
 html.dark .ndeef-auth-brand {
   background:
     radial-gradient(circle at top left, rgba(235, 160, 80, 0.16), transparent 26%),
-    linear-gradient(160deg, #0d2a3a 0%, #081b2a 100%) !important;
+    linear-gradient(160deg, #0b1e28 0%, #102231 100%) !important;
 }
 
 html.dark .ndeef-courier-shell {
-  background: linear-gradient(180deg, #08121d 0%, #0b1725 100%) !important;
+  background: linear-gradient(180deg, #0B1E28 0%, #102231 100%) !important;
 }
 
 html.dark .ndeef-courier-surface {
-  background: rgba(9, 21, 34, 0.94) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: rgba(16, 34, 49, 0.94) !important;
+  border-color: rgba(235, 160, 80, 0.12) !important;
   box-shadow: 0 16px 38px rgba(0, 0, 0, 0.2) !important;
 }
 
 html.dark .ndeef-courier-card {
-  background: linear-gradient(180deg, rgba(18, 32, 50, 0.96), rgba(13, 24, 38, 0.96)) !important;
-  border-color: rgba(148, 163, 184, 0.14) !important;
+  background: linear-gradient(180deg, rgba(22, 46, 62, 0.96), rgba(16, 34, 49, 0.96)) !important;
+  border-color: rgba(235, 160, 80, 0.12) !important;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.24) !important;
 }
 
 html.dark .ndeef-courier-soft {
-  background: rgba(19, 34, 53, 0.72) !important;
-  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: rgba(22, 46, 62, 0.72) !important;
+  border-color: rgba(235, 160, 80, 0.1) !important;
 }
 
 html.dark .ndeef-courier-sidebar {
   background:
     radial-gradient(circle at top, rgba(235, 160, 80, 0.14), transparent 24%),
-    linear-gradient(180deg, #0d2a3a 0%, #081b2a 100%) !important;
+    linear-gradient(180deg, #0b1e28 0%, #102231 100%) !important;
 }
 
 html.dark .ndeef-courier-bottom-nav {
-  background: rgba(9, 21, 34, 0.97) !important;
-  border-color: rgba(148, 163, 184, 0.12) !important;
+  background: rgba(16, 34, 49, 0.97) !important;
+  border-color: rgba(235, 160, 80, 0.1) !important;
   box-shadow: 0 -14px 30px rgba(0, 0, 0, 0.24) !important;
 }
 

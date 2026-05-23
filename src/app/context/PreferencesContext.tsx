@@ -24,8 +24,8 @@ interface PreferencesContextValue {
   toggleLanguage: () => void;
 }
 
-const THEME_KEY = "nadeef_theme_mode";
-const LANGUAGE_KEY = "nadeef_language";
+const THEME_KEY = "nazeef_theme_mode";
+const LANGUAGE_KEY = "nazeef_language";
 
 const PreferencesContext = createContext<PreferencesContextValue | null>(null);
 
@@ -79,7 +79,7 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
 
     window.localStorage.setItem(THEME_KEY, theme);
     window.localStorage.setItem(LANGUAGE_KEY, language);
-    window.dispatchEvent(new CustomEvent("nadeef:preferences-changed", { detail: { theme, language } }));
+    window.dispatchEvent(new CustomEvent("nazeef:preferences-changed", { detail: { theme, language } }));
   }, [theme, language, ready]);
 
   const setTheme = useCallback((nextTheme: ThemeMode) => {
