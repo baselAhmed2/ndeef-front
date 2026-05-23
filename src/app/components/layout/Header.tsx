@@ -18,7 +18,7 @@ function formatTimeAgo(isoString: string) {
 }
 
 const pageTitles: Record<string, { title: string; subtitle: string }> = {
-  "/admin": { title: "Dashboard", subtitle: "Monitor the Ndeef platform from one place" },
+  "/admin": { title: "Dashboard", subtitle: "Monitor the Nazeef platform from one place" },
   "/admin/laundries": { title: "Laundries", subtitle: "Review laundry partners and operational status" },
   "/admin/verifications": { title: "Verifications", subtitle: "Approve and track pending partner checks" },
   "/admin/users": { title: "Users", subtitle: "Manage customers, couriers, and admins" },

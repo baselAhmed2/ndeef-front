@@ -4,11 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { Monogram } from "@/app/components/brand/Monogram";
+import { Wordmark } from "@/app/components/brand/Wordmark";
 import {
   LayoutList,
   Wallet,
   User,
-  WashingMachine,
   Wifi,
   WifiOff,
   Bell,
@@ -344,14 +345,12 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
       <>
         <div className="flex items-center justify-between h-16 px-4 border-b border-white/10 shrink-0">
           <div className="flex items-center min-w-0">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0" style={{ backgroundColor: "#EBA050" }}>
-              <WashingMachine className="w-5 h-5 text-white" />
-            </div>
+            <Monogram variant="orange" size={48} />
             <AnimatePresence>
               {isExpanded && (
-                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.18 }} className="ml-3 min-w-0">
-                  <p className="text-white font-bold text-sm leading-tight whitespace-nowrap">Ndeef Courier</p>
-                  <p className="text-white/40 text-[10px] whitespace-nowrap">Delivery App</p>
+                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} transition={{ duration: 0.18 }} className="ml-3 min-w-0 flex flex-col justify-center">
+                  <Wordmark variant="light" size="sm" />
+                  <p className="text-white/40 text-[9px] leading-none mt-0.5 whitespace-nowrap tracking-wider uppercase font-bold">Courier App</p>
                 </motion.div>
               )}
             </AnimatePresence>

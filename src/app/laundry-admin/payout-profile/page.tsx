@@ -132,7 +132,7 @@ export default function PayoutProfilePage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Payout Profile</h1>
         <p className="text-gray-500 text-sm">
-          Configure how you want to receive your earnings from Ndeef.
+          Configure how you want to receive your earnings from Nazeef.
         </p>
       </div>
 

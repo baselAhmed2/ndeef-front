@@ -99,7 +99,7 @@ export default function AnalyticsPage() {
             <BarChart3 size={32} className="text-[#2A5C66]" />
             Platform Analytics
           </h1>
-          <p className="text-slate-500 mt-2">Comprehensive overview of the entire Ndeef App ecosystem.</p>
+          <p className="text-slate-500 mt-2">Comprehensive overview of the entire Nazeef App ecosystem.</p>
         </div>
       </div>
 

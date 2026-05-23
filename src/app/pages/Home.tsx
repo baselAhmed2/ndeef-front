@@ -7,6 +7,7 @@ import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 import { getLaundriesRequest, mapLaundryDtoToUiLaundry, UiLaundry } from '@/app/lib/api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
+import { Monogram } from '../components/brand/Monogram';
 
 const HERO_IMG = 'https://images.unsplash.com/photo-1596433904747-e8b061219a71?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1400';
 const DELIVERY_IMG = 'https://images.unsplash.com/photo-1576192350050-d9e08ee1f122?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
@@ -26,7 +27,7 @@ const features = [
 ];
 
 const testimonials = [
-  { name: 'Nour Khalil', role: 'New Cairo', rating: 5, text: 'Nadeef saved me so much time. My clothes come back perfectly clean every single time!' },
+  { name: 'Nour Khalil', role: 'New Cairo', rating: 5, text: 'Nazeef saved me so much time. My clothes come back perfectly clean every single time!' },
   { name: 'Ahmed Tarek', role: 'Maadi', rating: 5, text: 'The tracking feature is a game-changer. I always know when to expect my delivery.' },
   { name: 'Sara Mansour', role: 'Zamalek', rating: 5, text: 'Best laundry service in Cairo by far. Affordable, fast, and professional.' },
 ];
@@ -219,7 +220,7 @@ export default function Home() {
               transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
               className="text-white/75 text-lg md:text-xl mb-6 md:mb-7 leading-relaxed max-w-lg"
             >
-              Ndeef connects you with the best local laundries. Browse, order, track — clean clothes at your door.
+              Nazeef connects you with the best local laundries. Browse, order, track — clean clothes at your door.
             </motion.p>
 
             <motion.div
@@ -279,7 +280,7 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="text-gray-900 font-semibold text-sm">Smart Laundry Service</p>
-                    <p className="text-gray-400 text-xs">Ndeef Platform</p>
+                    <p className="text-gray-400 text-xs">Nazeef Platform</p>
                   </div>
                 </div>
                 <div className="space-y-2">
@@ -552,7 +553,7 @@ export default function Home() {
               transition={{ duration: 0.65, ease: [0.22, 1, 0.36, 1] }}
             >
               <span className="inline-block bg-[#EBA050]/15 text-[#EBA050] text-xs font-semibold tracking-widest px-4 py-1.5 rounded-full mb-4 uppercase">
-                Why Ndeef
+                Why Nazeef
               </span>
               <h2 className="text-3xl md:text-4xl text-gray-900 mb-5" style={{ fontWeight: 800, letterSpacing: '-0.02em' }}>
                 Built for the modern<br />Egyptian lifestyle
@@ -701,7 +702,7 @@ export default function Home() {
             transition={{ duration: 0.5, delay: 0.1 }}
             className="text-white/80 text-lg mb-8"
           >
-            Join thousands of Egyptians who trust Ndeef for their laundry.
+            Join thousands of Egyptians who trust Nazeef for their laundry.
           </motion.p>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -737,10 +738,8 @@ export default function Home() {
           <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-6 lg:gap-8 mb-8">
             <div>
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 rounded-xl bg-white/15 flex items-center justify-center">
-                  <span className="text-white text-sm font-bold">N</span>
-                </div>
-                <span className="text-white font-bold text-lg">Ndeef</span>
+                <Monogram variant="orange" size={36} useImage={true} />
+                <span className="text-white font-bold text-lg">Nazeef</span>
               </div>
               <p className="text-white/50 text-sm leading-relaxed">
                 Smart laundry platform connecting residents with verified local laundries across Egypt.
@@ -768,7 +767,7 @@ export default function Home() {
             ))}
           </div>
           <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-            <p className="text-white/30 text-sm">© 2026 Ndeef. All rights reserved.</p>
+            <p className="text-white/30 text-sm">© 2026 Nazeef. All rights reserved.</p>
             <div className="flex flex-wrap items-center gap-5">
               {footerBottomLinks.map(({ label, href }) => (
                 <Link key={label} href={href} className="text-white/30 text-sm transition-colors hover:text-white/60">

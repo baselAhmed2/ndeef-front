@@ -139,7 +139,7 @@ export default function Account() {
       {/* App Version */}
       <div className="px-5 pb-4 text-center">
         <p className="text-sm font-normal text-gray-500">
-          Nadeef - Version 1.0.0
+          Nazeef - Version 1.0.0
         </p>
       </div>
 

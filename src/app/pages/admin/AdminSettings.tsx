@@ -26,7 +26,7 @@ export function AdminSettings() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <motion.div variants={anim.item}>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Settings</h1>
-          <p className="text-sm text-slate-500 mt-1">Manage global configuration for the Ndeef platform.</p>
+          <p className="text-sm text-slate-500 mt-1">Manage global configuration for the Nazeef platform.</p>
         </motion.div>
         <motion.button 
           variants={anim.item}

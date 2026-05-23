@@ -67,7 +67,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
       <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-[3px] border-gray-100 border-t-[#1D5B70] rounded-full animate-spin" />
-          <p className="text-xs font-semibold text-[#1D5B70] tracking-widest uppercase opacity-80">Ndeef Admin</p>
+          <p className="text-xs font-semibold text-[#1D5B70] tracking-widest uppercase opacity-80">Nazeef Admin</p>
         </div>
       </div>
     );
@@ -78,7 +78,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
       <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-10 h-10 border-[3px] border-gray-100 border-t-[#EBA050] rounded-full animate-spin" />
-          <p className="text-xs font-semibold text-[#EBA050] tracking-widest uppercase opacity-80">Ndeef Courier</p>
+          <p className="text-xs font-semibold text-[#EBA050] tracking-widest uppercase opacity-80">Nazeef Courier</p>
         </div>
       </div>
     );

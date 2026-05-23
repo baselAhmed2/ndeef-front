@@ -29,6 +29,7 @@ import {
   type PendingLaundryOnboarding,
 } from "../lib/laundry-onboarding";
 import { saveLaundryProfile, startVerificationSession } from "../lib/laundry-admin-client";
+import { Monogram } from "../components/brand/Monogram";
 
 type AccountType = "Customer" | "LaundryAdmin" | "Courier";
 
@@ -591,7 +592,7 @@ export default function SignupPage({
                 transition={{ delay: 0.2 }}
                 className="ndeef-auth-subheading text-[15px] mb-8"
               >
-                Join Nadeef for free.{" "}
+                Join Nazeef for free.{" "}
                 <Link href="/login" className="text-[#0f4c5c] font-semibold hover:underline transition-colors">
                   Already have an account?
                 </Link>
@@ -984,10 +985,8 @@ export default function SignupPage({
           transition={{ delay: 0.5, duration: 0.5 }}
           className="flex items-center gap-3 relative z-10"
         >
-          <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/10 shadow-lg">
-            <span className="text-white font-bold text-lg">N</span>
-          </div>
-          <span className="text-white font-bold text-xl tracking-tight">Nadeef</span>
+          <Monogram variant="orange" size={44} useImage={true} />
+          <span className="text-white font-bold text-xl tracking-tight">Nazeef</span>
         </motion.div>
 
         <div className="relative z-10">
@@ -1010,7 +1009,7 @@ export default function SignupPage({
               </h2>
               <p className="text-white/70 text-base leading-relaxed mb-10 max-w-sm">
                 {accountType === "LaundryAdmin"
-                  ? "Track orders, manage services, and grow your business with Nadeef."
+                  ? "Track orders, manage services, and grow your business with Nazeef."
                   : accountType === "Courier"
                     ? "Create your courier account, sign in from the regular login page, and manage deliveries from one place."
                   : "Browse verified laundries, schedule pickups, and get fresh clothes delivered to your door."}
@@ -1041,7 +1040,7 @@ export default function SignupPage({
           transition={{ delay: 1, duration: 0.5 }}
           className="text-white/30 text-xs relative z-10"
         >
-          © {new Date().getFullYear()} Nadeef. All rights reserved.
+          © {new Date().getFullYear()} Nazeef. All rights reserved.
         </motion.p>
       </motion.div>
     </div>

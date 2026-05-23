@@ -226,7 +226,7 @@ function PlatformCommissionCard({
           <div className="flex items-start gap-2">
             <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-white/50" />
             <p className="text-xs leading-relaxed text-white/50">
-              Pay your commission to keep your account active and accepting orders on the Ndeef
+              Pay your commission to keep your account active and accepting orders on the Nazeef
               platform.
             </p>
           </div>

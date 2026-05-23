@@ -5,7 +5,7 @@ const sections = [
   {
     title: "Information We Collect",
     body:
-      "Ndeef stores the account details, order information, delivery addresses, and support activity needed to provide laundry pickup, cleaning, delivery, and customer support.",
+      "Nazeef stores the account details, order information, delivery addresses, and support activity needed to provide laundry pickup, cleaning, delivery, and customer support.",
   },
   {
     title: "How We Use Your Data",
@@ -46,9 +46,9 @@ export default function PrivacyPolicyPage() {
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Your privacy on Ndeef</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Your privacy on Nazeef</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-            This policy explains the main categories of information used to operate the Ndeef platform for customers,
+            This policy explains the main categories of information used to operate the Nazeef platform for customers,
             laundries, deliveries, payments, and support interactions.
           </p>
 

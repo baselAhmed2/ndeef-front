@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { BubbleEmptyState } from "@/app/components/brand/BubbleEmptyState";
 import {
   MapPin,
   Clock,
@@ -460,22 +461,18 @@ export default function CourierOrdersPage() {
                 key="empty"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="col-span-full flex flex-col items-center justify-center py-20 text-center"
+                className="col-span-full"
               >
-                <div
-                  className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-                  style={{ backgroundColor: "#f0fdf4" }}
-                >
-                  <CheckCircle2 className="w-8 h-8 text-green-400" />
-                </div>
-                <p className="text-gray-700 font-bold">All clear here!</p>
-                <p className="text-gray-400 text-sm mt-1">
-                  {activeTab === "new"
-                    ? "No new orders waiting right now."
-                    : activeTab === "active"
-                      ? "No orders in progress right now."
-                      : "No completed orders yet."}
-                </p>
+                <BubbleEmptyState
+                  title="All clear here!"
+                  subtitle={
+                    activeTab === "new"
+                      ? "No new orders waiting right now."
+                      : activeTab === "active"
+                        ? "No orders in progress right now."
+                        : "No completed orders yet."
+                  }
+                />
               </motion.div>
             ) : (
               filtered.map((order, i) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Monogram } from "./brand/Monogram";
 
 export default function NdeefAdminLoader() {
   return (
@@ -55,11 +56,11 @@ export default function NdeefAdminLoader() {
 
           {/* Inner Content */}
           <motion.div
-            animate={{ scale: [1, 1.1, 1] }}
+            animate={{ scale: [1, 1.08, 1] }}
             transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute inset-8 w-16 h-16 rounded-xl bg-white/10 backdrop-blur-sm flex items-center justify-center border border-white/20"
+            className="absolute inset-6 w-20 h-20 rounded-full overflow-hidden flex items-center justify-center"
           >
-            <span className="text-2xl font-bold text-white">N</span>
+            <Monogram variant="orange" size={80} useImage={true} />
           </motion.div>
 
           {/* Pulse Effect */}
@@ -78,7 +79,7 @@ export default function NdeefAdminLoader() {
           className="text-center"
         >
           <h1 className="text-3xl font-bold text-white tracking-tight mb-2">
-            Ndeef
+            Nazeef
             <span className="text-white/60 font-light ml-2">Admin</span>
           </h1>
           <p className="text-white/50 text-sm">Managing your laundry business</p>

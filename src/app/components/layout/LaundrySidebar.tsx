@@ -6,6 +6,8 @@ import { useState } from "react";
 import { useIsMobile } from "@/app/components/ui/use-mobile";
 import { useAuth } from "@/app/context/AuthContext";
 import { motion, AnimatePresence } from "motion/react";
+import { Monogram } from "../brand/Monogram";
+import { Wordmark } from "../brand/Wordmark";
 import {
   LayoutDashboard,
   ShoppingBag,
@@ -14,7 +16,6 @@ import {
   Bell,
   CreditCard,
   ChevronLeft,
-  WashingMachine,
   LogOut,
   Settings,
   X,
@@ -73,12 +74,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
       {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b border-white/10">
         <div className="flex items-center gap-3 min-w-0">
-          <div
-            className="flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
-            style={{ backgroundColor: "#EBA050" }}
-          >
-            <WashingMachine className="w-5 h-5 text-white" />
-          </div>
+          <Monogram variant="orange" size={48} />
           <AnimatePresence>
             {!collapsed && (
               <motion.div
@@ -86,12 +82,10 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
                 animate={{ opacity: 1, width: "auto" }}
                 exit={{ opacity: 0, width: 0 }}
                 transition={{ duration: 0.2 }}
-                className="overflow-hidden"
+                className="overflow-hidden flex flex-col justify-center"
               >
-                <span className="text-white font-bold text-lg tracking-tight whitespace-nowrap">
-                  Ndeef
-                </span>
-                <p className="text-white/70 text-[10px] leading-none mt-0.5 whitespace-nowrap">
+                <Wordmark variant="light" size="sm" />
+                <p className="text-white/60 text-[9px] leading-none mt-0.5 whitespace-nowrap tracking-wider uppercase font-bold">
                   Laundry Admin
                 </p>
               </motion.div>
@@ -231,7 +225,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
                 </div>
               </div>
               <p className="text-sm text-gray-600 mb-5">
-                You'll be logged out of your Ndeef admin account. Any unsaved changes will be lost.
+                You'll be logged out of your Nazeef admin account. Any unsaved changes will be lost.
               </p>
               <div className="flex gap-2">
                 <button

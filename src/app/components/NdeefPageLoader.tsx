@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { Monogram } from "./brand/Monogram";
 
 type NdeefPageLoaderProps = {
   title?: string;
@@ -31,8 +32,8 @@ const accentMap = {
 } as const;
 
 export default function NdeefPageLoader({
-  title = "Loading page",
-  subtitle = "Preparing everything for you...",
+  title = "Loading Nazeef...",
+  subtitle = "Getting everything fresh and clean...",
   accent = "teal",
   fullScreen = true,
 }: NdeefPageLoaderProps) {
@@ -61,8 +62,8 @@ export default function NdeefPageLoader({
             transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
             className={`absolute inset-0 rounded-[22px] ${palette.dot} blur-xl`}
           />
-          <div className="absolute inset-[18px] rounded-xl bg-white/85 dark:bg-slate-900/80 backdrop-blur flex items-center justify-center shadow-sm">
-            <span className={`text-lg font-bold ${palette.text}`}>N</span>
+          <div className="absolute inset-[6px] rounded-[16px] overflow-hidden bg-white dark:bg-slate-900 flex items-center justify-center shadow-sm">
+            <Monogram variant="orange" size={44} useImage={true} />
           </div>
         </div>
 

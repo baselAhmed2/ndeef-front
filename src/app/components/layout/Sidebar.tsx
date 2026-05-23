@@ -177,7 +177,7 @@ export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boole
           </div>
           <div className="overflow-hidden">
             <span className="text-white font-bold text-lg tracking-tight whitespace-nowrap">
-              Ndeef
+              Nazeef
             </span>
             <p className="text-white/50 text-[10px] leading-none mt-0.5 whitespace-nowrap">
               Super Admin

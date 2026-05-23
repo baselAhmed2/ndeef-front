@@ -101,7 +101,7 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
     .sort((a, b) => b.length - a.length)
     .find((k) => currentPath === k || (k !== "/laundry-admin" && currentPath.startsWith(k)));
 
-  const pageInfo = pageTitles[pathKey ?? "/laundry-admin"] ?? { title: "Ndeef Admin", subtitle: "" };
+  const pageInfo = pageTitles[pathKey ?? "/laundry-admin"] ?? { title: "Nazeef Admin", subtitle: "" };
   const displayName =
     normalizeDisplayValue(user?.name) ||
     normalizeDisplayValue(user?.email).split("@")[0] ||
@@ -286,7 +286,7 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
                 </div>
               </div>
               <p className="text-sm text-gray-600 mb-5">
-                You'll be logged out of your Ndeef admin account. Any unsaved changes will be lost.
+                You'll be logged out of your Nazeef admin account. Any unsaved changes will be lost.
               </p>
               <div className="flex gap-2">
                 <button

@@ -5,7 +5,7 @@ const sections = [
   {
     title: "Using the Platform",
     body:
-      "Ndeef helps customers browse laundries, place orders, schedule pickup and delivery, and track service updates. By using the platform, you agree to provide accurate account and order details.",
+      "Nazeef helps customers browse laundries, place orders, schedule pickup and delivery, and track service updates. By using the platform, you agree to provide accurate account and order details.",
   },
   {
     title: "Orders and Payments",
@@ -15,7 +15,7 @@ const sections = [
   {
     title: "Laundry and Delivery Service",
     body:
-      "Turnaround times and availability depend on the selected laundry and service area. Ndeef coordinates service fulfillment, but final processing depends on the participating laundry partner.",
+      "Turnaround times and availability depend on the selected laundry and service area. Nazeef coordinates service fulfillment, but final processing depends on the participating laundry partner.",
   },
   {
     title: "Account Responsibility",
@@ -46,10 +46,10 @@ export default function TermsOfServicePage() {
 
       <main className="mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8 lg:py-10">
         <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Terms for using Ndeef</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">Terms for using Nazeef</h1>
           <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
             These terms summarize the main rules for placing orders, using account features, and interacting with the
-            Ndeef platform and its laundry partners.
+            Nazeef platform and its laundry partners.
           </p>
 
           <div className="mt-8 space-y-6">

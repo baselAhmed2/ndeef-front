@@ -182,7 +182,7 @@ function MultiStopMap({
           <Package className="w-3.5 h-3.5 text-white" />
         </div>
         <div className="bg-white rounded-lg px-1.5 py-0.5 mt-1 shadow text-[9px] font-bold text-gray-600 whitespace-nowrap">
-          Ndeef
+          Nazeef
         </div>
       </div>
       {stops.map((stop, i) => {
