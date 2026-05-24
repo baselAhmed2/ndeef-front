@@ -259,7 +259,6 @@ const arExtraDictionary: Record<string, string> = {
   "Orders Delivered": "طلبات خلصت وتوصلت",
   "Partner Laundries": "مغسلة شريكة معانا",
   "Average Rating": "متوسط التقييمات",
-  "Smart Laundry Service": "خدمة غسيل ذكية ع السنجة",
   "Nazeef Platform": "منصة نظيف",
   "Wash & Fold": "غسيل وتطبيق",
   "Dry Cleaning": "دراي كلين (تنظيف جاف)",
@@ -281,7 +280,6 @@ const arExtraDictionary: Record<string, string> = {
   "Starting from": "يبدأ من أول",
   "View Services": "عرض الخدمات",
   "Sign In to Continue": "سجل دخول عشان تكمل",
-  "No live laundries yet": "مفيش مغاسل شغالة دلوقتي",
   "The deployed backend is connected, but it is currently returning an empty laundries list.": "مفيش مغاسل متاحة حالياً في منطقتك، بنسعى نغطيها قريب!",
   "Built for the modern Egyptian lifestyle": "مصممة خصيصاً لتناسب نمط الحياة المصري الحديث",
   "We solve the chaos of informal laundry communication by bringing transparency, speed, and accountability to your doorstep.": "بنحل كل مشاكل غسيل الهدوم والتوصيل وبنضمنلك أمان، سرعة، وراحة لحد باب بيتك.",
@@ -297,13 +295,7 @@ const arExtraDictionary: Record<string, string> = {
   "Smart laundry platform connecting residents with verified local laundries across Egypt.": "منصة غسيل ذكية بتوصلك بأحسن المغاسل الموثوقة في مصر بضغطة زرار واحدة.",
   "Pickup, cleaning, and delivery from one simple dashboard.": "استلام، غسيل، وتوصيل كلو من لوحة تحكم واحدة بسيطة.",
   "Support available through Help Center, live chat, and AI assistant.": "الدعم الفني متاح معاك دايماً عن طريق مركز المساعدة، الشات، ومساعد الذكاء الاصطناعي.",
-  "Platform": "المنصة",
-  "Account": "الحساب",
   "Support & Legal": "الدعم والبنود القانونية",
-  "Contact Support": "تواصل مع الدعم",
-  "Track an Order": "تتبع طلبك",
-  "Privacy Policy": "سياسة الخصوصية",
-  "Terms of Service": "شروط الاستخدام",
   "Help Center": "مركز المساعدة",
   "Welcome back, ": "أهلاً بيك تاني يا ",
   "Welcome back": "يا هلا! منورنا تاني",
@@ -367,7 +359,6 @@ const arExtraDictionary: Record<string, string> = {
   "per set": "للطقم بالكامل",
   "per item": "للقطعة",
   "Washing": "غسيل ونظافة",
-  "Dry Cleaning": "دراي كلين (تنظيف جاف)",
   "Ironing": "مكواة وبس",
   "Special Care": "عناية خاصة (ملابس حساسة)",
   "Edit": "تعديل",
@@ -416,7 +407,6 @@ const arExtraDictionary: Record<string, string> = {
   "Expected Revenue": "الدخل المتوقع",
   "Most Requested": "الخدمات الأكثر طلباً",
   "Active Orders": "طلبات شغالة دلوقتي",
-  "Average Rating": "متوسط تقييمك من الزباين",
   "Avg. Order Value": "متوسط قيمة الطلب الواحد",
   "Today Orders": "طلبات اليوم",
   "All Shirts": "كل أنواع القمصان",
@@ -427,7 +417,6 @@ const arExtraDictionary: Record<string, string> = {
   "Accessories": "إكسسوارات وجواكت",
   "Buttons": "أزرار وزراير",
   "Services and Pricing": "الخدمات والأسعار بالتفصيل",
-  "Wash & Fold": "غسيل وتطبيق على النظافة",
   "Hang Dry": "تجفيف بالتعليق (عشان النعومة)",
   "ABOUT OUR FEES": "تفاصيل مصاريف الخدمة",
   "Service Fee": "رسوم الخدمة البسيطة",
@@ -602,7 +591,7 @@ export const arPhraseDictionary: Record<string, string> = {
   "Cash on Delivery": "الدفع عند الاستلام كاش",
 };
 
-const completeArDictionary = {
+const completeArDictionary: Record<string, string> = {
   ...arDictionary,
   ...arExtraDictionary,
   // Nazeef-specific UI strings that must win over all general dict entries

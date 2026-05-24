@@ -30,7 +30,7 @@ import {
 } from "@/app/lib/courier-client";
 import { ApiError } from "@/app/lib/admin-api";
 
-type Tab = "new" | "active" | "done";
+type Tab = "active" | "done";
 
 const STATUS_META = {
   pending: { label: "New Order", color: "#EBA050", bg: "#fff7ed", icon: AlertTriangle },
@@ -43,9 +43,8 @@ const STATUS_META = {
 const AVATAR_BG = ["#1D5B70", "#EBA050", "#7c3aed", "#0891b2", "#059669", "#dc2626"];
 
 const TABS: { id: Tab; label: string; sublabel: string }[] = [
-  { id: "new", label: "New Orders", sublabel: "Waiting for you to accept" },
-  { id: "active", label: "In Progress", sublabel: "Accepted or picked up" },
-  { id: "done", label: "Completed Today", sublabel: "Delivered orders" },
+  { id: "active", label: "In Progress", sublabel: "Assigned, accepted, or picked up" },
+  { id: "done", label: "Completed", sublabel: "All delivered orders" },
 ];
 
 function getServiceIcon(service: string) {
@@ -249,10 +248,7 @@ export default function CourierOrdersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialTabParam = searchParams?.get("tab");
-  const initialTab: Tab =
-    initialTabParam === "active" || initialTabParam === "done" || initialTabParam === "new"
-      ? initialTabParam
-      : "new";
+  const initialTab: Tab = initialTabParam === "done" ? "done" : "active";
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
   const [search, setSearch] = useState("");
   const [orders, setOrders] = useState<CourierDashboardOrder[]>([]);
@@ -274,9 +270,7 @@ export default function CourierOrdersPage() {
   useEffect(() => {
     if (!searchParams) return;
     const tab = searchParams.get("tab");
-    if (tab === "new" || tab === "active" || tab === "done") {
-      setActiveTab(tab);
-    }
+    setActiveTab(tab === "done" ? "done" : "active");
   }, [searchParams]);
 
   useEffect(() => {
@@ -346,8 +340,8 @@ export default function CourierOrdersPage() {
 
   const counts = useMemo(
     () => ({
-      new: orders.filter((o) => o.status === "pending").length,
-      active: orders.filter((o) => o.status === "accepted" || o.status === "picked_up").length,
+      active: orders.filter((o) => o.status === "pending" || o.status === "accepted" || o.status === "picked_up")
+        .length,
       done: orders.filter((o) => o.status === "delivered").length,
     }),
     [orders],
@@ -357,11 +351,9 @@ export default function CourierOrdersPage() {
     () =>
       orders.filter((o) => {
         const tabMatch =
-          activeTab === "new"
-            ? o.status === "pending"
-            : activeTab === "active"
-              ? o.status === "accepted" || o.status === "picked_up"
-              : o.status === "delivered";
+          activeTab === "active"
+            ? o.status === "pending" || o.status === "accepted" || o.status === "picked_up"
+            : o.status === "delivered";
         const searchMatch =
           !search ||
           o.customer.toLowerCase().includes(search.toLowerCase()) ||
@@ -466,11 +458,9 @@ export default function CourierOrdersPage() {
                 <BubbleEmptyState
                   title="All clear here!"
                   subtitle={
-                    activeTab === "new"
-                      ? "No new orders waiting right now."
-                      : activeTab === "active"
-                        ? "No orders in progress right now."
-                        : "No completed orders yet."
+                    activeTab === "active"
+                      ? "No assigned or in-progress orders right now."
+                      : "No completed orders yet."
                   }
                 />
               </motion.div>

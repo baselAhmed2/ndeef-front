@@ -2,6 +2,8 @@ import { laundries } from '../data/laundries';
 
 export const BACKEND_PROXY_BASE = "/api/backend";
 const ENABLE_MOCK_LAUNDRY_FALLBACK = false;
+const LAUNDRY_RATING_UPDATED_EVENT = "nadeef:laundry-rating-updated";
+const LAUNDRY_RATING_CACHE_KEY = "nadeef:laundry-rating-cache";
 
 function getMockBackendLaundries(): BackendLaundryDto[] {
   return laundries.map(l => ({
@@ -134,6 +136,44 @@ export interface BackendOrderItemDto {
   subtotal: number;
 }
 
+export interface BackendBundleItemDto {
+  id: string;
+  serviceId: number;
+  serviceName: string;
+  serviceCategory: string | number;
+  quantity: number;
+  allowedItemCategory?: string | number | null;
+}
+
+export interface BackendBundleDto {
+  id: string;
+  name: string;
+  description?: string | null;
+  bundlePrice: number;
+  originalPrice: number;
+  savingsAmount?: number;
+  savingsPercentage?: number;
+  status: string | number;
+  ownerType: string | number;
+  laundryId?: number | null;
+  startDate?: string | null;
+  expiryDate?: string | null;
+  imageUrl?: string | null;
+  displayOrder?: number | null;
+  bundleItems?: BackendBundleItemDto[] | null;
+  createdByAdminId?: string | null;
+  createdAt?: string | null;
+}
+
+export interface BackendBundleOrderMetadataDto {
+  bundleId: string;
+  bundleName: string;
+  bundlePrice: number;
+  originalPrice: number;
+  savingsAmount: number;
+  purchasedAt: string;
+}
+
 export interface BackendPaymentDto {
   id: number;
   amount: number;
@@ -154,9 +194,11 @@ export interface BackendOrderDto {
   notes: string | null;
   cancellationReason: string | null;
   createdAt: string;
+  laundryId?: number | null;
   laundryName: string;
   items: BackendOrderItemDto[];
   payment: BackendPaymentDto | null;
+  bundleOrderMetadata?: BackendBundleOrderMetadataDto | null;
 }
 
 export interface BackendOrderTrackDto {
@@ -311,6 +353,49 @@ export interface UiLaundry {
   availability: string;
 }
 
+export interface UiBundleItem {
+  id: string;
+  serviceId: number;
+  serviceName: string;
+  category: string;
+  quantity: number;
+  allowedCategory?: string | null;
+}
+
+export interface UiBundle {
+  id: string;
+  name: string;
+  description: string | null;
+  price: number;
+  originalPrice: number;
+  savingsAmount: number;
+  savingsPercentage: number;
+  status: string;
+  ownerType: string;
+  laundryId?: number | null;
+  startDate?: string | null;
+  expiryDate?: string | null;
+  imageUrl?: string | null;
+  displayOrder: number;
+  items: UiBundleItem[];
+}
+
+export interface UiBundleOrderMetadata {
+  bundleId: string;
+  bundleName: string;
+  bundlePrice: number;
+  originalPrice: number;
+  savingsAmount: number;
+  purchasedAt: string;
+}
+
+export interface LaundryRatingSnapshot {
+  laundryId?: number | null;
+  laundryName?: string | null;
+  averageRating: number;
+  totalReviews: number;
+}
+
 export type UiOrderStatus =
   | "pending_confirmation"
   | "accepted"
@@ -330,6 +415,7 @@ export interface UiOrder {
   pickupTime: string;
   pickupAddress: string;
   deliveryAddress: string;
+  laundryId?: number | null;
   laundryName: string;
   serviceName: string;
   serviceUnit: string;
@@ -339,6 +425,7 @@ export interface UiOrder {
   updatedAt: string;
   notes: string | null;
   cancellationReason: string | null;
+  bundleMetadata?: UiBundleOrderMetadata | null;
 }
 
 export interface VerifyEmailResponse {
@@ -354,6 +441,29 @@ export const categoryLabels: Record<string, string> = {
 
 export const categoryOrder = ["wash", "iron", "dry_clean", "specialty"];
 
+function normalizeBundleCategory(value: string | number | null | undefined) {
+  switch (String(value ?? "").toLowerCase()) {
+    case "wash":
+    case "washing":
+    case "1":
+      return "Wash";
+    case "drycleaning":
+    case "dry cleaning":
+    case "2":
+      return "Dry Cleaning";
+    case "iron":
+    case "ironing":
+    case "3":
+      return "Ironing";
+    case "specialty":
+    case "special care":
+    case "4":
+      return "Special Care";
+    default:
+      return String(value ?? "Wash");
+  }
+}
+
 export const statusOrder: UiOrderStatus[] = [
   "pending_confirmation",
   "accepted",
@@ -362,6 +472,114 @@ export const statusOrder: UiOrderStatus[] = [
   "picked_up",
   "delivered",
 ];
+
+function readLaundryRatingCache(): Record<string, LaundryRatingSnapshot> {
+  if (typeof window === "undefined") return {};
+
+  try {
+    const raw = window.localStorage.getItem(LAUNDRY_RATING_CACHE_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, LaundryRatingSnapshot>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function normalizeLaundryRatingCacheKey(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function writeLaundryRatingCache(snapshot: LaundryRatingSnapshot) {
+  if (typeof window === "undefined") return;
+
+  const cache = readLaundryRatingCache();
+  if (typeof snapshot.laundryId === "number" && snapshot.laundryId > 0) {
+    cache[String(snapshot.laundryId)] = snapshot;
+  }
+  if (snapshot.laundryName?.trim()) {
+    cache[`name:${normalizeLaundryRatingCacheKey(snapshot.laundryName)}`] = snapshot;
+  }
+  window.localStorage.setItem(LAUNDRY_RATING_CACHE_KEY, JSON.stringify(cache));
+}
+
+export function getCachedLaundryRating(
+  laundryId?: string | number | null,
+  laundryName?: string | null,
+) {
+  const cache = readLaundryRatingCache();
+
+  if (
+    (typeof laundryId === "number" && Number.isFinite(laundryId)) ||
+    (typeof laundryId === "string" && laundryId.trim())
+  ) {
+    const byId = cache[String(laundryId)];
+    if (byId) return byId;
+  }
+
+  if (laundryName?.trim()) {
+    return cache[`name:${normalizeLaundryRatingCacheKey(laundryName)}`] ?? null;
+  }
+
+  return null;
+}
+
+export function applyLaundryRatingSnapshot(
+  laundry: UiLaundry,
+  snapshot?: LaundryRatingSnapshot | null,
+): UiLaundry {
+  if (!snapshot) return laundry;
+
+  const matchesId =
+    typeof snapshot.laundryId === "number" && Number(laundry.id) === snapshot.laundryId;
+  const matchesName =
+    typeof snapshot.laundryName === "string" &&
+    normalizeLaundryRatingCacheKey(laundry.name) ===
+      normalizeLaundryRatingCacheKey(snapshot.laundryName);
+
+  if (!matchesId && !matchesName) return laundry;
+
+  return {
+    ...laundry,
+    rating: snapshot.averageRating,
+    reviews: snapshot.totalReviews,
+  };
+}
+
+export function applyCachedLaundryRatings(laundries: UiLaundry[]) {
+  return laundries.map((laundry) =>
+    applyLaundryRatingSnapshot(
+      laundry,
+      getCachedLaundryRating(laundry.id, laundry.name),
+    ),
+  );
+}
+
+export function announceLaundryRatingUpdated(snapshot: LaundryRatingSnapshot) {
+  writeLaundryRatingCache(snapshot);
+  if (typeof window === "undefined") return;
+
+  window.dispatchEvent(
+    new CustomEvent<LaundryRatingSnapshot>(LAUNDRY_RATING_UPDATED_EVENT, {
+      detail: snapshot,
+    }),
+  );
+}
+
+export function subscribeLaundryRatingUpdates(
+  listener: (snapshot: LaundryRatingSnapshot) => void,
+) {
+  if (typeof window === "undefined") return () => undefined;
+
+  const handler = (event: Event) => {
+    const customEvent = event as CustomEvent<LaundryRatingSnapshot>;
+    if (customEvent.detail) listener(customEvent.detail);
+  };
+
+  window.addEventListener(LAUNDRY_RATING_UPDATED_EVENT, handler as EventListener);
+  return () =>
+    window.removeEventListener(LAUNDRY_RATING_UPDATED_EVENT, handler as EventListener);
+}
 
 export const statusConfig: Record<
   UiOrderStatus,
@@ -442,6 +660,17 @@ function getErrorMessage(data: unknown, fallback = "Request failed.") {
   return fallback;
 }
 
+function summarizeErrorPayload(data: unknown) {
+  if (!data) return null;
+  if (typeof data === "string") return data.substring(0, 800);
+
+  try {
+    return JSON.stringify(data).substring(0, 800);
+  } catch {
+    return null;
+  }
+}
+
 async function request<T>(
   path: string,
   init?: RequestInit,
@@ -480,8 +709,23 @@ async function request<T>(
   const data = text ? safeJsonParse(text) : null;
 
   if (!response.ok) {
+    const message = getErrorMessage(
+      data,
+      `Request failed with status ${response.status}.`,
+    );
+
+    console.error("[API Error]", {
+      path,
+      status: response.status,
+      statusText: response.statusText,
+      requestBody:
+        typeof init?.body === "string" ? init.body.substring(0, 800) : undefined,
+      responseBody: summarizeErrorPayload(data),
+      message,
+    });
+
     throw new ApiError(
-      getErrorMessage(data, `Request failed with status ${response.status}.`),
+      message,
       response.status,
       data,
     );
@@ -711,6 +955,39 @@ function formatTime(dateIso: string) {
   });
 }
 
+export function mapBundleDtoToUiBundle(bundle: BackendBundleDto): UiBundle {
+  return {
+    id: String(bundle.id),
+    name: bundle.name,
+    description: bundle.description ?? null,
+    price: Number(bundle.bundlePrice ?? 0),
+    originalPrice: Number(bundle.originalPrice ?? 0),
+    savingsAmount: Number(
+      bundle.savingsAmount ??
+        Number(bundle.originalPrice ?? 0) - Number(bundle.bundlePrice ?? 0),
+    ),
+    savingsPercentage: Number(bundle.savingsPercentage ?? 0),
+    status: String(bundle.status ?? ""),
+    ownerType: String(bundle.ownerType ?? ""),
+    laundryId: bundle.laundryId ?? null,
+    startDate: bundle.startDate ?? null,
+    expiryDate: bundle.expiryDate ?? null,
+    imageUrl: bundle.imageUrl ?? null,
+    displayOrder: Number(bundle.displayOrder ?? 0),
+    items: (bundle.bundleItems ?? []).map((item) => ({
+      id: String(item.id),
+      serviceId: Number(item.serviceId),
+      serviceName: item.serviceName,
+      category: normalizeBundleCategory(item.serviceCategory),
+      quantity: Number(item.quantity ?? 0),
+      allowedCategory:
+        item.allowedItemCategory !== null && item.allowedItemCategory !== undefined
+          ? normalizeBundleCategory(item.allowedItemCategory)
+          : null,
+    })),
+  };
+}
+
 export function mapOrderDtoToUiOrder(order: BackendOrderDto): UiOrder {
   const itemCount = order.items.reduce(
     (sum, item) => sum + Number(item.quantity ?? 0),
@@ -728,6 +1005,7 @@ export function mapOrderDtoToUiOrder(order: BackendOrderDto): UiOrder {
     pickupTime: formatTime(order.pickupTime),
     pickupAddress: order.pickupLocation,
     deliveryAddress: order.deliveryLocation,
+    laundryId: order.laundryId ?? null,
     laundryName: order.laundryName,
     serviceName:
       order.items.length <= 1
@@ -740,6 +1018,16 @@ export function mapOrderDtoToUiOrder(order: BackendOrderDto): UiOrder {
     updatedAt: order.payment?.paymentDate ?? order.createdAt,
     notes: order.notes,
     cancellationReason: order.cancellationReason,
+    bundleMetadata: order.bundleOrderMetadata
+      ? {
+          bundleId: String(order.bundleOrderMetadata.bundleId),
+          bundleName: order.bundleOrderMetadata.bundleName,
+          bundlePrice: Number(order.bundleOrderMetadata.bundlePrice ?? 0),
+          originalPrice: Number(order.bundleOrderMetadata.originalPrice ?? 0),
+          savingsAmount: Number(order.bundleOrderMetadata.savingsAmount ?? 0),
+          purchasedAt: order.bundleOrderMetadata.purchasedAt,
+        }
+      : null,
   };
 }
 
@@ -1210,6 +1498,18 @@ export async function getLaundryRequest(id: string | number) {
   }
 }
 
+export async function getLaundryBundlesRequest(laundryId: string | number) {
+  const response = await request<CollectionResponse<BackendBundleDto>>(
+    `/Bundles/laundry/${laundryId}`,
+  );
+  return unwrapCollection(response).map(mapBundleDtoToUiBundle);
+}
+
+export async function getBundleByIdRequest(bundleId: string) {
+  const response = await request<BackendBundleDto>(`/Bundles/${bundleId}`);
+  return mapBundleDtoToUiBundle(response);
+}
+
 export async function getLaundryServicesRequest(id: string | number) {
   try {
     const res = await request<BackendServiceDto[]>(`/Laundries/${id}/services`);
@@ -1239,18 +1539,78 @@ export async function getLaundryRatingSummaryRequest(id: string | number) {
   return request<BackendRatingSummaryDto>(`/Laundries/${id}/rating-summary`);
 }
 
+export async function placeBundleOrderRequest(
+  token: string,
+  payload: {
+    bundleId: string;
+    laundryId: number;
+    userAddressId: number;
+    selectedItems: Array<{ bundleItemId: string; serviceId: number; quantity: number }>;
+    useWalletBalance?: boolean;
+    redeemPoints?: number | null;
+    scheduledPickupTime?: string | null;
+  },
+) {
+  return request<BackendOrderDto>(
+    "/Bundles/order",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        bundleId: payload.bundleId,
+        laundryId: Number(payload.laundryId),
+        userAddressId: Number(payload.userAddressId),
+        selectedItems: payload.selectedItems.map((item) => ({
+          bundleItemId: item.bundleItemId,
+          serviceId: Number(item.serviceId),
+          quantity: Number(item.quantity),
+        })),
+        useWalletBalance: Boolean(payload.useWalletBalance),
+        redeemPoints:
+          payload.redeemPoints !== null && payload.redeemPoints !== undefined
+            ? Number(payload.redeemPoints)
+            : null,
+        scheduledPickupTime: payload.scheduledPickupTime
+          ? new Date(payload.scheduledPickupTime).toISOString()
+          : null,
+      }),
+    },
+    token,
+  );
+}
+
+export async function getBundleOrderMetadataRequest(
+  token: string,
+  orderId: string | number,
+) {
+  return request<BackendBundleOrderMetadataDto>(
+    `/Bundles/orders/${orderId}/metadata`,
+    undefined,
+    token,
+  );
+}
+
 export async function calculatePriceRequest(
   token: string,
   payload: {
     laundryId: number;
     items: { serviceId: number; quantity: number }[];
+    couponCode?: string | null;
   },
 ) {
+  const normalizedPayload = {
+    laundryId: Number(payload.laundryId),
+    items: (payload.items ?? []).map((item) => ({
+      serviceId: Number(item.serviceId),
+      quantity: Number(item.quantity),
+    })),
+    couponCode: payload.couponCode?.trim() || null,
+  };
+
   return request<{ totalPrice: number; items: BackendOrderItemDto[] }>(
     "/Orders/calculate-price",
     {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizedPayload),
     },
     token,
   );
@@ -1266,13 +1626,30 @@ export async function placeOrderRequest(
     pickupLocation: string;
     deliveryLocation: string;
     notes?: string | null;
+    couponCode?: string | null;
   },
 ) {
+  const normalizedPayload = {
+    laundryId: Number(payload.laundryId),
+    pickupLocation: payload.pickupLocation.trim().substring(0, 249),
+    deliveryLocation: payload.deliveryLocation.trim().substring(0, 249),
+    pickupTime: new Date(payload.pickupTime).toISOString(),
+    deliveryTime: payload.deliveryTime
+      ? new Date(payload.deliveryTime).toISOString()
+      : null,
+    notes: payload.notes?.trim() || null,
+    couponCode: payload.couponCode?.trim() || null,
+    items: (payload.items ?? []).map((item) => ({
+      serviceId: Number(item.serviceId),
+      quantity: Number(item.quantity),
+    })),
+  };
+
   return request<BackendOrderDto>(
     "/Orders",
     {
       method: "POST",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(normalizedPayload),
     },
     token,
   );

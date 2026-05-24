@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import {
   MapPin,
   Star,
@@ -19,11 +19,18 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import {
+  announceLaundryRatingUpdated,
+  applyCachedLaundryRatings,
+  applyLaundryRatingSnapshot,
   ApiError,
+  checkOrderReviewRequest,
+  getOrdersRequest,
   UiLaundry,
   getLaundriesRequest,
+  mapOrderDtoToUiOrder,
   mapLaundryDtoToUiLaundry,
   searchLaundriesRequest,
+  subscribeLaundryRatingUpdates,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -38,6 +45,35 @@ type FlowState =
 type SortOption = "distance" | "rating";
 type FilterOption = "all" | "available";
 const NEARBY_STATE_KEY = "ndeef_nearby_state";
+
+const sectionReveal = {
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.48, ease: [0.22, 1, 0.36, 1] as const },
+  },
+} as const;
+
+const staggerGrid = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.08, delayChildren: 0.06 },
+  },
+} as const;
+
+function normalizeLaundryName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function extractReviewCheck(
+  input: Awaited<ReturnType<typeof checkOrderReviewRequest>>,
+) {
+  return {
+    hasRating: Boolean(input.hasRating ?? input.HasRating),
+    rating: Number(input.rating ?? input.Rating ?? 0),
+  };
+}
 
 function getCurrentLocation(): Promise<{ lat: number; lng: number }> {
   return new Promise((resolve, reject) => {
@@ -388,7 +424,7 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
 
 export default function NearbyLaundries() {
   const router = useRouter();
-  const { isLoggedIn, isAuthReady } = useAuth();
+  const { user, isLoggedIn, isAuthReady } = useAuth();
   const filterAnchorRef = useRef<HTMLDivElement | null>(null);
   const mobileSheetRef = useRef<HTMLDivElement | null>(null);
   const [flowState, setFlowState] = useState<FlowState>("permission_request");
@@ -423,7 +459,7 @@ export default function NearbyLaundries() {
       };
 
       if (Array.isArray(saved.laundryList) && saved.laundryList.length > 0) {
-        setLaundryList(saved.laundryList);
+        setLaundryList(applyCachedLaundryRatings(saved.laundryList));
         setSearch(saved.search ?? "");
         setSortBy(saved.sortBy ?? "distance");
         setFilterBy(saved.filterBy ?? "all");
@@ -462,6 +498,8 @@ export default function NearbyLaundries() {
         const fallback = await getLaundriesRequest({ pageIndex: 1, pageSize: 50 });
         mapped = fallback.data.map((item) => mapLaundryDtoToUiLaundry(item, coords));
       }
+
+      mapped = applyCachedLaundryRatings(mapped);
 
       if (mapped.length === 0) {
         setErrorType("no_laundries");
@@ -539,6 +577,77 @@ export default function NearbyLaundries() {
       }),
     );
   }, [filterBy, flowState, laundryList, search, sortBy]);
+
+  useEffect(() => {
+    const unsubscribe = subscribeLaundryRatingUpdates((snapshot) => {
+      setLaundryList((current) =>
+        current.map((laundry) => applyLaundryRatingSnapshot(laundry, snapshot)),
+      );
+    });
+
+    return unsubscribe;
+  }, []);
+
+  useEffect(() => {
+    if (!user?.token || flowState !== "success" || laundryList.length === 0) return;
+    const authToken = user.token;
+
+    const zeroRatedLaundries = laundryList.filter(
+      (laundry) => Number(laundry.reviews ?? 0) === 0,
+    );
+    if (zeroRatedLaundries.length === 0) return;
+
+    let active = true;
+
+    async function hydrateRatingsFromOrders() {
+      try {
+        const ordersResponse = await getOrdersRequest(authToken, 1, 100);
+        const deliveredOrders = ordersResponse.data
+          .map(mapOrderDtoToUiOrder)
+          .filter((order) => order.status === "delivered")
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          );
+
+        for (const laundry of zeroRatedLaundries) {
+          const matchingOrders = deliveredOrders.filter((order) => {
+            const matchesId =
+              typeof order.laundryId === "number" &&
+              order.laundryId === Number(laundry.id);
+            const matchesName =
+              normalizeLaundryName(order.laundryName) ===
+              normalizeLaundryName(laundry.name);
+            return matchesId || matchesName;
+          });
+
+          for (const order of matchingOrders) {
+            const reviewCheck = extractReviewCheck(
+              await checkOrderReviewRequest(authToken, order.id),
+            );
+
+            if (!active || !reviewCheck.hasRating) continue;
+
+            announceLaundryRatingUpdated({
+              laundryId: Number(laundry.id),
+              laundryName: laundry.name,
+              averageRating: reviewCheck.rating,
+              totalReviews: 1,
+            });
+            break;
+          }
+        }
+      } catch {
+        if (!active) return;
+      }
+    }
+
+    void hydrateRatingsFromOrders();
+
+    return () => {
+      active = false;
+    };
+  }, [flowState, laundryList, user?.token]);
 
   useEffect(() => {
     if (!showFilters) return;
@@ -684,7 +793,7 @@ export default function NearbyLaundries() {
       className="ndeef-page-shell min-h-screen bg-[radial-gradient(circle_at_top,#f6fbfd_0%,#f8fafc_32%,#f5f5f5_74%)] pb-16"
       dir="ltr"
     >
-      <div className="ndeef-page-header sticky top-16 z-20 border-b border-gray-100 bg-white/92 px-4 py-4 shadow-sm backdrop-blur-md md:px-8">
+      <div className="border-b border-gray-100 bg-white px-4 py-5 md:px-8">
         <div className="mx-auto max-w-6xl">
           <div className="flex items-center gap-3">
             <button
@@ -729,8 +838,13 @@ export default function NearbyLaundries() {
       )}
 
       {flowState === "success" && (
-        <div className="mx-auto max-w-[1160px] px-4 py-5 md:px-8">
-          <div className="mb-4 overflow-hidden rounded-[30px] bg-[linear-gradient(135deg,#0d3d50_0%,#1D6076_60%,#2a7a94_100%)] text-white shadow-[0_18px_56px_rgba(13,61,80,0.18)]">
+        <div className="mx-auto max-w-[1160px] px-4 py-6 md:px-8">
+          <motion.div
+            variants={sectionReveal}
+            initial="hidden"
+            animate="show"
+            className="mb-4 overflow-hidden rounded-[30px] bg-[linear-gradient(135deg,#0d3d50_0%,#1D6076_60%,#2a7a94_100%)] text-white shadow-[0_18px_56px_rgba(13,61,80,0.18)]"
+          >
             <div className="grid gap-4 px-5 py-5 md:grid-cols-[1.15fr_0.85fr] md:px-7 md:py-6">
               <div>
                 <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] backdrop-blur-sm">
@@ -746,15 +860,15 @@ export default function NearbyLaundries() {
                 </p>
 
                 <div className="mt-5 flex flex-wrap gap-2">
-                  <span className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
+                  <motion.span whileHover={{ y: -2 }} className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
                     {laundryList.length} total laundries
-                  </span>
-                  <span className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
+                  </motion.span>
+                  <motion.span whileHover={{ y: -2 }} className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
                     {openNowCount} open now
-                  </span>
-                  <span className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
+                  </motion.span>
+                  <motion.span whileHover={{ y: -2 }} className="rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-medium backdrop-blur-sm">
                     {topRatedCount} top rated
-                  </span>
+                  </motion.span>
                 </div>
               </div>
 
@@ -806,10 +920,16 @@ export default function NearbyLaundries() {
                 </div>
               </div>
             </div>
-          </div>
+          </motion.div>
 
-          <div className="relative mb-3 grid gap-3 lg:grid-cols-[1fr_auto]">
-            <div className="relative">
+          <motion.div
+            variants={sectionReveal}
+            initial="hidden"
+            animate="show"
+            transition={{ delay: 0.08 }}
+            className="relative mb-3 grid gap-3 lg:grid-cols-[1fr_auto]"
+          >
+            <motion.div className="relative" whileFocus={{ scale: 1.005 }}>
               <Search
                 size={17}
                 className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
@@ -821,11 +941,12 @@ export default function NearbyLaundries() {
                 placeholder="Search by laundry name or area"
                 className="ndeef-page-card w-full rounded-[22px] border border-gray-200 bg-white py-3.5 pl-12 pr-4 text-sm text-gray-900 shadow-[0_10px_30px_rgba(15,23,42,0.04)] transition-all placeholder-gray-400 focus:border-[#1D6076] focus:outline-none focus:ring-1 focus:ring-[#1D6076]/20"
               />
-            </div>
+            </motion.div>
 
             <div ref={filterAnchorRef} className="relative">
-              <button
+              <motion.button
                 onClick={() => setShowFilters((value) => !value)}
+                whileTap={{ scale: 0.98 }}
                 className={`flex items-center justify-center gap-2 rounded-[22px] border px-5 py-3.5 text-sm font-semibold transition-all ${
                   showFilters
                     ? "border-[#1D6076] bg-[#1D6076] text-white shadow-[0_14px_30px_rgba(29,96,118,0.18)]"
@@ -843,47 +964,70 @@ export default function NearbyLaundries() {
                     {activeFilterCount}
                   </span>
                 ) : null}
-              </button>
+              </motion.button>
 
-              {showFilters && (
-                <div className="absolute right-0 top-[calc(100%+12px)] z-30 hidden w-[min(92vw,420px)] overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-[0_20px_50px_rgba(15,23,42,0.16)] md:block">
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.18 }}
+                    className="absolute right-0 top-[calc(100%+12px)] z-30 hidden w-[min(92vw,420px)] overflow-hidden rounded-[24px] border border-slate-200/80 bg-white p-4 shadow-[0_20px_50px_rgba(15,23,42,0.16)] md:block"
+                  >
+                    {filterPanelContent}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+          </motion.div>
+
+          <AnimatePresence>
+            {showFilters && (
+              <div className="fixed inset-0 z-40 md:hidden">
+                <motion.button
+                  type="button"
+                  aria-label="Close filters"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setShowFilters(false)}
+                  className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px]"
+                />
+                <motion.div
+                  ref={mobileSheetRef}
+                  initial={{ y: 48, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  exit={{ y: 36, opacity: 0 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  className="absolute inset-x-0 bottom-0 rounded-t-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_-20px_50px_rgba(15,23,42,0.18)]"
+                >
+                  <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-200" />
                   {filterPanelContent}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {showFilters && (
-            <div className="fixed inset-0 z-40 md:hidden">
-              <button
-                type="button"
-                aria-label="Close filters"
-                onClick={() => setShowFilters(false)}
-                className="absolute inset-0 bg-slate-950/30 backdrop-blur-[2px]"
-              />
-              <div
-                ref={mobileSheetRef}
-                className="absolute inset-x-0 bottom-0 rounded-t-[28px] border border-slate-200/80 bg-white p-4 shadow-[0_-20px_50px_rgba(15,23,42,0.18)]"
-              >
-                <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-slate-200" />
-                {filterPanelContent}
+                </motion.div>
               </div>
-            </div>
-          )}
+            )}
+          </AnimatePresence>
 
-          <div className="mb-3 flex flex-wrap gap-2">
-            <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/80">
+          <motion.div
+            variants={sectionReveal}
+            initial="hidden"
+            animate="show"
+            transition={{ delay: 0.12 }}
+            className="mb-3 flex flex-wrap gap-2"
+          >
+            <motion.span whileHover={{ y: -2 }} className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/80">
               Sorted by {sortBy === "distance" ? "distance" : "rating"}
-            </span>
-            <span className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/80">
+            </motion.span>
+            <motion.span whileHover={{ y: -2 }} className="rounded-full bg-white px-4 py-2 text-xs font-semibold text-slate-600 shadow-sm ring-1 ring-slate-200/80">
               {filterBy === "available" ? "Open now only" : "All availability"}
-            </span>
+            </motion.span>
             {search ? (
-              <span className="rounded-full bg-[#1D6076]/8 px-4 py-2 text-xs font-semibold text-[#1D6076] shadow-sm ring-1 ring-[#1D6076]/10">
+              <motion.span whileHover={{ y: -2 }} className="rounded-full bg-[#1D6076]/8 px-4 py-2 text-xs font-semibold text-[#1D6076] shadow-sm ring-1 ring-[#1D6076]/10">
                 Search: {search}
-              </span>
+              </motion.span>
             ) : null}
-          </div>
+          </motion.div>
 
           {filteredLaundries.length === 0 ? (
             <div className="ndeef-page-card rounded-[32px] border border-gray-100 bg-white p-8 text-center shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
@@ -896,11 +1040,16 @@ export default function NearbyLaundries() {
               </p>
             </div>
           ) : (
-            <div className="space-y-5">
+            <motion.div
+              variants={staggerGrid}
+              initial="hidden"
+              animate="show"
+              className="space-y-5"
+            >
               {filteredLaundries.map((laundry, index) => (
                 <LaundryCard key={laundry.id} laundry={laundry} index={index} />
               ))}
-            </div>
+            </motion.div>
           )}
         </div>
       )}

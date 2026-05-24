@@ -14,12 +14,24 @@ import {
   Loader2,
   Info,
 } from "lucide-react";
-import { getCourierEarnings, getCourierTodayStats, type CourierEarningsResponseDto, type CourierTodayStatsDto } from "@/app/lib/courier-client";
+import {
+  getCourierEarnings,
+  getCourierLifetimeStats,
+  getCourierTodayStats,
+  type CourierEarningsResponseDto,
+  type CourierLifetimeStatsDto,
+  type CourierTodayStatsDto,
+} from "@/app/lib/courier-client";
 import { ApiError } from "@/app/lib/admin-api";
 
 type Period = "today" | "week";
 
-function buildStats(period: Period, earnings: CourierEarningsResponseDto, today: CourierTodayStatsDto) {
+function buildStats(
+  period: Period,
+  earnings: CourierEarningsResponseDto,
+  today: CourierTodayStatsDto,
+  lifetime: CourierLifetimeStatsDto,
+) {
   if (period === "today") {
     const avgPerOrder = today.todaysOrders > 0 ? today.earnedToday / today.todaysOrders : 0;
     return {
@@ -34,12 +46,13 @@ function buildStats(period: Period, earnings: CourierEarningsResponseDto, today:
   }
 
   return {
-    earned: earnings.totalEarned,
-    orders: earnings.ordersDone,
+    earned: lifetime.totalEarnings,
+    orders: lifetime.totalCompletedOrders,
     hours: earnings.hoursActive,
-    cancelled: earnings.cancelled,
-    avgPerOrder: earnings.avgPerOrder,
-    completionRate: earnings.completionRate,
+    cancelled: lifetime.totalCancellations,
+    avgPerOrder:
+      lifetime.totalCompletedOrders > 0 ? lifetime.totalEarnings / lifetime.totalCompletedOrders : 0,
+    completionRate: lifetime.completionRate,
     trend: today.vsYesterdayPercentage,
   };
 }
@@ -48,6 +61,7 @@ export default function CourierEarningsPage() {
   const [period, setPeriod] = useState<Period>("week");
   const [earnings, setEarnings] = useState<CourierEarningsResponseDto | null>(null);
   const [todayStats, setTodayStats] = useState<CourierTodayStatsDto | null>(null);
+  const [lifetimeStats, setLifetimeStats] = useState<CourierLifetimeStatsDto | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
@@ -58,10 +72,15 @@ export default function CourierEarningsPage() {
       setLoading(true);
       setError("");
       try {
-        const [earningsResult, todayResult] = await Promise.all([getCourierEarnings(), getCourierTodayStats()]);
+        const [earningsResult, todayResult, lifetimeResult] = await Promise.all([
+          getCourierEarnings(),
+          getCourierTodayStats(),
+          getCourierLifetimeStats(),
+        ]);
         if (ignore) return;
         setEarnings(earningsResult);
         setTodayStats(todayResult);
+        setLifetimeStats(lifetimeResult);
       } catch (loadError) {
         if (ignore) return;
         setError(loadError instanceof ApiError ? loadError.message : "Unable to load courier earnings.");
@@ -77,9 +96,9 @@ export default function CourierEarningsPage() {
   }, []);
 
   const stats = useMemo(() => {
-    if (!earnings || !todayStats) return null;
-    return buildStats(period, earnings, todayStats);
-  }, [earnings, period, todayStats]);
+    if (!earnings || !todayStats || !lifetimeStats) return null;
+    return buildStats(period, earnings, todayStats, lifetimeStats);
+  }, [earnings, lifetimeStats, period, todayStats]);
 
   const maxBar = useMemo(
     () => Math.max(1, ...(earnings?.dailyEarnings.map((item) => item.amount) ?? [0])),
@@ -99,7 +118,7 @@ export default function CourierEarningsPage() {
     );
   }
 
-  if (error || !earnings || !todayStats || !stats) {
+  if (error || !earnings || !todayStats || !lifetimeStats || !stats) {
     return (
       <div className="p-4 lg:p-6 max-w-4xl mx-auto">
         <div className="ndeef-courier-soft bg-red-50 border border-red-200 rounded-2xl px-4 py-4 text-sm text-red-700">
@@ -136,7 +155,9 @@ export default function CourierEarningsPage() {
           <div className="relative z-10">
             <div className="flex items-start justify-between mb-4">
               <div>
-                <p className="text-white/60 text-xs mb-1">Total Earned</p>
+                <p className="text-white/60 text-xs mb-1">
+                  {period === "today" ? "Earned Today" : "Total Earned"}
+                </p>
                 <p className="text-4xl font-bold">EGP</p>
                 <motion.p key={period} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="text-4xl font-bold">
                   {stats.earned.toLocaleString()}

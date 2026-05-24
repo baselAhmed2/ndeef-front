@@ -51,6 +51,18 @@ async function proxyRequest(
   }
 
   const responseBody = await response.text();
+
+  if (!response.ok) {
+    console.error("[backend proxy error]", {
+      method: request.method,
+      backendUrl: backendUrl.toString(),
+      status: response.status,
+      statusText: response.statusText,
+      requestBodyPreview: body ? body.toString("utf8").slice(0, 500) : undefined,
+      responseBodyPreview: responseBody.slice(0, 1000),
+    });
+  }
+
   return new NextResponse(responseBody, {
     status: response.status,
     headers: responseHeaders,

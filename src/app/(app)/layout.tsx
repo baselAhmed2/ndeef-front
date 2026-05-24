@@ -7,6 +7,7 @@ import { useAuth } from "@/app/context/AuthContext";
 import { useEffect } from "react";
 import { ReactNode } from "react";
 import { Suspense } from "react";
+import { AppMotionShell } from "@/app/components/AppMotionShell";
 
 function AuthPageLoader() {
   return (
@@ -89,7 +90,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       {shouldShowTopNav && <TopNav />}
-      <div key={currentPath}>{children}</div>
+      <AppMotionShell>{children}</AppMotionShell>
     </div>
   );
 }

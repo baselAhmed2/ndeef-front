@@ -54,7 +54,25 @@ const CANCEL_REASONS = [
   "Other",
 ];
 
+function extractCoordinates(value?: string | null) {
+  if (!value) return null;
+
+  const match = value.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if (!match) return null;
+
+  const lat = Number(match[1]);
+  const lng = Number(match[2]);
+  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+  return { lat, lng };
+}
+
 function buildMapsUrl(destination: string) {
+  const coordinates = extractCoordinates(destination);
+  if (coordinates) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${coordinates.lat},${coordinates.lng}`)}`;
+  }
+
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
 }
 

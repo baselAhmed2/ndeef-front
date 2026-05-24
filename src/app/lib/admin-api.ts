@@ -212,7 +212,7 @@ export async function getLaundryCommissionDetails(laundryId: string): Promise<{
 }
 
 // Super Admin: Record manual commission payment (cash/bank transfer)
-export async function recordCommissionPayment(laundryId: string, payment: {
+export async function recordCommissionPayment(_laundryId: string, _payment: {
   amount: number;
   method: "cash" | "bank_transfer";
   reference?: string;

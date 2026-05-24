@@ -233,7 +233,7 @@ export default function FraudPage() {
                     </div>
 
                     <p className="rounded-xl border border-red-100/50 bg-red-50/50 p-3 text-sm italic text-slate-600">
-                      "{alert.reason || "No detailed reason was provided by the backend."}"
+                      &ldquo;{alert.reason || "No detailed reason was provided by the backend."}&rdquo;
                     </p>
                   </div>
 

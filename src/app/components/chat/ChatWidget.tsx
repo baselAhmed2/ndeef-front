@@ -587,7 +587,7 @@ function renderMarkdownWithTables(rawText: string) {
   return <div className="flex flex-col gap-1">{nodes}</div>;
 }
 
-function TypewriterText({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+function TypewriterText({ content, isStreaming: _isStreaming }: { content: string; isStreaming: boolean }) {
   const [displayedText, setDisplayedText] = useState("");
 
   useEffect(() => {

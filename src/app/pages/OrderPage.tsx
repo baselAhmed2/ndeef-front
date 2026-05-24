@@ -22,11 +22,16 @@ import {
 } from "lucide-react";
 import {
   ApiError,
+  BackendAddressDto,
+  UiBundle,
   UiLaundry,
   UiServiceItem,
   calculatePriceRequest,
+  getBundleByIdRequest,
   getLaundryRequest,
+  getUserAddressesRequest,
   mapLaundryDtoToUiLaundry,
+  placeBundleOrderRequest,
   placeOrderRequest,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -49,7 +54,7 @@ const timeSlots = [
   "18:00 - 20:00",
 ];
 
-function toPickupDateTime(dateLabel: string, timeSlot: string) {
+function getSlotStartDate(dateLabel: string, timeSlot: string) {
   const now = new Date();
   const date = new Date(
     now.getFullYear(),
@@ -68,6 +73,11 @@ function toPickupDateTime(dateLabel: string, timeSlot: string) {
   const [hours, minutes] = start.trim().split(":").map(Number);
   date.setHours(hours, minutes, 0, 0);
 
+  return date;
+}
+
+function toPickupDateTime(dateLabel: string, timeSlot: string) {
+  const date = getSlotStartDate(dateLabel, timeSlot);
   return date.toISOString();
 }
 
@@ -81,6 +91,7 @@ export default function OrderPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isLoggedIn, isAuthReady, user } = useAuth();
+  const bundleId = searchParams?.get("bundle")?.trim() ?? "";
 
   const selectedServiceIds = useMemo(
     () =>
@@ -96,7 +107,10 @@ export default function OrderPage() {
   );
 
   const [laundry, setLaundry] = useState<UiLaundry | null>(null);
+  const [selectedBundle, setSelectedBundle] = useState<UiBundle | null>(null);
   const [selectedServices, setSelectedServices] = useState<UiServiceItem[]>([]);
+  const [savedAddresses, setSavedAddresses] = useState<BackendAddressDto[]>([]);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [selectedDate, setSelectedDate] = useState("Today");
@@ -116,11 +130,35 @@ export default function OrderPage() {
   const [mapError, setMapError] = useState("");
   const [mapLoadingLocation, setMapLoadingLocation] = useState(false);
 
+  const availableTimeSlots = useMemo(() => {
+    const now = new Date();
+    return timeSlots.filter((slot) => {
+      if (selectedDate !== "Today") return true;
+      return getSlotStartDate(selectedDate, slot).getTime() > now.getTime();
+    });
+  }, [selectedDate]);
+
+  useEffect(() => {
+    if (availableTimeSlots.length === 0) {
+      if (selectedDate === "Today") {
+        setSelectedDate("Tomorrow");
+      }
+      return;
+    }
+
+    if (!availableTimeSlots.includes(selectedTime)) {
+      setSelectedTime(availableTimeSlots[0]);
+    }
+  }, [availableTimeSlots, selectedDate, selectedTime]);
+
   useEffect(() => {
     if (!isAuthReady) return;
 
     if (!isLoggedIn) {
       const params = new URLSearchParams();
+      if (bundleId) {
+        params.set("bundle", bundleId);
+      }
       if (selectedServiceIds.length > 0) {
         params.set("services", selectedServiceIds.join(","));
       }
@@ -129,7 +167,7 @@ export default function OrderPage() {
       );
       router.replace(`/login?from=${from}`);
     }
-  }, [isAuthReady, isLoggedIn, laundryId, router, selectedServiceIds]);
+  }, [bundleId, isAuthReady, isLoggedIn, laundryId, router, selectedServiceIds]);
 
   useEffect(() => {
     const loadLaundry = async () => {
@@ -137,35 +175,69 @@ export default function OrderPage() {
 
       try {
         setLoading(true);
-        const response = await getLaundryRequest(laundryId);
+        const [response, bundleResponse, addressResponse] = await Promise.all([
+          getLaundryRequest(laundryId),
+          bundleId ? getBundleByIdRequest(bundleId).catch(() => null) : Promise.resolve(null),
+          user?.token ? getUserAddressesRequest(user.token).catch(() => []) : Promise.resolve([]),
+        ]);
         const mappedLaundry = mapLaundryDtoToUiLaundry(response);
-        const nextSelectedServices = mappedLaundry.services.filter(
-          (service) =>
-            service.available && selectedServiceIds.includes(service.id),
-        );
+        const nextSelectedServices = bundleResponse
+          ? []
+          : mappedLaundry.services.filter(
+              (service) =>
+                service.available && selectedServiceIds.includes(service.id),
+            );
+        const primaryAddress =
+          addressResponse.find((address) => address.isDefault) ?? addressResponse[0] ?? null;
 
         setLaundry(mappedLaundry);
+        setSelectedBundle(bundleResponse);
         setSelectedServices(nextSelectedServices);
+        setSavedAddresses(addressResponse);
+        setSelectedAddressId(primaryAddress?.id ?? null);
+        if (primaryAddress) {
+          const formattedAddress = [primaryAddress.street, primaryAddress.area, primaryAddress.city]
+            .filter(Boolean)
+            .join(", ");
+          setPickupAddress(formattedAddress);
+          if (sameAddress) {
+            setDeliveryAddress(formattedAddress);
+          }
+        }
         setItemCounts((current) => {
           const nextCounts: Record<string, number> = {};
-          nextSelectedServices.forEach((service) => {
-            nextCounts[service.id] = Math.max(1, current[service.id] ?? 1);
-          });
+          if (bundleResponse) {
+            bundleResponse.items.forEach((item) => {
+              nextCounts[String(item.serviceId)] = Math.max(1, item.quantity);
+            });
+          } else {
+            nextSelectedServices.forEach((service) => {
+              nextCounts[service.id] = Math.max(1, current[service.id] ?? 1);
+            });
+          }
           return nextCounts;
         });
       } catch {
         setLaundry(null);
+        setSelectedBundle(null);
         setSelectedServices([]);
+        setSavedAddresses([]);
       } finally {
         setLoading(false);
       }
     };
 
     loadLaundry();
-  }, [laundryId, selectedServiceIds]);
+  }, [bundleId, laundryId, sameAddress, selectedServiceIds, user?.token]);
 
   useEffect(() => {
     const refreshPrice = async () => {
+      if (selectedBundle) {
+        setCalculatedTotal(Number(selectedBundle.price ?? 0));
+        setPricingError("");
+        return;
+      }
+
       if (!user?.token || !laundryId || selectedServices.length === 0) return;
 
       try {
@@ -196,34 +268,45 @@ export default function OrderPage() {
     };
 
     refreshPrice();
-  }, [itemCounts, laundryId, selectedServices, user?.token]);
+  }, [itemCounts, laundryId, selectedBundle, selectedServices, user?.token]);
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
+    if (selectedBundle && !selectedAddressId) {
+      nextErrors.address = "A saved address is required for bundle orders";
+    }
     if (!pickupAddress.trim()) nextErrors.pickup = "Pickup address is required";
     if (!sameAddress && !deliveryAddress.trim()) {
       nextErrors.delivery = "Delivery address is required";
+    }
+    if (!availableTimeSlots.includes(selectedTime)) {
+      nextErrors.time = "Please choose an upcoming pickup time";
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
   const total = useMemo(() => {
+    if (selectedBundle) return Number(selectedBundle.price ?? 0);
     if (calculatedTotal !== null) return calculatedTotal;
     return selectedServices.reduce(
       (sum, service) =>
         sum + Number(service.price) * (itemCounts[service.id] ?? 1),
       0,
     );
-  }, [calculatedTotal, itemCounts, selectedServices]);
+  }, [calculatedTotal, itemCounts, selectedBundle, selectedServices]);
 
   const totalItems = useMemo(
-    () =>
-      selectedServices.reduce(
+    () => {
+      if (selectedBundle) {
+        return selectedBundle.items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
+      }
+      return selectedServices.reduce(
         (sum, service) => sum + (itemCounts[service.id] ?? 1),
         0,
-      ),
-    [itemCounts, selectedServices],
+      );
+    },
+    [itemCounts, selectedBundle, selectedServices],
   );
 
   const deliveryFee = 0;
@@ -317,7 +400,7 @@ export default function OrderPage() {
   };
 
   const handlePlaceOrder = async () => {
-    if (selectedServices.length === 0 || !user?.token) return;
+    if ((!selectedBundle && selectedServices.length === 0) || !user?.token) return;
 
     setSubmitError("");
     const normalizedRole = (user.role ?? "").toLowerCase();
@@ -334,18 +417,30 @@ export default function OrderPage() {
 
     try {
       setValidating(true);
-      const order = await placeOrderRequest(user.token, {
-        laundryId: Number(laundryId),
-        items: selectedServices.map((service) => ({
-          serviceId: Number(service.id),
-          quantity: itemCounts[service.id] ?? 1,
-        })),
-        pickupTime: toPickupDateTime(selectedDate, selectedTime),
-        deliveryTime: null,
-        pickupLocation: pickupAddress.trim(),
-        deliveryLocation: finalDelivery.trim(),
-        notes: null,
-      });
+      const order = selectedBundle
+        ? await placeBundleOrderRequest(user.token, {
+            bundleId: selectedBundle.id,
+            laundryId: Number(laundryId),
+            userAddressId: Number(selectedAddressId),
+            selectedItems: selectedBundle.items.map((item) => ({
+              bundleItemId: item.id,
+              serviceId: item.serviceId,
+              quantity: item.quantity,
+            })),
+            scheduledPickupTime: toPickupDateTime(selectedDate, selectedTime),
+          })
+        : await placeOrderRequest(user.token, {
+            laundryId: Number(laundryId),
+            items: selectedServices.map((service) => ({
+              serviceId: Number(service.id),
+              quantity: itemCounts[service.id] ?? 1,
+            })),
+            pickupTime: toPickupDateTime(selectedDate, selectedTime),
+            deliveryTime: null,
+            pickupLocation: pickupAddress.trim(),
+            deliveryLocation: finalDelivery.trim(),
+            notes: null,
+          });
 
       if (paymentMethod === "cash") {
         router.push(`/track-order/${order.id}?notice=placed`);
@@ -378,14 +473,16 @@ export default function OrderPage() {
     );
   }
 
-  if (!laundry || selectedServices.length === 0) {
+  if (!laundry || (!selectedBundle && selectedServices.length === 0)) {
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center px-8 text-center">
         <div>
           <div className="w-16 h-16 rounded-full bg-red-50 flex items-center justify-center mx-auto mb-4">
             <AlertCircle size={28} className="text-red-400" />
           </div>
-          <p className="text-gray-700 mb-2">No services selected</p>
+          <p className="text-gray-700 mb-2">
+            {selectedBundle ? "Bundle not available" : "No services selected"}
+          </p>
           <button
             onClick={() => router.push(`/laundry/${laundryId}`)}
             className="text-[#1D6076] text-sm underline"
@@ -408,10 +505,15 @@ export default function OrderPage() {
             <ArrowLeft size={18} className="text-white" strokeWidth={2} />
           </button>
           <div className="flex-1 min-w-0">
-            <h1 className="text-white text-base">New Order</h1>
+            <h1 className="text-white text-base">
+              {selectedBundle ? "Bundle Order" : "New Order"}
+            </h1>
             <p className="text-white/70 text-xs truncate">
-              {laundry.name} - {selectedServices.length} selected service
-              {selectedServices.length > 1 ? "s" : ""}
+              {selectedBundle
+                ? `${laundry.name} - ${selectedBundle.name}`
+                : `${laundry.name} - ${selectedServices.length} selected service${
+                    selectedServices.length > 1 ? "s" : ""
+                  }`}
             </p>
           </div>
         </div>
@@ -474,18 +576,56 @@ export default function OrderPage() {
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="flex items-center justify-between gap-3 mb-4">
             <p className="text-xs font-semibold text-gray-400 tracking-wider">
-              SELECTED SERVICES
+              {selectedBundle ? "SELECTED BUNDLE" : "SELECTED SERVICES"}
             </p>
-            <button
-              type="button"
-              onClick={() => router.push(`/laundry/${laundryId}`)}
-              className="text-xs text-[#1D6076] hover:underline"
-            >
-              Add more
-            </button>
+            {!selectedBundle && (
+              <button
+                type="button"
+                onClick={() => router.push(`/laundry/${laundryId}`)}
+                className="text-xs text-[#1D6076] hover:underline"
+              >
+                Add more
+              </button>
+            )}
           </div>
 
           <div className="space-y-3">
+            {selectedBundle && (
+              <div className="rounded-2xl border border-[#1D6076]/15 bg-[linear-gradient(135deg,rgba(29,96,118,0.06),rgba(235,160,80,0.10))] p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-lg font-semibold text-gray-900">{selectedBundle.name}</p>
+                    <p className="mt-1 text-sm text-gray-600">
+                      {selectedBundle.description?.trim() || "This bundle includes fixed items from the selected laundry."}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xl font-semibold text-[#1D6076]">{selectedBundle.price} EGP</p>
+                    <p className="text-xs text-emerald-600">
+                      Save {selectedBundle.savingsAmount.toFixed(2)} EGP
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  {selectedBundle.items.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between rounded-xl border border-white/80 bg-white/80 px-4 py-3"
+                    >
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">{item.serviceName}</p>
+                        <p className="text-xs text-gray-400">{item.category}</p>
+                      </div>
+                      <span className="rounded-full bg-[#1D6076]/10 px-3 py-1 text-xs font-semibold text-[#1D6076]">
+                        x{item.quantity}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {selectedServices.map((service) => (
               <div
                 key={service.id}
@@ -575,26 +715,52 @@ export default function OrderPage() {
               PICKUP TIME
             </p>
           </div>
+          {selectedDate === "Today" && availableTimeSlots.length !== timeSlots.length && (
+            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Past pickup windows for today are unavailable.
+            </div>
+          )}
           <div className="grid grid-cols-2 gap-2.5">
             {timeSlots.map((slot) => (
+              (() => {
+                const isDisabled = !availableTimeSlots.includes(slot);
+                const isSelected = selectedTime === slot;
+                return (
               <button
                 key={slot}
-                onClick={() => setSelectedTime(slot)}
-                className={`py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.98] relative ${
-                  selectedTime === slot
-                    ? "bg-[#1D6076] text-white shadow-sm"
-                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100"
+                type="button"
+                onClick={() => !isDisabled && setSelectedTime(slot)}
+                disabled={isDisabled}
+                className={`relative rounded-xl border py-3 text-sm font-medium transition-all ${
+                  isDisabled
+                    ? "cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60"
+                    : isSelected
+                      ? "bg-[#1D6076] text-white shadow-sm border-[#1D6076]"
+                      : "border-gray-100 bg-gray-50 text-gray-700 hover:bg-gray-100 active:scale-[0.98]"
                 }`}
               >
                 {slot}
-                {selectedTime === slot && (
+                {isSelected && !isDisabled && (
                   <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white/25 flex items-center justify-center">
                     <Check size={10} strokeWidth={3} />
                   </span>
                 )}
+                {isDisabled && (
+                  <span className="absolute right-2 top-2 text-[10px] font-semibold text-gray-300">
+                    Passed
+                  </span>
+                )}
               </button>
+                );
+              })()
             ))}
           </div>
+          {errors.time && (
+            <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
+              <AlertCircle size={12} />
+              {errors.time}
+            </p>
+          )}
         </div>
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -604,6 +770,50 @@ export default function OrderPage() {
               PICKUP ADDRESS
             </p>
           </div>
+          {selectedBundle && (
+            <div className="mb-4 space-y-2">
+              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Saved address required for bundle orders
+              </label>
+              <select
+                value={selectedAddressId ?? ""}
+                onChange={(event) => {
+                  const nextId = Number(event.target.value);
+                  const nextAddress = savedAddresses.find((address) => address.id === nextId) ?? null;
+                  setSelectedAddressId(nextAddress?.id ?? null);
+                  const formattedAddress = nextAddress
+                    ? [nextAddress.street, nextAddress.area, nextAddress.city].filter(Boolean).join(", ")
+                    : "";
+                  setPickupAddress(formattedAddress);
+                  if (sameAddress) setDeliveryAddress(formattedAddress);
+                  setErrors((current) => ({ ...current, address: "", pickup: "", delivery: "" }));
+                }}
+                className={`w-full rounded-xl border bg-gray-50 px-4 py-3.5 text-sm focus:outline-none focus:ring-1 ${
+                  errors.address
+                    ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                    : "border-gray-200 focus:ring-[#1D6076]/20 focus:border-[#1D6076]"
+                }`}
+              >
+                <option value="">Select a saved address</option>
+                {savedAddresses.map((address) => (
+                  <option key={address.id} value={address.id}>
+                    {[address.label, address.street, address.area, address.city].filter(Boolean).join(" - ")}
+                  </option>
+                ))}
+              </select>
+              {savedAddresses.length === 0 && (
+                <p className="text-xs text-amber-600">
+                  No saved addresses were returned from backend. Add one in your profile before ordering a bundle.
+                </p>
+              )}
+              {errors.address && (
+                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
+                  <AlertCircle size={12} />
+                  {errors.address}
+                </p>
+              )}
+            </div>
+          )}
           <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04]p-3">
             <div>
               <p className="text-sm font-medium text-gray-800">Choose your location from the map</p>

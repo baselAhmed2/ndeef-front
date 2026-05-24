@@ -132,6 +132,16 @@ export interface CourierTodayStatsDto {
   vsYesterdayPercentage: number;
 }
 
+export interface CourierLifetimeStatsDto {
+  totalEarnings: number;
+  todayEarnings: number;
+  weekEarnings: number;
+  monthEarnings: number;
+  totalCompletedOrders: number;
+  totalCancellations: number;
+  completionRate: number;
+}
+
 export interface CourierActiveRunStopDto {
   stopNum: number;
   orderId: string;
@@ -215,6 +225,10 @@ export interface CourierDashboardOrder {
   notes: string;
   laundryName: string;
   laundryAddress: string;
+  createdAt?: string;
+  pickupTime?: string;
+  pickedUpAt?: string | null;
+  deliveredAt?: string | null;
 }
 
 export interface CourierOrderLocationPayload {
@@ -355,6 +369,19 @@ function normalizeCourierTodayStats(stats: CourierTodayStatsDto | CourierStatsDt
   };
 }
 
+function normalizeCourierLifetimeStats(stats: CourierStatsDto): CourierLifetimeStatsDto {
+  const raw = stats as Record<string, unknown>;
+  return {
+    totalEarnings: pickNumber(raw, "totalEarnings", "TotalEarnings"),
+    todayEarnings: pickNumber(raw, "todayEarnings", "TodayEarnings"),
+    weekEarnings: pickNumber(raw, "weekEarnings", "WeekEarnings"),
+    monthEarnings: pickNumber(raw, "monthEarnings", "MonthEarnings"),
+    totalCompletedOrders: pickNumber(raw, "totalCompletedOrders", "TotalCompletedOrders"),
+    totalCancellations: pickNumber(raw, "totalCancellations", "TotalCancellations"),
+    completionRate: pickNumber(raw, "completionRate", "CompletionRate"),
+  };
+}
+
 function normalizeCourierEarnings(stats: CourierEarningsResponseDto | CourierStatsDto): CourierEarningsResponseDto {
   const raw = stats as Record<string, unknown>;
   if ("ordersDone" in raw || "dailyEarnings" in raw || "recentTransactions" in raw) {
@@ -423,6 +450,28 @@ function mapFilterToQuery(filter: CourierOrderTab) {
     default:
       return 0;
   }
+}
+
+async function fetchCourierOrdersByFilterCode(filterCode: number) {
+  const query = new URLSearchParams({
+    Filter: String(filterCode),
+    PageIndex: "1",
+    PageSize: "50",
+  });
+
+  const response = await apiRequest<
+    CourierOrdersResponse<CourierOrderDto | CourierOrderResponseDto> | Array<CourierOrderDto | CourierOrderResponseDto>
+  >(`/courier/orders?${query.toString()}`, {
+    suppressErrorLog: true,
+  });
+
+  const raw = Array.isArray(response) ? {} : response;
+  return {
+    ...raw,
+    data: unwrapResponseArray(response).map((order) =>
+      enrichLegacyCourierOrder(order, normalizeCourierOrder(order)),
+    ),
+  };
 }
 
 export function serviceIconKey(service: string) {
@@ -550,6 +599,10 @@ function normalizeCourierHistoryOrder(order: CourierDeliveryHistoryDto): Courier
     notes: "",
     laundryName: "",
     laundryAddress: "",
+    createdAt: undefined,
+    pickupTime: undefined,
+    pickedUpAt: null,
+    deliveredAt: order.deliveredAt ?? null,
   };
 }
 
@@ -585,11 +638,21 @@ export function normalizeCourierOrder(order: CourierOrderDto | CourierOrderRespo
       notes: "",
       laundryName: "",
       laundryAddress: "",
+      createdAt: order.createdAt,
+      pickupTime: undefined,
+      pickedUpAt: null,
+      deliveredAt: null,
     };
   }
 
   const status = mapCourierOrderStatus(order.status);
   const amount = parseNumber(order.totalPrice);
+  const displayTimeSource =
+    order.status.toLowerCase().includes("deliver")
+      ? order.deliveredAt || order.pickedUpAt || order.pickupTime
+      : order.status.toLowerCase().includes("picked")
+        ? order.pickedUpAt || order.pickupTime
+        : order.pickupTime;
   return {
     id: String(order.id),
     customer: order.customerName || "Customer",
@@ -604,13 +667,17 @@ export function normalizeCourierOrder(order: CourierOrderDto | CourierOrderRespo
     amount,
     status,
     urgent: false,
-    time: formatRelativeTime(order.pickedUpAt || order.deliveredAt || order.pickupTime),
+    time: formatRelativeTime(displayTimeSource),
     paid: false,
     service: "Laundry Order",
     items: 0,
     notes: order.notes || "",
     laundryName: order.laundryName || "",
     laundryAddress: order.laundryAddress || "",
+    createdAt: undefined,
+    pickupTime: order.pickupTime,
+    pickedUpAt: order.pickedUpAt ?? null,
+    deliveredAt: order.deliveredAt ?? null,
   };
 }
 
@@ -633,26 +700,12 @@ function enrichLegacyCourierOrder(
 }
 
 export async function getCourierOrders(filter: CourierOrderTab = "new") {
-  const query = new URLSearchParams({
-    Filter: String(mapFilterToQuery(filter)),
-    PageIndex: "1",
-    PageSize: "50",
-  });
-  const response = await apiRequest<CourierOrdersResponse<CourierOrderDto | CourierOrderResponseDto> | Array<CourierOrderDto | CourierOrderResponseDto>>(
-    `/courier/orders?${query.toString()}`,
-    { suppressErrorLog: true },
-  );
-  const raw = Array.isArray(response) ? {} : response;
-  return {
-    ...raw,
-    data: unwrapResponseArray(response).map((order) =>
-      enrichLegacyCourierOrder(order, normalizeCourierOrder(order)),
-    ),
-  };
+  return fetchCourierOrdersByFilterCode(mapFilterToQuery(filter));
 }
 
 export async function getAllCourierOrders() {
-  const [newOrders, activeOrders, doneOrders, historyResult] = await Promise.all([
+  const [allOrders, newOrders, activeOrders, doneOrders, historyResult] = await Promise.all([
+    fetchCourierOrdersByFilterCode(0),
     getCourierOrders("new"),
     getCourierOrders("active"),
     getCourierOrders("done"),
@@ -660,7 +713,7 @@ export async function getAllCourierOrders() {
   ]);
 
   const merged = new Map<string, CourierDashboardOrder>();
-  for (const result of [newOrders, activeOrders, doneOrders]) {
+  for (const result of [allOrders, newOrders, activeOrders, doneOrders]) {
     for (const order of result.data ?? []) {
       merged.set(order.id, order);
     }
@@ -764,6 +817,13 @@ export async function getCourierTodayStats() {
       }),
   );
   return normalizeCourierTodayStats(response);
+}
+
+export async function getCourierLifetimeStats() {
+  const response = await apiRequest<CourierStatsDto>("/courier/stats", {
+    suppressErrorLog: true,
+  });
+  return normalizeCourierLifetimeStats(response);
 }
 
 export async function getCourierActiveRun() {

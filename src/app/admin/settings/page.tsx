@@ -76,9 +76,10 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // Intentionally load once on page entry; the manual refresh action reuses the same loader.
   useEffect(() => {
     void loadSettings();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadSettings() {
     try {

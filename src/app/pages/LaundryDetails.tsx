@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { motion } from "motion/react";
 import {
   Star,
   Clock,
@@ -20,21 +21,31 @@ import {
   Check,
 } from "lucide-react";
 import {
+  announceLaundryRatingUpdated,
+  applyLaundryRatingSnapshot,
   ApiError,
   BackendFavoriteLaundryDto,
+  BackendOrderReviewCheckDto,
   BackendRatingSummaryDto,
   BackendReviewDto,
+  UiBundle,
   UiLaundry,
   UiServiceItem,
   addUserFavoriteRequest,
   categoryLabels,
   categoryOrder,
+  checkOrderReviewRequest,
+  getCachedLaundryRating,
+  getLaundryBundlesRequest,
+  getOrdersRequest,
   getLaundryRequest,
   getLaundryRatingSummaryRequest,
   getLaundryReviewsRequest,
   getUserFavoritesRequest,
   mapLaundryDtoToUiLaundry,
+  mapOrderDtoToUiOrder,
   removeUserFavoriteRequest,
+  subscribeLaundryRatingUpdates,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
@@ -45,6 +56,34 @@ type FlowState =
   | "unavailable"
   | "no_services"
   | "success";
+
+const reveal = {
+  hidden: { opacity: 0, y: 24 },
+  show: {
+    opacity: 1,
+    y: 0,
+    transition: { duration: 0.46, ease: [0.22, 1, 0.36, 1] as const },
+  },
+} as const;
+
+const staggerChildren = {
+  hidden: {},
+  show: {
+    transition: { staggerChildren: 0.08, delayChildren: 0.05 },
+  },
+} as const;
+
+function normalizeLaundryName(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function extractReviewCheck(input: BackendOrderReviewCheckDto) {
+  return {
+    hasRating: Boolean(input.hasRating ?? input.HasRating),
+    rating: Number(input.rating ?? input.Rating ?? 0),
+    comment: input.comment ?? input.Comment ?? "",
+  };
+}
 
 function SkeletonLoader() {
   return (
@@ -133,9 +172,12 @@ function ServiceRow({
   const color = categoryColors[service.category] ?? "#1D6076";
 
   return (
-    <button
+    <motion.button
       type="button"
       onClick={() => onToggle(service.id)}
+      variants={reveal}
+      whileHover={{ y: -4 }}
+      whileTap={{ scale: 0.992 }}
       className={`ndeef-page-card w-full flex items-center justify-between p-4 border rounded-[24px] active:scale-[0.99] transition-all duration-300 bg-white group ${
         selected
           ? "border-[#1D6076] shadow-[0_10px_30px_rgba(29,96,118,0.12)] ring-2 ring-[#1D6076]/10"
@@ -176,7 +218,7 @@ function ServiceRow({
           strokeWidth={2}
         />
       </div>
-    </button>
+    </motion.button>
   );
 }
 
@@ -188,6 +230,7 @@ export default function LaundryDetails() {
   const { user } = useAuth();
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [laundry, setLaundry] = useState<UiLaundry | null>(null);
+  const [bundles, setBundles] = useState<UiBundle[]>([]);
   const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
   const [reviews, setReviews] = useState<BackendReviewDto[]>([]);
   const [ratingSummary, setRatingSummary] = useState<BackendRatingSummaryDto | null>(null);
@@ -198,9 +241,16 @@ export default function LaundryDetails() {
       try {
         setFlowState("loading");
         setLaundry(null);
+        setBundles([]);
 
-        const response = await getLaundryRequest(id ?? "");
-        const mapped = mapLaundryDtoToUiLaundry(response);
+        const [response, loadedBundles] = await Promise.all([
+          getLaundryRequest(id ?? ""),
+          getLaundryBundlesRequest(id ?? "").catch(() => []),
+        ]);
+        const mapped = applyLaundryRatingSnapshot(
+          mapLaundryDtoToUiLaundry(response),
+          getCachedLaundryRating(response.id, response.name),
+        );
 
         if (mapped.status !== "active") {
           setLaundry(mapped);
@@ -215,6 +265,11 @@ export default function LaundryDetails() {
         }
 
         setLaundry(mapped);
+        setBundles(
+          loadedBundles
+            .filter((bundle) => bundle.status.toLowerCase().includes("active"))
+            .sort((a, b) => a.displayOrder - b.displayOrder),
+        );
         setSelectedServiceIds((current) =>
           current.filter((serviceId) =>
             mapped.services.some(
@@ -265,6 +320,131 @@ export default function LaundryDetails() {
     };
   }, [id, user?.token]);
 
+  useEffect(() => {
+    const unsubscribe = subscribeLaundryRatingUpdates((snapshot) => {
+      setLaundry((current) =>
+        current ? applyLaundryRatingSnapshot(current, snapshot) : current,
+      );
+
+      const matchesCurrentLaundry =
+        (typeof snapshot.laundryId === "number" && Number(id) === snapshot.laundryId) ||
+        (typeof snapshot.laundryName === "string" &&
+          snapshot.laundryName.trim().toLowerCase() ===
+            (laundry?.name ?? "").trim().toLowerCase());
+
+      if (matchesCurrentLaundry) {
+        setRatingSummary((current) => ({
+          averageRating: snapshot.averageRating,
+          totalReviews: snapshot.totalReviews,
+          starCounts: current?.starCounts ?? current?.StarCounts ?? null,
+          AverageRating: snapshot.averageRating,
+          TotalReviews: snapshot.totalReviews,
+          StarCounts: current?.StarCounts ?? current?.starCounts ?? null,
+        }));
+      }
+    });
+
+    return unsubscribe;
+  }, [id, laundry?.name]);
+
+  useEffect(() => {
+    if (!user?.token || !laundry) return;
+    if (reviews.length > 0) return;
+
+    const authToken = user.token;
+    const currentLaundryId = Number(laundry.id);
+    const currentLaundryName = laundry.name;
+    const currentSummaryTotal = Number(
+      ratingSummary?.totalReviews ?? ratingSummary?.TotalReviews ?? laundry.reviews ?? 0,
+    );
+    if (currentSummaryTotal > 0) return;
+
+    let active = true;
+
+    async function loadFallbackUserReview() {
+      try {
+        const ordersResponse = await getOrdersRequest(authToken, 1, 100);
+        const candidateOrders = ordersResponse.data
+          .map(mapOrderDtoToUiOrder)
+          .filter((order) => {
+            if (order.status !== "delivered") return false;
+
+            const matchesId =
+              typeof order.laundryId === "number" && order.laundryId === currentLaundryId;
+            const matchesName =
+              normalizeLaundryName(order.laundryName) ===
+              normalizeLaundryName(currentLaundryName);
+
+            return matchesId || matchesName;
+          })
+          .sort(
+            (a, b) =>
+              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+          )
+          .slice(0, 10);
+
+        for (const order of candidateOrders) {
+          const reviewCheck = extractReviewCheck(
+            await checkOrderReviewRequest(authToken, order.id),
+          );
+
+          if (!active || !reviewCheck.hasRating) continue;
+
+          setRatingSummary((current) => ({
+            averageRating: reviewCheck.rating,
+            totalReviews: 1,
+            starCounts: current?.starCounts ?? current?.StarCounts ?? null,
+            AverageRating: reviewCheck.rating,
+            TotalReviews: 1,
+            StarCounts: current?.StarCounts ?? current?.starCounts ?? null,
+          }));
+          announceLaundryRatingUpdated({
+            laundryId: currentLaundryId,
+            laundryName: currentLaundryName,
+            averageRating: reviewCheck.rating,
+            totalReviews: 1,
+          });
+
+          setReviews((current) =>
+            current.length > 0
+              ? current
+              : [
+                  {
+                    id: -Number(order.id),
+                    orderId: Number(order.id),
+                    laundryId: currentLaundryId,
+                    laundryName: currentLaundryName,
+                    customerName: "You",
+                    rating: reviewCheck.rating,
+                    comment: reviewCheck.comment || "Your submitted review.",
+                    tags: [],
+                    createdAt: order.createdAt,
+                    Id: -Number(order.id),
+                    OrderId: Number(order.id),
+                    LaundryId: currentLaundryId,
+                    LaundryName: currentLaundryName,
+                    CustomerName: "You",
+                    Rating: reviewCheck.rating,
+                    Comment: reviewCheck.comment || "Your submitted review.",
+                    Tags: [],
+                    CreatedAt: order.createdAt,
+                  },
+                ],
+          );
+          return;
+        }
+      } catch {
+        if (!active) return;
+      }
+    }
+
+    void loadFallbackUserReview();
+
+    return () => {
+      active = false;
+    };
+  }, [laundry, ratingSummary, reviews.length, user?.token]);
+
   const grouped = useMemo(() => {
     if (!laundry) return [];
 
@@ -296,6 +476,27 @@ export default function LaundryDetails() {
   );
 
   const visibleReviews = Array.isArray(reviews) ? reviews : [];
+  const derivedRatingFromReviews =
+    visibleReviews.length > 0
+      ? visibleReviews.reduce(
+          (sum, review) => sum + Number(review.rating ?? review.Rating ?? 0),
+          0,
+        ) / visibleReviews.length
+      : 0;
+  const summaryAverage = Number(
+    ratingSummary?.averageRating ?? ratingSummary?.AverageRating ?? 0,
+  );
+  const summaryTotal = Number(
+    ratingSummary?.totalReviews ?? ratingSummary?.TotalReviews ?? 0,
+  );
+  const fallbackAverage =
+    visibleReviews.length > 0 ? derivedRatingFromReviews : Number(laundry?.rating ?? 0);
+  const fallbackReviews =
+    visibleReviews.length > 0 ? visibleReviews.length : Number(laundry?.reviews ?? 0);
+  const displayedRating =
+    summaryTotal > 0 ? summaryAverage : fallbackAverage;
+  const displayedReviews =
+    summaryTotal > 0 ? summaryTotal : fallbackReviews;
 
   const toggleService = (serviceId: string) => {
     setSelectedServiceIds((current) =>
@@ -310,6 +511,11 @@ export default function LaundryDetails() {
     const params = new URLSearchParams();
     params.set("services", selectedServiceIds.join(","));
     router.push(`/order/${laundry.id}?${params.toString()}`);
+  };
+
+  const handleBundleOrder = (bundleId: string) => {
+    if (!laundry) return;
+    router.push(`/order/${laundry.id}?bundle=${encodeURIComponent(bundleId)}`);
   };
 
   const isFavorite = laundry ? favoriteLaundryIds.includes(Number(laundry.id)) : false;
@@ -394,12 +600,18 @@ export default function LaundryDetails() {
       )}
 
       {flowState === "success" && laundry && (
-        <div className="pb-10">
-          <div className="ndeef-laundry-hero relative h-[340px] overflow-hidden bg-slate-200">
-            <img
+        <motion.div initial="hidden" animate="show" className="pb-10">
+          <motion.div
+            variants={reveal}
+            className="ndeef-laundry-hero relative h-[340px] overflow-hidden bg-slate-200"
+          >
+            <motion.img
               src={laundry.image}
               alt={laundry.name}
               className="w-full h-full object-cover scale-[1.04] saturate-[1.08] contrast-[1.04] brightness-[0.92]"
+              initial={{ scale: 1.1 }}
+              animate={{ scale: 1.04 }}
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
             />
             <div className="ndeef-laundry-hero-glow absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(255,255,255,0.24),transparent_28%),radial-gradient(circle_at_82%_18%,rgba(235,160,80,0.18),transparent_24%)]" />
             <div className="ndeef-laundry-hero-topfade absolute inset-0 bg-gradient-to-b from-slate-950/15 via-transparent to-transparent" />
@@ -407,32 +619,35 @@ export default function LaundryDetails() {
             <div className="ndeef-laundry-hero-bottomedge absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950/40 to-transparent" />
             <div className="absolute inset-x-0 bottom-0 px-5 md:px-10 pb-8">
               <div className="mx-auto max-w-5xl">
-                <div className="flex flex-wrap items-center gap-2 mb-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
+                <motion.div variants={staggerChildren} initial="hidden" animate="show" className="flex flex-wrap items-center gap-2 mb-3">
+                  <motion.span variants={reveal} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
                     <Star size={11} className="fill-[#EBA050] text-[#EBA050]" />
-                    {laundry.rating.toFixed(1)} rating
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
+                    {displayedRating.toFixed(1)} rating
+                  </motion.span>
+                  <motion.span variants={reveal} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
                     <Clock size={11} />
                     {laundry.deliveryTime}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
+                  </motion.span>
+                  <motion.span variants={reveal} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-[11px] font-semibold text-white backdrop-blur-md">
                     <MapPin size={11} />
                     {laundry.distanceLabel}
-                  </span>
-                </div>
-                <h2 className="text-3xl font-semibold tracking-tight text-white">
+                  </motion.span>
+                </motion.div>
+                <motion.h2 variants={reveal} className="text-3xl font-semibold tracking-tight text-white">
                   {laundry.name}
-                </h2>
-                <p className="mt-2 max-w-2xl text-sm text-white/75">
+                </motion.h2>
+                <motion.p variants={reveal} className="mt-2 max-w-2xl text-sm text-white/75">
                   {laundry.address}
-                </p>
+                </motion.p>
               </div>
             </div>
-          </div>
+          </motion.div>
 
           <div className="relative z-10 -mt-10 mx-auto max-w-5xl px-4 md:px-8">
-            <div className="ndeef-page-card rounded-[32px] border border-slate-200/80 bg-white/96 px-6 pt-6 pb-5 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur">
+            <motion.div
+              variants={reveal}
+              className="ndeef-page-card rounded-[32px] border border-slate-200/80 bg-white/96 px-6 pt-6 pb-5 shadow-[0_18px_50px_rgba(15,23,42,0.10)] backdrop-blur"
+            >
               <div className="flex items-start justify-between gap-4 mb-4">
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.24em] text-slate-400">
@@ -462,40 +677,125 @@ export default function LaundryDetails() {
               )}
               </div>
 
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="ndeef-page-soft rounded-2xl bg-amber-50 px-4 py-3">
+              <motion.div variants={staggerChildren} initial="hidden" animate="show" className="grid gap-3 sm:grid-cols-3">
+                <motion.div variants={reveal} className="ndeef-page-soft rounded-2xl bg-amber-50 px-4 py-3">
                   <div className="mb-1 flex items-center gap-1.5 text-amber-500">
                     <Star size={14} className="fill-amber-500" />
                     <span className="text-[11px] font-semibold uppercase tracking-wide">Rating</span>
                   </div>
-                  <p className="text-lg font-semibold text-slate-900">{laundry.rating.toFixed(1)}</p>
-                  <p className="text-xs text-slate-400">{laundry.reviews} reviews</p>
-                </div>
-                <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3">
+                  <p className="text-lg font-semibold text-slate-900">{displayedRating.toFixed(1)}</p>
+                  <p className="text-xs text-slate-400">{displayedReviews} reviews</p>
+                </motion.div>
+                <motion.div variants={reveal} className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3">
                   <div className="mb-1 flex items-center gap-1.5 text-[#1D6076]">
                     <Clock size={14} strokeWidth={2.1} />
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">ETA</span>
                   </div>
                   <p className="text-lg font-semibold text-slate-900">{laundry.deliveryTime}</p>
                   <p className="text-xs text-slate-400">Estimated turnaround</p>
-                </div>
-                <div className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3">
+                </motion.div>
+                <motion.div variants={reveal} className="ndeef-page-soft rounded-2xl bg-slate-50 px-4 py-3">
                   <div className="mb-1 flex items-center gap-1.5 text-[#1D6076]">
                     <MapPin size={14} strokeWidth={2.1} />
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Distance</span>
                   </div>
                   <p className="text-lg font-semibold text-slate-900">{laundry.distanceLabel}</p>
                   <p className="text-xs text-slate-400">From your location</p>
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
 
               <p className="mt-4 text-sm text-slate-500">{laundry.address}</p>
-            </div>
+            </motion.div>
           </div>
 
-          <div className="max-w-5xl mx-auto px-4 md:px-8 mt-6 space-y-6">
+          <motion.div
+            variants={staggerChildren}
+            initial="hidden"
+            animate="show"
+            className="max-w-5xl mx-auto px-4 md:px-8 mt-6 space-y-6"
+          >
+            {bundles.length > 0 && (
+              <motion.div variants={reveal} className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-slate-500 tracking-[0.22em] uppercase">
+                      Bundles
+                    </p>
+                    <h3 className="mt-2 text-xl font-semibold text-slate-950">
+                      Ready-made offers from this laundry
+                    </h3>
+                  </div>
+                  <p className="text-xs text-slate-400">
+                    {bundles.length} active bundle{bundles.length > 1 ? "s" : ""}
+                  </p>
+                </div>
+
+                <motion.div
+                  variants={staggerChildren}
+                  initial="hidden"
+                  whileInView="show"
+                  viewport={{ once: true, margin: "-40px" }}
+                  className="grid gap-3"
+                >
+                  {bundles.map((bundle) => (
+                    <motion.div
+                      key={bundle.id}
+                      variants={reveal}
+                      className="overflow-hidden rounded-[28px] border border-[#1D6076]/15 bg-[linear-gradient(135deg,rgba(29,96,118,0.08),rgba(235,160,80,0.12))] p-5 shadow-[0_14px_35px_rgba(15,23,42,0.06)]"
+                    >
+                      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                        <div className="min-w-0">
+                          <div className="inline-flex items-center gap-2 rounded-full bg-white/75 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1D6076]">
+                            <Sparkles size={12} />
+                            Bundle Offer
+                          </div>
+                          <h4 className="mt-3 text-xl font-semibold text-slate-950">{bundle.name}</h4>
+                          <p className="mt-1 text-sm leading-6 text-slate-600">
+                            {bundle.description?.trim() || "A discounted package prepared from this laundry's active services."}
+                          </p>
+                          <div className="mt-3 flex flex-wrap gap-2">
+                            {bundle.items.map((item) => (
+                              <span
+                                key={item.id}
+                                className="rounded-full border border-white/70 bg-white/80 px-3 py-1 text-xs text-slate-600"
+                              >
+                                {item.quantity}x {item.serviceName}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="w-full shrink-0 rounded-[24px] border border-white/70 bg-white/85 p-4 md:w-[230px]">
+                          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-400">
+                            Bundle price
+                          </p>
+                          <div className="mt-2 flex items-end gap-2">
+                            <p className="text-3xl font-bold text-[#1D6076]">{bundle.price}</p>
+                            <p className="pb-1 text-sm font-medium text-slate-400">EGP</p>
+                          </div>
+                          <p className="mt-1 text-sm text-slate-500 line-through">
+                            {bundle.originalPrice} EGP
+                          </p>
+                          <p className="mt-2 text-sm font-semibold text-emerald-600">
+                            Save {bundle.savingsAmount.toFixed(2)} EGP ({bundle.savingsPercentage.toFixed(0)}%)
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => handleBundleOrder(bundle.id)}
+                            className="mt-4 w-full rounded-2xl bg-[#1D6076] px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-[#2a7a94]"
+                          >
+                            Order This Bundle
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  ))}
+                </motion.div>
+              </motion.div>
+            )}
+
             {grouped.map(({ category, label, items }) => (
-              <div key={category}>
+              <motion.div key={category} variants={reveal}>
                 <div className="mb-3 flex items-center justify-between">
                   <p className="text-xs font-semibold text-slate-500 tracking-[0.22em] uppercase">
                     {label}
@@ -504,7 +804,7 @@ export default function LaundryDetails() {
                     {items.length} service{items.length > 1 ? "s" : ""}
                   </p>
                 </div>
-                <div className="space-y-2.5">
+                <motion.div variants={staggerChildren} initial="hidden" whileInView="show" viewport={{ once: true, margin: "-40px" }} className="space-y-2.5">
                   {items
                     .sort((a, b) => a.price - b.price)
                     .map((service) => (
@@ -515,18 +815,19 @@ export default function LaundryDetails() {
                         onToggle={toggleService}
                       />
                     ))}
-                </div>
-              </div>
+                </motion.div>
+              </motion.div>
             ))}
 
-            <div className="ndeef-page-card bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5 mt-2">
+            <motion.div variants={reveal} className="ndeef-page-card bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5 mt-2">
               <p className="text-xs font-semibold text-gray-500 tracking-wider mb-4 uppercase">
                 Why This Page Is Different Now
               </p>
-              <div className="grid grid-cols-2 gap-3">
+              <motion.div variants={staggerChildren} initial="hidden" whileInView="show" viewport={{ once: true }} className="grid grid-cols-2 gap-3">
                 {features.map(({ icon: Icon, text, color }) => (
-                  <div
+                  <motion.div
                     key={text}
+                    variants={reveal}
                     className="ndeef-page-soft rounded-2xl bg-gray-50 px-4 py-3.5 flex items-center gap-3"
                   >
                     <div
@@ -536,12 +837,12 @@ export default function LaundryDetails() {
                       <Icon size={18} style={{ color }} strokeWidth={1.8} />
                     </div>
                     <p className="text-sm text-gray-700 font-medium">{text}</p>
-                  </div>
+                  </motion.div>
                 ))}
-              </div>
-            </div>
+              </motion.div>
+            </motion.div>
 
-            <div className="ndeef-page-card bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5">
+            <motion.div variants={reveal} className="ndeef-page-card bg-white rounded-[28px] border border-slate-200/80 shadow-[0_14px_35px_rgba(15,23,42,0.06)] p-5">
               <div className="flex items-start justify-between gap-3 mb-4">
                 <div>
                   <p className="text-xs font-semibold text-slate-500 tracking-[0.22em] uppercase">
@@ -553,19 +854,10 @@ export default function LaundryDetails() {
                 </div>
                 <div className="text-right">
                   <p className="text-2xl font-bold text-slate-950">
-                    {Number(
-                      ratingSummary?.averageRating ??
-                        ratingSummary?.AverageRating ??
-                        laundry.rating,
-                    ).toFixed(1)}
+                    {displayedRating.toFixed(1)}
                   </p>
                   <p className="text-xs text-slate-400">
-                    {Number(
-                      ratingSummary?.totalReviews ??
-                        ratingSummary?.TotalReviews ??
-                        laundry.reviews,
-                    )}{" "}
-                    reviews
+                    {displayedReviews} reviews
                   </p>
                 </div>
               </div>
@@ -575,9 +867,9 @@ export default function LaundryDetails() {
                   No reviews were returned by the backend for this laundry yet.
                 </div>
               ) : (
-                <div className="space-y-3">
+                <motion.div variants={staggerChildren} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-3">
                   {visibleReviews.slice(0, 4).map((review) => (
-                    <div key={review.id ?? review.Id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                    <motion.div variants={reveal} key={review.id ?? review.Id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-semibold text-slate-900">
                           {review.customerName ?? review.CustomerName ?? "Customer"}
@@ -590,15 +882,21 @@ export default function LaundryDetails() {
                       <p className="mt-2 text-sm leading-6 text-slate-600">
                         {(review.comment ?? review.Comment ?? "").trim() || "No written comment was added."}
                       </p>
-                    </div>
+                    </motion.div>
                   ))}
-                </div>
+                </motion.div>
               )}
-            </div>
-          </div>
+            </motion.div>
+          </motion.div>
 
           <div className="sticky bottom-4 z-20 px-4 md:px-8">
-            <div className="ndeef-page-bottom-bar mx-auto max-w-5xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/80 shadow-[0_18px_50px_rgba(15,23,42,0.12)] p-4">
+            <motion.div
+              variants={reveal}
+              initial="hidden"
+              animate="show"
+              transition={{ delay: 0.12 }}
+              className="ndeef-page-bottom-bar mx-auto max-w-5xl bg-white/95 backdrop-blur rounded-[28px] border border-slate-200/80 shadow-[0_18px_50px_rgba(15,23,42,0.12)] p-4"
+            >
               <div className="flex items-center justify-between gap-3 mb-3">
                 <div>
                   <p className="text-sm font-semibold text-slate-950">
@@ -631,9 +929,9 @@ export default function LaundryDetails() {
               >
                 Continue to Order
               </button>
-            </div>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

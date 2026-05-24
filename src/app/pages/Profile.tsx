@@ -209,6 +209,7 @@ export default function Profile() {
     }
 
     let active = true;
+    const authToken = token;
 
     async function loadProfile() {
       try {
@@ -222,13 +223,13 @@ export default function Profile() {
           loadedPoints,
           loadedSettings,
         ] = await Promise.all([
-          getUserProfileRequest(token),
-          getUserAddressesRequest(token).catch(() => []),
-          getUserStatsRequest(token).catch(() => null),
-          getUserFavoritesRequest(token).catch(() => []),
-          getUserPaymentMethodsRequest(token).catch(() => []),
-          getUserPointsRequest(token).catch(() => ({ totalPoints: 0, history: [] })),
-          getUserSettingsRequest(token).catch(() => DEFAULT_SETTINGS),
+          getUserProfileRequest(authToken),
+          getUserAddressesRequest(authToken).catch(() => []),
+          getUserStatsRequest(authToken).catch(() => null),
+          getUserFavoritesRequest(authToken).catch(() => []),
+          getUserPaymentMethodsRequest(authToken).catch(() => []),
+          getUserPointsRequest(authToken).catch(() => ({ totalPoints: 0, history: [] })),
+          getUserSettingsRequest(authToken).catch(() => DEFAULT_SETTINGS),
         ]);
 
         if (!active) return;

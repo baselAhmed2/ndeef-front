@@ -16,8 +16,11 @@ import {
 import { useAuth } from "@/app/context/AuthContext";
 import {
   addReviewRequest,
+  announceLaundryRatingUpdated,
   ApiError,
   checkOrderReviewRequest,
+  getCachedLaundryRating,
+  getLaundryRatingSummaryRequest,
   getLaundriesRequest,
   getOrderByIdRequest,
   mapOrderDtoToUiOrder,
@@ -76,6 +79,14 @@ async function resolveLaundryIdByName(laundryName: string) {
     normalizeName(laundry.name).includes(normalizedTarget),
   );
   return partial?.id ?? null;
+}
+
+async function resolveLaundryId(order: UiOrder) {
+  if (typeof order.laundryId === "number" && order.laundryId > 0) {
+    return order.laundryId;
+  }
+
+  return resolveLaundryIdByName(order.laundryName);
 }
 
 function SubmittingScreen({ step }: { step: SubmissionStep }) {
@@ -154,13 +165,14 @@ export default function RateLaundry() {
     if (!isAuthReady || !isLoggedIn || !user?.token || !id) return;
 
     let cancelled = false;
+    const authToken = user.token;
 
     async function load() {
       try {
         setFlowState("loading");
         setInputError("");
 
-        const orderResponse = await getOrderByIdRequest(user.token!, id);
+        const orderResponse = await getOrderByIdRequest(authToken, id);
         if (cancelled) return;
 
         const nextOrder = mapOrderDtoToUiOrder(orderResponse);
@@ -172,7 +184,7 @@ export default function RateLaundry() {
         }
 
         const reviewCheck = extractReviewCheck(
-          await checkOrderReviewRequest(user.token!, id),
+          await checkOrderReviewRequest(authToken, id),
         );
         if (cancelled) return;
 
@@ -183,7 +195,7 @@ export default function RateLaundry() {
           return;
         }
 
-        const resolvedLaundryId = await resolveLaundryIdByName(nextOrder.laundryName);
+        const resolvedLaundryId = await resolveLaundryId(nextOrder);
         if (cancelled) return;
 
         if (!resolvedLaundryId) {
@@ -247,6 +259,26 @@ export default function RateLaundry() {
       });
 
       setSubmitStep(1);
+      const summary = await getLaundryRatingSummaryRequest(laundryId);
+      const summaryAverage = Number(summary.averageRating ?? summary.AverageRating ?? 0);
+      const summaryTotal = Number(summary.totalReviews ?? summary.TotalReviews ?? 0);
+      const cachedSnapshot = getCachedLaundryRating(laundryId, order.laundryName);
+      const fallbackTotal = (cachedSnapshot?.totalReviews ?? 0) + 1;
+      const fallbackAverage =
+        fallbackTotal > 0
+          ? (
+              ((cachedSnapshot?.averageRating ?? 0) * (cachedSnapshot?.totalReviews ?? 0) +
+                selectedStar) /
+              fallbackTotal
+            )
+          : selectedStar;
+
+      announceLaundryRatingUpdated({
+        laundryId,
+        laundryName: order.laundryName,
+        averageRating: summaryTotal > 0 ? summaryAverage : fallbackAverage,
+        totalReviews: summaryTotal > 0 ? summaryTotal : fallbackTotal,
+      });
       setSubmitStep(2);
       setExistingRating(selectedStar);
       setExistingComment(review.trim());

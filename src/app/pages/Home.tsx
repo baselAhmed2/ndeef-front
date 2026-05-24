@@ -4,7 +4,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { motion, useInView } from 'motion/react';
 import { ArrowRight, ArrowUpRight, LogIn, MapPin, Star, ShieldCheck, Zap, Clock, ChevronRight, Sparkles, CheckCircle } from 'lucide-react';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
-import { getLaundriesRequest, mapLaundryDtoToUiLaundry, UiLaundry } from '@/app/lib/api';
+import {
+  applyCachedLaundryRatings,
+  applyLaundryRatingSnapshot,
+  getLaundriesRequest,
+  mapLaundryDtoToUiLaundry,
+  subscribeLaundryRatingUpdates,
+  type UiLaundry,
+} from '@/app/lib/api';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { Monogram } from '../components/brand/Monogram';
@@ -145,13 +152,27 @@ export default function Home() {
     const loadPreview = async () => {
       try {
         const response = await getLaundriesRequest({ pageIndex: 1, pageSize: 3 });
-        setNearbyPreview(response.data.map((entry) => mapLaundryDtoToUiLaundry(entry)));
+        setNearbyPreview(
+          applyCachedLaundryRatings(
+            response.data.map((entry) => mapLaundryDtoToUiLaundry(entry)),
+          ),
+        );
       } catch {
         setNearbyPreview([]);
       }
     };
 
     loadPreview();
+  }, []);
+
+  useEffect(() => {
+    const unsubscribe = subscribeLaundryRatingUpdates((snapshot) => {
+      setNearbyPreview((current) =>
+        current.map((laundry) => applyLaundryRatingSnapshot(laundry, snapshot)),
+      );
+    });
+
+    return unsubscribe;
   }, []);
 
   return (
@@ -364,8 +385,8 @@ export default function Home() {
               <motion.div key={n} className="group relative" variants={itemVariants}>
                 <div className="hidden md:block absolute top-10 left-[60%] w-full h-px" style={{ background: `linear-gradient(to right, ${color}30, transparent)` }} />
                 <motion.div
-                  className="bg-gray-50 dark:bg-[#102231] rounded-3xl p-8 border border-gray-100 dark:border-white/6 relative"
-                  whileHover={{ y: -6, boxShadow: '0 20px 40px rgba(0,0,0,0.10)' }}
+                  className="relative rounded-3xl border border-slate-200 bg-white p-8 shadow-[0_18px_40px_rgba(15,23,42,0.08)]"
+                  whileHover={{ y: -6, boxShadow: '0 22px 44px rgba(15,23,42,0.12)' }}
                   transition={{ type: 'spring', stiffness: 300, damping: 20 }}
                 >
                   <div className="flex items-start gap-4 mb-5">
@@ -382,8 +403,8 @@ export default function Home() {
                       style={{ color, opacity: 0.22, lineHeight: 1 }}
                     >{n}</span>
                   </div>
-                  <h3 className="text-gray-900 dark:text-[#EEF4F8] text-xl mb-2" style={{ fontWeight: 700 }}>{title}</h3>
-                  <p className="text-gray-500 dark:text-[#7AAFC2] text-sm leading-relaxed">{desc}</p>
+                  <h3 className="mb-2 text-xl text-gray-900" style={{ fontWeight: 700 }}>{title}</h3>
+                  <p className="text-sm leading-relaxed text-gray-500">{desc}</p>
                 </motion.div>
               </motion.div>
             ))}

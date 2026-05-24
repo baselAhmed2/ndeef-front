@@ -19,16 +19,27 @@ export function Wordmark({
       text: "text-[#0d3d50] dark:text-[#EEF4F8]",
       tag: "text-[#EBA050]",
       line: "bg-[#EBA050]/40",
+      titleStyle: undefined,
+      tagStyle: undefined,
     },
     light: {
       text: "text-white",
       tag: "text-white/70",
       line: "bg-white/30",
+      titleStyle: {
+        textShadow: "0 2px 10px rgba(13, 61, 80, 0.28), 0 1px 2px rgba(13, 61, 80, 0.45)",
+        WebkitTextStroke: "0.35px rgba(13, 61, 80, 0.18)",
+      },
+      tagStyle: {
+        textShadow: "0 1px 4px rgba(13, 61, 80, 0.28)",
+      },
     },
     gold: {
       text: "text-[#EBA050]",
       tag: "text-[#0d3d50]/70 dark:text-[#B8D4DE]/70",
       line: "bg-[#0d3d50]/20 dark:bg-white/10",
+      titleStyle: undefined,
+      tagStyle: undefined,
     },
   };
 
@@ -70,6 +81,7 @@ export function Wordmark({
         style={{
           fontFamily: "'Outfit', 'Inter', system-ui, sans-serif",
           fontWeight: 900,
+          ...color.titleStyle,
         }}
       >
         NAZEEF
@@ -82,6 +94,7 @@ export function Wordmark({
             style={{
               fontFamily: "'Outfit', 'Inter', system-ui, sans-serif",
               fontWeight: 700,
+              ...color.tagStyle,
             }}
           >
             LAUNDRY MADE SIMPLE

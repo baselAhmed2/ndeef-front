@@ -98,13 +98,14 @@ export default function Payment() {
     }
   };
 
+  // Cashier opening is intentionally tied to token/order availability only.
   useEffect(() => {
     if (!user?.token || !orderId) {
       setFlowState("invalid");
       return;
     }
     openCashier();
-  }, [orderId, user?.token]);
+  }, [orderId, user?.token]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRetry = () => {
     openCashier();

@@ -6,6 +6,7 @@ import { PreferencesProvider } from '@/app/context/PreferencesContext'
 import { GlobalPreferenceFab } from '@/app/components/preferences/GlobalPreferenceFab'
 import { ProjectPreferenceRuntime } from '@/app/components/preferences/ProjectPreferenceRuntime'
 import { Toaster } from '@/app/components/ui/sonner'
+import { BrandIntroSplash } from '@/app/components/BrandIntroSplash'
 
 export const metadata = {
   title: 'Laundry Service App',
@@ -47,6 +48,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: preferenceBootstrapScript }} />
         <PreferencesProvider>
           <AuthProvider>
+            <BrandIntroSplash />
             {children}
             <ProjectPreferenceRuntime />
             <GlobalPreferenceFab />

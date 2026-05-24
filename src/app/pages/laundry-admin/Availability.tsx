@@ -125,9 +125,10 @@ export function Availability() {
     }
   };
 
+  // Initial availability fetch is mount-only; retries use explicit actions.
   useEffect(() => {
     void loadAvailability();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hoursOpen = useMemo(
     () => Object.values(schedule).filter((day) => day.enabled).length,

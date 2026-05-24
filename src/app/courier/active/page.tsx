@@ -538,6 +538,7 @@ export default function CourierActivePage() {
     }
   };
 
+  // Initial run bootstrap is intentionally one-time on mount.
   useEffect(() => {
     let ignore = false;
 
@@ -549,8 +550,9 @@ export default function CourierActivePage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // This listener setup should only react to delivery state changes.
   useEffect(() => {
     const refreshIfVisible = () => {
       if (document.hidden || deliveringId) return;
@@ -566,7 +568,7 @@ export default function CourierActivePage() {
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };
-  }, [deliveringId]);
+  }, [deliveringId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!navigator.geolocation) return;

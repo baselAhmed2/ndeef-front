@@ -38,8 +38,66 @@ body {
   transition: background-color 180ms ease, color 180ms ease;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 body {
   min-height: 100vh;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.18) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: radial-gradient(circle at top, black 22%, transparent 76%);
+  opacity: 0.28;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.ndeef-scroll-progress {
+  background: linear-gradient(90deg, #1D6076 0%, #4db4c9 45%, #EBA050 100%);
+  box-shadow: 0 0 20px rgba(77, 180, 201, 0.45);
+}
+
+.ndeef-ambient-shell {
+  z-index: 0;
+}
+
+.ndeef-ambient-orb {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(52px);
+  opacity: 0.42;
+}
+
+.ndeef-ambient-orb-one {
+  top: 5rem;
+  left: -5rem;
+  width: 19rem;
+  height: 19rem;
+  background: radial-gradient(circle, rgba(77, 180, 201, 0.28), transparent 70%);
+}
+
+.ndeef-ambient-orb-two {
+  top: 28%;
+  right: -4rem;
+  width: 23rem;
+  height: 23rem;
+  background: radial-gradient(circle, rgba(235, 160, 80, 0.18), transparent 72%);
+}
+
+.ndeef-ambient-orb-three {
+  bottom: 8%;
+  left: 28%;
+  width: 18rem;
+  height: 18rem;
+  background: radial-gradient(circle, rgba(29, 96, 118, 0.16), transparent 70%);
 }
 
 button,
@@ -303,6 +361,11 @@ html.dark .ndeef-auth-subheading {
 
 .ndeef-topnav-shell {
   background-color: #ffffff !important;
+  transition:
+    transform 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease;
 }
 
 html.dark .ndeef-topnav-shell {
@@ -313,11 +376,11 @@ html.dark .ndeef-topnav-shell {
 }
 
 .ndeef-topnav-brand {
-  color: #1d6076 !important;
+  color: #307B90 !important;
 }
 
 html.dark .ndeef-topnav-brand {
-  color: #dbeaf6 !important;
+  color: #ffffff !important;
 }
 
 .ndeef-topnav-link {
@@ -395,6 +458,7 @@ html.dark .ndeef-topnav-account-name {
 .ndeef-topnav-menu {
   background: #ffffff !important;
   border-color: rgba(226, 232, 240, 0.95) !important;
+  box-shadow: 0 22px 55px rgba(15, 23, 42, 0.14);
 }
 
 html.dark .ndeef-topnav-menu {
@@ -440,6 +504,90 @@ html.dark .ndeef-topnav-menu-icon {
 
 html.dark .ndeef-topnav-menu-text {
   color: #e2e8f0 !important;
+}
+
+.ndeef-page-shell,
+.ndeef-page-header,
+.ndeef-page-card,
+.ndeef-page-bottom-bar {
+  transition:
+    transform 220ms ease,
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 260ms ease;
+}
+
+.ndeef-page-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 22px 50px rgba(15, 23, 42, 0.12) !important;
+}
+
+.ndeef-page-header {
+  position: relative;
+  overflow: hidden;
+}
+
+.ndeef-page-header::after {
+  content: "";
+  position: absolute;
+  inset: auto 1.25rem 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(29, 96, 118, 0.2), transparent);
+  pointer-events: none;
+}
+
+.ndeef-topnav-shell::after,
+.ndeef-page-bottom-bar::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.4) 30%, transparent 60%);
+  opacity: 0;
+  transition: opacity 220ms ease;
+}
+
+.ndeef-topnav-shell:hover::after,
+.ndeef-page-bottom-bar:hover::before {
+  opacity: 1;
+}
+
+html.dark body::before {
+  background-image:
+    linear-gradient(rgba(125, 211, 252, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(125, 211, 252, 0.06) 1px, transparent 1px);
+  opacity: 0.18;
+}
+
+html.dark .ndeef-ambient-orb-one {
+  background: radial-gradient(circle, rgba(77, 180, 201, 0.18), transparent 72%);
+}
+
+html.dark .ndeef-ambient-orb-two {
+  background: radial-gradient(circle, rgba(235, 160, 80, 0.18), transparent 72%);
+}
+
+html.dark .ndeef-ambient-orb-three {
+  background: radial-gradient(circle, rgba(29, 96, 118, 0.22), transparent 72%);
+}
+
+html.dark .ndeef-page-card:hover {
+  box-shadow: 0 24px 56px rgba(0, 0, 0, 0.32) !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 html.dark .ndeef-auth-brand {

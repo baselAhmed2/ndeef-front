@@ -20,6 +20,8 @@ import {
   X,
   Loader2,
   CheckCheck,
+  LogOut,
+  ChevronDown,
 } from "lucide-react";
 import { ReactNode } from "react";
 import {
@@ -89,7 +91,7 @@ function initials(name: string) {
 export default function CourierLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { isAuthReady, isLoggedIn, user } = useAuth();
+  const { isAuthReady, isLoggedIn, user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -100,11 +102,13 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
   const [profileOrders, setProfileOrders] = useState(0);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
   const [markingNotificationsRead, setMarkingNotificationsRead] = useState(false);
   const [notifications, setNotifications] = useState<CourierNotificationDto[]>([]);
   const [activeRunLabel, setActiveRunLabel] = useState("");
   const notificationPanelRef = useRef<HTMLDivElement | null>(null);
+  const profileMenuRef = useRef<HTMLDivElement | null>(null);
   const role = user?.role ?? "";
   const isCourier = isLoggedIn && isCourierRole(role);
 
@@ -146,6 +150,19 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
     window.addEventListener("mousedown", handleClickOutside);
     return () => window.removeEventListener("mousedown", handleClickOutside);
   }, [notificationsOpen]);
+
+  useEffect(() => {
+    if (!profileMenuOpen) return;
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!profileMenuRef.current?.contains(event.target as Node)) {
+        setProfileMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("mousedown", handleClickOutside);
+    return () => window.removeEventListener("mousedown", handleClickOutside);
+  }, [profileMenuOpen]);
 
   useEffect(() => {
     if (!isAuthReady || !isLoggedIn || !isCourier) return;
@@ -270,6 +287,17 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
     }
   };
 
+  const handleOpenProfile = () => {
+    setProfileMenuOpen(false);
+    router.push("/courier/profile");
+  };
+
+  const handleLogout = () => {
+    setProfileMenuOpen(false);
+    logout();
+    router.push("/login");
+  };
+
   const renderNotificationsButton = () => (
     <div className="relative" ref={notificationPanelRef}>
       <button
@@ -314,7 +342,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
               ) : notifications.length === 0 ? (
                 <div className="px-4 py-8 text-center">
                   <p className="text-sm font-semibold text-gray-700">No unread notifications</p>
-                  <p className="mt-1 text-xs text-gray-400">You're all caught up.</p>
+                  <p className="mt-1 text-xs text-gray-400">You are all caught up.</p>
                 </div>
               ) : (
                 notifications.map((notification) => (
@@ -465,9 +493,41 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
           </div>
           <div className="flex items-center gap-3">
             {renderNotificationsButton()}
-            <button onClick={() => router.push("/courier/profile")} className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm" style={{ backgroundColor: "#EBA050" }}>
-              {profileAvatar}
-            </button>
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                onClick={() => setProfileMenuOpen((current) => !current)}
+                className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold text-white shadow-sm"
+                style={{ backgroundColor: "#EBA050" }}
+              >
+                {profileAvatar}
+              </button>
+              <AnimatePresence>
+                {profileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.16 }}
+                    className="absolute right-0 top-11 w-44 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl"
+                  >
+                    <button
+                      onClick={handleOpenProfile}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <User className="h-4 w-4 text-gray-400" />
+                      My Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-red-500 transition hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Log out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 
@@ -484,12 +544,44 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
               </div>
             )}
             {renderNotificationsButton()}
-            <button onClick={() => router.push("/courier/profile")} className="ndeef-courier-soft flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-all border border-gray-100">
-              <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#EBA050" }}>
-                {profileAvatar}
-              </div>
-              <span className="text-sm font-semibold text-gray-700">{profileName.split(" ")[0] || "Courier"}</span>
-            </button>
+            <div className="relative" ref={profileMenuRef}>
+              <button
+                onClick={() => setProfileMenuOpen((current) => !current)}
+                className="ndeef-courier-soft flex items-center gap-2 px-3 py-1.5 rounded-xl hover:bg-gray-50 transition-all border border-gray-100"
+              >
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: "#EBA050" }}>
+                  {profileAvatar}
+                </div>
+                <span className="text-sm font-semibold text-gray-700">{profileName.split(" ")[0] || "Courier"}</span>
+                <ChevronDown className={`h-4 w-4 text-gray-400 transition-transform ${profileMenuOpen ? "rotate-180" : ""}`} />
+              </button>
+              <AnimatePresence>
+                {profileMenuOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                    transition={{ duration: 0.16 }}
+                    className="absolute right-0 top-12 z-20 w-48 rounded-2xl border border-gray-100 bg-white p-2 shadow-xl"
+                  >
+                    <button
+                      onClick={handleOpenProfile}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                    >
+                      <User className="h-4 w-4 text-gray-400" />
+                      My Profile
+                    </button>
+                    <button
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-red-500 transition hover:bg-red-50"
+                    >
+                      <LogOut className="h-4 w-4" />
+                      Log out
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
         </header>
 

@@ -90,6 +90,7 @@ export default function CourierProfilePage() {
     }
   };
 
+  // Profile bootstrap intentionally runs once; later refreshes happen through subscriptions/auto-refresh.
   useEffect(() => {
     let ignore = false;
 
@@ -101,7 +102,7 @@ export default function CourierProfilePage() {
     return () => {
       ignore = true;
     };
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useAutoRefresh(() => {
     if (savingProfile || togglingAvail) return;

@@ -89,6 +89,10 @@ function buildMapsCoordsUrl(lat: number, lng: number) {
   return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
 }
 
+function buildMapsDirectionsUrl(origin: string, destination: string) {
+  return `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(origin)}&destination=${encodeURIComponent(destination)}&travelmode=driving`;
+}
+
 function extractCoordinates(value?: string | null) {
   if (!value) return null;
 
@@ -102,13 +106,21 @@ function extractCoordinates(value?: string | null) {
   return { lat, lng };
 }
 
-function buildMapsUrlFromAddress(value?: string | null) {
-  const coords = extractCoordinates(value);
-  if (coords) {
-    return buildMapsCoordsUrl(coords.lat, coords.lng);
-  }
+function buildDirectionsUrlFromAddresses(origin?: string | null, destination?: string | null) {
+  const destinationCoords = extractCoordinates(destination);
+  const originCoords = extractCoordinates(origin);
 
-  return buildMapsSearchUrl(value || "");
+  const destinationValue = destinationCoords
+    ? `${destinationCoords.lat},${destinationCoords.lng}`
+    : destination || "";
+  const originValue = originCoords
+    ? `${originCoords.lat},${originCoords.lng}`
+    : origin || "";
+
+  if (!destinationValue) return buildMapsSearchUrl(originValue);
+  if (!originValue) return buildMapsSearchUrl(destinationValue);
+
+  return buildMapsDirectionsUrl(originValue, destinationValue);
 }
 
 function formatAddressForDisplay(value?: string | null) {
@@ -268,17 +280,21 @@ export default function TrackOrder() {
     typeof track?.courierLongitude === "number" ? track.courierLongitude : null;
   const hasCourierLocation = courierLat !== null && courierLng !== null;
   const driverAssigned =
+    currentStatus === "accepted" ||
+    currentStatus === "ready_for_pickup" ||
     currentStatus === "picked_up" ||
     currentStatus === "delivered" ||
     hasCourierLocation;
   const driverStageLabel =
     currentStatus === "delivered"
       ? "Delivered successfully"
-      : currentStatus === "picked_up"
-        ? "Driver is on the way"
-        : currentStatus === "ready_for_pickup"
-          ? "Assigning a driver"
-          : currentStatus === "accepted" || currentStatus === "washing"
+    : currentStatus === "picked_up"
+      ? "Driver is on the way"
+      : currentStatus === "accepted"
+        ? "Courier assigned to your order"
+      : currentStatus === "ready_for_pickup"
+          ? "Courier is heading to the laundry"
+          : currentStatus === "washing"
             ? "Laundry is preparing your order"
             : currentStatus === "cancelled"
               ? "Delivery cancelled"
@@ -289,11 +305,18 @@ export default function TrackOrder() {
       ? "This order has been delivered successfully. Live tracking is no longer needed."
     : currentStatus === "picked_up"
       ? "Your order is on the way. Live location will appear as soon as it becomes available."
+      : currentStatus === "accepted"
+        ? "A courier has been assigned to your order. Pickup updates will appear here next."
       : currentStatus === "ready_for_pickup"
         ? "Your order is ready and waiting for courier pickup."
         : "Delivery updates will appear here as your order moves forward.";
   const destinationCoords = extractCoordinates(order?.deliveryAddress);
   const laundryCoords = extractCoordinates(track?.laundryAddress);
+  const routeOrigin =
+    hasCourierLocation && courierLat !== null && courierLng !== null
+      ? `${courierLat},${courierLng}`
+      : track?.laundryAddress || order?.pickupAddress || null;
+  const liveRouteHref = buildDirectionsUrlFromAddresses(routeOrigin, order?.deliveryAddress);
   const scheduledDeliveryLabel =
     track?.deliveryTime || order?.deliveryAt
       ? formatDate(track?.deliveryTime ?? order?.deliveryAt ?? "")
@@ -306,7 +329,7 @@ export default function TrackOrder() {
       : formatEta(track?.estimatedDeliveryTime);
   const deliveryEtaHint =
     currentStatus === "delivered"
-      ? `Completed ${formatDate(order.deliveryAt ?? order.updatedAt)}`
+      ? `Completed ${formatDate(order?.deliveryAt ?? order?.updatedAt ?? "")}`
       : track?.estimatedDeliveryTime
         ? formatDate(track.estimatedDeliveryTime)
         : "Waiting for courier updates";
@@ -691,13 +714,13 @@ export default function TrackOrder() {
                 )}
 
                 <a
-                  href={buildMapsUrlFromAddress(order.deliveryAddress)}
+                  href={liveRouteHref}
                   target="_blank"
                   rel="noreferrer"
                   className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#1D6076] border border-[#1D6076]/20 transition hover:bg-[#1D6076]/5"
                 >
                   <MapPin size={16} strokeWidth={2} />
-                  Open destination
+                  {hasCourierLocation ? "Open live route" : "Open destination route"}
                 </a>
               </div>
             </div>

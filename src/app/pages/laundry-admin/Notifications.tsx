@@ -223,7 +223,7 @@ export function Notifications() {
             >
               <Bell className="w-10 h-10 mb-3 opacity-40" />
               <p className="text-sm font-medium">No notifications here</p>
-              <p className="text-xs mt-1">You're all caught up!</p>
+              <p className="text-xs mt-1">You are all caught up!</p>
             </motion.div>
           ) : (
             filtered.map((notif, i) => {

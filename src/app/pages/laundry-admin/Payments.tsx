@@ -344,7 +344,7 @@ function PlatformCommissionCard({
             <div className="flex items-center justify-center gap-1.5">
               <Lock className="h-3 w-3 text-gray-300" />
               <p className="text-center text-[11px] text-gray-400">
-                You'll be redirected to Kashier&apos;s secure checkout
+                You will be redirected to Kashier secure checkout
               </p>
             </div>
           </div>

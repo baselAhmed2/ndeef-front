@@ -55,9 +55,10 @@ export function AdminNotifications() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Reload when the visible filter changes; pagination reuses the same loader separately.
   useEffect(() => {
     void loadNotifications(1, filter, false);
-  }, [filter]);
+  }, [filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadNotifications = async (
     nextPage = 1,

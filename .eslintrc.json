@@ -1,3 +1,21 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "@next/next/no-img-element": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/imports/**/*"],
+      "rules": {
+        "jsx-a11y/alt-text": "off",
+        "import/no-anonymous-default-export": "off"
+      }
+    },
+    {
+      "files": ["src/app/components/figma/ImageWithFallback.tsx"],
+      "rules": {
+        "@next/next/no-img-element": "off"
+      }
+    }
+  ]
 }
