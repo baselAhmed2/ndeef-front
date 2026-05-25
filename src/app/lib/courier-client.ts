@@ -216,7 +216,7 @@ export interface CourierDashboardOrder {
   distance: string;
   eta: string;
   amount: number;
-  status: "pending" | "accepted" | "picked_up" | "delivered" | "cancelled";
+  status: "pending" | "accepted" | "ready_for_pickup" | "picked_up" | "delivered" | "cancelled";
   urgent: boolean;
   time: string;
   paid: boolean;
@@ -610,7 +610,8 @@ export function mapCourierOrderStatus(status: string): CourierDashboardOrder["st
   const normalized = status.toLowerCase();
   if (normalized.includes("delivered")) return "delivered";
   if (normalized.includes("picked")) return "picked_up";
-  if (normalized.includes("ready") || normalized.includes("accepted")) return "accepted";
+  if (normalized.includes("ready")) return "ready_for_pickup";
+  if (normalized.includes("accepted")) return "accepted";
   if (normalized.includes("cancel")) return "cancelled";
   return "pending";
 }

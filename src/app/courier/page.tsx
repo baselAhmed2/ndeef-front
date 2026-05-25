@@ -35,6 +35,7 @@ type Tab = "active" | "done";
 const STATUS_META = {
   pending: { label: "New Order", color: "#EBA050", bg: "#fff7ed", icon: AlertTriangle },
   accepted: { label: "Accepted", color: "#2563eb", bg: "#eff6ff", icon: CheckCircle2 },
+  ready_for_pickup: { label: "Ready for Pickup", color: "#0f766e", bg: "#ecfeff", icon: Package },
   picked_up: { label: "In Transit", color: "#7c3aed", bg: "#f5f3ff", icon: Truck },
   delivered: { label: "Delivered", color: "#16a34a", bg: "#f0fdf4", icon: CheckCircle2 },
   cancelled: { label: "Cancelled", color: "#dc2626", bg: "#fef2f2", icon: AlertTriangle },

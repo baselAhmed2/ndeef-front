@@ -33,15 +33,17 @@ import {
   getCourierDeviceLocation,
   getCourierOrderById,
   serviceIconKey,
+  syncCourierLocation,
   type CourierDashboardOrder,
 } from "@/app/lib/courier-client";
 import { ApiError } from "@/app/lib/admin-api";
 
-type OrderStatus = "pending" | "accepted" | "picked_up" | "delivered" | "cancelled";
+type OrderStatus = "pending" | "accepted" | "ready_for_pickup" | "picked_up" | "delivered" | "cancelled";
 
 const STEPS: { key: OrderStatus; label: string; desc: string }[] = [
   { key: "pending", label: "New", desc: "Waiting for you" },
   { key: "accepted", label: "Accepted", desc: "Head to laundry" },
+  { key: "ready_for_pickup", label: "Ready", desc: "Pickup is unlocked" },
   { key: "picked_up", label: "Picked Up", desc: "On your way" },
   { key: "delivered", label: "Delivered", desc: "Done!" },
 ];
@@ -87,6 +89,12 @@ function getServiceIcon(service: string) {
     default:
       return Package;
   }
+}
+
+function hasRealLocation(location: { currentLatitude: number; currentLongitude: number }) {
+  return Number.isFinite(location.currentLatitude)
+    && Number.isFinite(location.currentLongitude)
+    && !(location.currentLatitude === 0 && location.currentLongitude === 0);
 }
 
 function StatusStepper({ current }: { current: OrderStatus }) {
@@ -299,7 +307,7 @@ export default function CourierOrderDetail() {
     }
 
     const refreshIfVisible = () => {
-      if (document.hidden || actionLoading) return;
+      if (document.hidden) return;
       void loadOrder(true);
     };
 
@@ -314,7 +322,7 @@ export default function CourierOrderDetail() {
       window.removeEventListener("focus", refreshIfVisible);
       document.removeEventListener("visibilitychange", refreshIfVisible);
     };
-  }, [actionLoading, id]);
+  }, [id]);
 
   if (loading) {
     return (
@@ -348,7 +356,7 @@ export default function CourierOrderDetail() {
   const actionConfig: ActionCfg =
     status === "pending"
       ? { label: "Accept Order", sublabel: "Confirm you will take this order", icon: CheckCircle2, color: "#1D5B70" }
-      : status === "accepted"
+      : status === "ready_for_pickup"
         ? { label: "I've Picked It Up", sublabel: "Items collected from laundry", icon: Truck, color: "#7c3aed" }
         : status === "picked_up"
           ? { label: "Mark as Delivered", sublabel: "Confirm delivery to customer", icon: CheckCircle2, color: "#16a34a" }
@@ -363,17 +371,31 @@ export default function CourierOrderDetail() {
       if (status === "pending") {
         const nextOrder = await acceptCourierOrder(order.id);
         setOrder(nextOrder);
-      } else if (status === "accepted") {
+      } else if (status === "ready_for_pickup") {
         const location = await getCourierDeviceLocation();
+        if (!hasRealLocation(location)) {
+          throw new Error("Location access is required to confirm pickup. Please allow location permission and try again near the laundry.");
+        }
+        await syncCourierLocation(location.currentLatitude, location.currentLongitude);
         const nextOrder = await confirmCourierPickup(order.id, location);
         setOrder(nextOrder);
       } else if (status === "picked_up") {
         const location = await getCourierDeviceLocation();
+        if (!hasRealLocation(location)) {
+          throw new Error("Location access is required to confirm delivery. Please allow location permission and try again near the destination.");
+        }
+        await syncCourierLocation(location.currentLatitude, location.currentLongitude);
         const nextOrder = await confirmCourierDelivery(order.id, location);
         setOrder(nextOrder);
       }
     } catch (actionError) {
-      setError(actionError instanceof ApiError ? actionError.message : "Unable to update this order.");
+      setError(
+        actionError instanceof ApiError
+          ? actionError.message
+          : actionError instanceof Error
+            ? actionError.message
+            : "Unable to update this order.",
+      );
     } finally {
       setActionLoading(false);
     }
@@ -430,6 +452,17 @@ export default function CourierOrderDetail() {
           <div className="bg-white rounded-2xl p-5 border border-gray-100 shadow-sm">
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">Order Progress</p>
             <StatusStepper current={done ? (delivered ? "delivered" : "picked_up") : status} />
+            {status === "accepted" && (
+              <div className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3 bg-amber-50 border border-amber-100">
+                <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-amber-700">Waiting for laundry handoff</p>
+                  <p className="text-xs text-amber-600">
+                    You can pick up this order after the laundry marks it ready for pickup.
+                  </p>
+                </div>
+              </div>
+            )}
             {done && (
               <div className={`mt-4 rounded-xl px-4 py-3 flex items-center gap-3 ${delivered ? "bg-green-50 border border-green-100" : "bg-red-50 border border-red-100"}`}>
                 {delivered ? <CheckCircle2 className="w-5 h-5 text-green-500 shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 shrink-0" />}

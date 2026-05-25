@@ -3,7 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   createService,
+  deactivateLaundryBundle,
   deleteService,
+  getLaundryBundleApprovalRequests,
+  getLaundryBundles,
+  type LaundryBundleApprovalDTO,
+  type LaundryBundleDTO,
   getServiceCatalog,
   type ServiceCatalogDTO,
   updateService,
@@ -214,6 +219,9 @@ function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
 
 export function Services() {
   const [services, setServices] = useState<ServiceCard[]>([]);
+  const [bundles, setBundles] = useState<LaundryBundleDTO[]>([]);
+  const [bundleApprovals, setBundleApprovals] = useState<LaundryBundleApprovalDTO[]>([]);
+  const [bundleBusyId, setBundleBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState("All");
@@ -244,12 +252,20 @@ export function Services() {
     try {
       setLoading(true);
       setError(null);
-      const data = await getServiceCatalog(true);
+      const [data, loadedBundles, loadedApprovals] = await Promise.all([
+        getServiceCatalog(true),
+        getLaundryBundles().catch(() => []),
+        getLaundryBundleApprovalRequests().catch(() => []),
+      ]);
       setServices(data.map(normalizeCatalogItem));
+      setBundles(loadedBundles);
+      setBundleApprovals(loadedApprovals);
     } catch (loadError) {
       console.error(loadError);
       setError("Could not load services from backend.");
       setServices([]);
+      setBundles([]);
+      setBundleApprovals([]);
     } finally {
       setLoading(false);
     }
@@ -307,6 +323,19 @@ export function Services() {
       setError(deleteError instanceof Error ? deleteError.message : "Could not delete service.");
     } finally {
       setDeletingService(undefined);
+    }
+  };
+
+  const handleDeactivateBundle = async (bundleId: string) => {
+    try {
+      setBundleBusyId(bundleId);
+      await deactivateLaundryBundle(bundleId);
+      await loadServices();
+    } catch (bundleError) {
+      console.error(bundleError);
+      setError(bundleError instanceof Error ? bundleError.message : "Could not deactivate bundle.");
+    } finally {
+      setBundleBusyId(null);
     }
   };
 
@@ -465,6 +494,112 @@ export function Services() {
             </motion.div>
           ))}
         </AnimatePresence>
+      </div>
+
+      <div className="rounded-3xl border border-gray-100 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h3 className="font-semibold text-gray-900">Laundry Bundles</h3>
+            <p className="mt-0.5 text-xs text-gray-400">
+              These cards come directly from the bundle backend endpoints.
+            </p>
+          </div>
+          <div className="flex gap-2 text-xs text-gray-500">
+            <span>{bundles.length} bundles</span>
+            <span>•</span>
+            <span>{bundleApprovals.length} approval requests</span>
+          </div>
+        </div>
+
+        {bundles.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+            No bundles returned from backend for this laundry yet.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {bundles.map((bundle) => (
+              <div key={bundle.id} className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
+                <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-base font-semibold text-gray-900">{bundle.name}</p>
+                      <span className="rounded-full bg-[#1D5B70]/10 px-2 py-0.5 text-[10px] font-bold text-[#1D5B70]">
+                        {bundle.status}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-gray-500">
+                      {bundle.description || "No description provided."}
+                    </p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {bundle.items.map((item) => (
+                        <span
+                          key={item.id}
+                          className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-600"
+                        >
+                          {item.quantity}x {item.serviceName}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-gray-200 bg-white px-4 py-3 lg:min-w-[220px]">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
+                      Pricing
+                    </p>
+                    <p className="mt-2 text-lg font-semibold text-[#1D5B70]">
+                      {bundle.bundlePrice.toFixed(2)} EGP
+                    </p>
+                    <p className="text-xs text-gray-400 line-through">
+                      {bundle.originalPrice.toFixed(2)} EGP
+                    </p>
+                    <p className="mt-1 text-xs font-medium text-emerald-600">
+                      Save {bundle.savingsAmount.toFixed(2)} EGP
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => void handleDeactivateBundle(bundle.id)}
+                      disabled={bundleBusyId === bundle.id || bundle.status.toLowerCase() !== "active"}
+                      className="mt-3 w-full rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {bundleBusyId === bundle.id ? "Updating..." : "Deactivate"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-5 border-t border-gray-100 pt-5">
+          <h4 className="font-semibold text-gray-900">Approval Requests</h4>
+          <div className="mt-3 space-y-2">
+            {bundleApprovals.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                No bundle proposal history returned from backend.
+              </div>
+            ) : (
+              bundleApprovals.map((approval) => (
+                <div
+                  key={approval.id}
+                  className="flex flex-col gap-2 rounded-2xl border border-gray-100 bg-gray-50/70 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{approval.bundleName}</p>
+                    <p className="text-xs text-gray-500">
+                      {approval.isEditRequest ? "Edit request" : "New bundle request"} • {new Date(approval.requestedAt).toLocaleDateString("en-US")}
+                    </p>
+                  </div>
+                  <div className="text-left sm:text-right">
+                    <p className="text-xs font-semibold text-[#1D5B70]">{approval.status}</p>
+                    <p className="text-xs text-gray-400">
+                      {approval.reviewNote || approval.requestNote || "Waiting for review."}
+                    </p>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {loading ? (

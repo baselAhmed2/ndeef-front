@@ -436,6 +436,47 @@ export async function updateOrderStatus(
   });
 }
 
+export interface LaundryBundleItemDTO {
+  id: string;
+  serviceId: string;
+  serviceName: string;
+  quantity: number;
+  allowedItemCategory: string | null;
+}
+
+export interface LaundryBundleDTO {
+  id: string;
+  name: string;
+  description: string;
+  bundlePrice: number;
+  originalPrice: number;
+  savingsAmount: number;
+  savingsPercentage: number;
+  status: string;
+  ownerType: string;
+  laundryId?: number | null;
+  startDate?: string | null;
+  expiryDate?: string | null;
+  imageUrl?: string | null;
+  displayOrder: number;
+  items: LaundryBundleItemDTO[];
+}
+
+export interface LaundryBundleApprovalDTO {
+  id: string;
+  bundleId: string;
+  bundleName: string;
+  laundryId?: number | null;
+  laundryName?: string | null;
+  requestedByAdminName: string;
+  status: string;
+  requestNote: string | null;
+  reviewNote: string | null;
+  requestedAt: string;
+  reviewedAt?: string | null;
+  isEditRequest: boolean;
+}
+
 export async function assignCourierToOrder(
   orderId: string,
   courierId: string,
@@ -1095,6 +1136,226 @@ export async function getServiceCatalog(
       typeof item.recommendedPrice === "number" ? item.recommendedPrice : null,
     suggestionReasoning: item.suggestionReasoning ?? null,
   }));
+}
+
+function mapBundleStatus(value: string | number | null | undefined) {
+  return String(value ?? "");
+}
+
+function mapBundleOwnerType(value: string | number | null | undefined) {
+  return String(value ?? "");
+}
+
+function mapBundleCategory(value: string | number | null | undefined) {
+  return fromServiceCategory(value);
+}
+
+function mapLaundryBundle(raw: {
+  id: string;
+  name: string;
+  description?: string | null;
+  bundlePrice: number;
+  originalPrice: number;
+  savingsAmount?: number;
+  savingsPercentage?: number;
+  status?: string | number | null;
+  ownerType?: string | number | null;
+  laundryId?: number | null;
+  startDate?: string | null;
+  expiryDate?: string | null;
+  imageUrl?: string | null;
+  displayOrder?: number | null;
+  bundleItems?: Array<{
+    id: string;
+    serviceId: number;
+    serviceName: string;
+    quantity: number;
+    allowedItemCategory?: string | number | null;
+  }> | null;
+}): LaundryBundleDTO {
+  return {
+    id: String(raw.id),
+    name: raw.name,
+    description: raw.description ?? "",
+    bundlePrice: Number(raw.bundlePrice ?? 0),
+    originalPrice: Number(raw.originalPrice ?? 0),
+    savingsAmount:
+      Number(raw.savingsAmount ?? 0) ||
+      Number(raw.originalPrice ?? 0) - Number(raw.bundlePrice ?? 0),
+    savingsPercentage: Number(raw.savingsPercentage ?? 0),
+    status: mapBundleStatus(raw.status),
+    ownerType: mapBundleOwnerType(raw.ownerType),
+    laundryId: raw.laundryId ?? null,
+    startDate: raw.startDate ?? null,
+    expiryDate: raw.expiryDate ?? null,
+    imageUrl: raw.imageUrl ?? null,
+    displayOrder: Number(raw.displayOrder ?? 0),
+    items: (raw.bundleItems ?? []).map((item) => ({
+      id: String(item.id),
+      serviceId: String(item.serviceId),
+      serviceName: item.serviceName,
+      quantity: Number(item.quantity ?? 0),
+      allowedItemCategory:
+        item.allowedItemCategory !== null && item.allowedItemCategory !== undefined
+          ? mapBundleCategory(item.allowedItemCategory)
+          : null,
+    })),
+  };
+}
+
+export async function getLaundryBundles(): Promise<LaundryBundleDTO[]> {
+  const payload = await apiRequest<
+    Array<{
+      id: string;
+      name: string;
+      description?: string | null;
+      bundlePrice: number;
+      originalPrice: number;
+      savingsAmount?: number;
+      savingsPercentage?: number;
+      status?: string | number | null;
+      ownerType?: string | number | null;
+      laundryId?: number | null;
+      startDate?: string | null;
+      expiryDate?: string | null;
+      imageUrl?: string | null;
+      displayOrder?: number | null;
+      bundleItems?: Array<{
+        id: string;
+        serviceId: number;
+        serviceName: string;
+        quantity: number;
+        allowedItemCategory?: string | number | null;
+      }> | null;
+    }>
+  >("/Bundles/laundry-admin/my-bundles");
+
+  return (payload ?? []).map(mapLaundryBundle);
+}
+
+export async function getLaundryBundleApprovalRequests(): Promise<LaundryBundleApprovalDTO[]> {
+  const payload = await apiRequest<
+    Array<{
+      id: string;
+      bundleId: string;
+      bundleName: string;
+      laundryId?: number | null;
+      laundryName?: string | null;
+      requestedByAdminName: string;
+      status: string | number;
+      requestNote?: string | null;
+      reviewNote?: string | null;
+      requestedAt: string;
+      reviewedAt?: string | null;
+      isEditRequest: boolean;
+    }>
+  >("/Bundles/laundry-admin/approval-requests");
+
+  return (payload ?? []).map((item) => ({
+    id: String(item.id),
+    bundleId: String(item.bundleId),
+    bundleName: item.bundleName,
+    laundryId: item.laundryId ?? null,
+    laundryName: item.laundryName ?? null,
+    requestedByAdminName: item.requestedByAdminName,
+    status: String(item.status ?? ""),
+    requestNote: item.requestNote ?? null,
+    reviewNote: item.reviewNote ?? null,
+    requestedAt: item.requestedAt,
+    reviewedAt: item.reviewedAt ?? null,
+    isEditRequest: Boolean(item.isEditRequest),
+  }));
+}
+
+export async function proposeLaundryBundle(payload: {
+  name: string;
+  description?: string | null;
+  bundlePrice: number;
+  originalPrice: number;
+  startDate?: string | null;
+  expiryDate?: string | null;
+  imageUrl?: string | null;
+  displayOrder?: number;
+  requestNote?: string | null;
+  bundleItems: Array<{
+    serviceId: number;
+    quantity: number;
+    allowedItemCategory?: string | null;
+  }>;
+}) {
+  return apiRequest("/Bundles/laundry-admin/propose", {
+    method: "POST",
+    body: JSON.stringify({
+      name: payload.name,
+      description: payload.description?.trim() || null,
+      bundlePrice: Number(payload.bundlePrice),
+      originalPrice: Number(payload.originalPrice),
+      startDate: payload.startDate ? new Date(payload.startDate).toISOString() : null,
+      expiryDate: payload.expiryDate ? new Date(payload.expiryDate).toISOString() : null,
+      imageUrl: payload.imageUrl?.trim() || null,
+      displayOrder: Number(payload.displayOrder ?? 0),
+      requestNote: payload.requestNote?.trim() || null,
+      bundleItems: payload.bundleItems.map((item) => ({
+        serviceId: Number(item.serviceId),
+        quantity: Number(item.quantity),
+        allowedItemCategory:
+          item.allowedItemCategory && item.allowedItemCategory !== "None"
+            ? toServiceCategory(item.allowedItemCategory)
+            : null,
+      })),
+    }),
+  });
+}
+
+export async function proposeLaundryBundleEdit(payload: {
+  bundleId: string;
+  name?: string | null;
+  description?: string | null;
+  bundlePrice?: number | null;
+  originalPrice?: number | null;
+  startDate?: string | null;
+  expiryDate?: string | null;
+  requestNote?: string | null;
+  bundleItems?: Array<{
+    serviceId: number;
+    quantity: number;
+    allowedItemCategory?: string | null;
+  }>;
+}) {
+  return apiRequest("/Bundles/laundry-admin/propose-edit", {
+    method: "POST",
+    body: JSON.stringify({
+      bundleId: payload.bundleId,
+      name: payload.name?.trim() || null,
+      description: payload.description?.trim() || null,
+      bundlePrice:
+        payload.bundlePrice !== null && payload.bundlePrice !== undefined
+          ? Number(payload.bundlePrice)
+          : null,
+      originalPrice:
+        payload.originalPrice !== null && payload.originalPrice !== undefined
+          ? Number(payload.originalPrice)
+          : null,
+      startDate: payload.startDate ? new Date(payload.startDate).toISOString() : null,
+      expiryDate: payload.expiryDate ? new Date(payload.expiryDate).toISOString() : null,
+      requestNote: payload.requestNote?.trim() || null,
+      bundleItems: payload.bundleItems?.map((item) => ({
+        serviceId: Number(item.serviceId),
+        quantity: Number(item.quantity),
+        allowedItemCategory:
+          item.allowedItemCategory && item.allowedItemCategory !== "None"
+            ? toServiceCategory(item.allowedItemCategory)
+            : null,
+      })),
+    }),
+  });
+}
+
+export async function deactivateLaundryBundle(bundleId: string) {
+  return apiRequest(`/Bundles/${bundleId}/deactivate`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason: "Deactivated from frontend" }),
+  });
 }
 
 // ---------------------------------------------------------

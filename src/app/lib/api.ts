@@ -211,6 +211,10 @@ export interface BackendOrderTrackDto {
   estimatedDeliveryTime: string | null;
   courierLatitude: number | null;
   courierLongitude: number | null;
+  courierId?: string | null;
+  courierName?: string | null;
+  courierPhone?: string | null;
+  courierAvatar?: string | null;
 }
 
 export interface BackendOrderReviewCheckDto {

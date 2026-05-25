@@ -279,12 +279,17 @@ export default function TrackOrder() {
   const courierLng =
     typeof track?.courierLongitude === "number" ? track.courierLongitude : null;
   const hasCourierLocation = courierLat !== null && courierLng !== null;
+  const hasCourierAssignment =
+    Boolean(track?.courierId) ||
+    Boolean(track?.courierName) ||
+    Boolean(track?.courierPhone);
   const driverAssigned =
     currentStatus === "accepted" ||
     currentStatus === "ready_for_pickup" ||
     currentStatus === "picked_up" ||
     currentStatus === "delivered" ||
-    hasCourierLocation;
+    hasCourierLocation ||
+    hasCourierAssignment;
   const driverStageLabel =
     currentStatus === "delivered"
       ? "Delivered successfully"
@@ -305,6 +310,8 @@ export default function TrackOrder() {
       ? "This order has been delivered successfully. Live tracking is no longer needed."
     : currentStatus === "picked_up"
       ? "Your order is on the way. Live location will appear as soon as it becomes available."
+      : hasCourierAssignment
+        ? "A courier is already assigned, but live location has not been shared yet."
       : currentStatus === "accepted"
         ? "A courier has been assigned to your order. Pickup updates will appear here next."
       : currentStatus === "ready_for_pickup"
@@ -334,24 +341,40 @@ export default function TrackOrder() {
         ? formatDate(track.estimatedDeliveryTime)
         : "Waiting for courier updates";
   const liveTrackingLabel =
-    hasCourierLocation ? "Available" : currentStatus === "delivered" ? "Completed" : "Unavailable";
+    hasCourierLocation
+      ? "Available"
+      : currentStatus === "delivered"
+        ? "Completed"
+        : hasCourierAssignment
+          ? "Pending live sync"
+          : "Unavailable";
   const liveTrackingHint =
     hasCourierLocation
       ? "Live courier location is ready"
       : currentStatus === "delivered"
         ? "Courier tracking ended after delivery"
+        : hasCourierAssignment
+          ? "Courier is assigned, waiting for first live location update"
         : "Waiting for live location updates";
   const courierSnapshotTitle =
     hasCourierLocation
       ? "Courier location captured"
       : currentStatus === "delivered"
         ? "Delivery completed"
+        : hasCourierAssignment
+          ? track?.courierName
+            ? `${track.courierName} is assigned`
+            : "Courier assigned"
         : "Location not available yet";
   const courierSnapshotHint =
     hasCourierLocation
       ? `${courierLat?.toFixed(5)}, ${courierLng?.toFixed(5)}`
       : currentStatus === "delivered"
         ? "Live courier location is no longer tracked after delivery."
+        : hasCourierAssignment
+          ? track?.courierPhone
+            ? `Assigned courier contact: ${track.courierPhone}`
+            : "Live courier position will appear once the courier shares location."
         : "Live courier position will appear here once it is available.";
 
   const submitComplaint = async () => {
@@ -733,6 +756,9 @@ export default function TrackOrder() {
             <div className="space-y-3">
               {[
                 { label: "Laundry", value: order.laundryName },
+                ...(order.bundleMetadata
+                  ? [{ label: "Bundle", value: order.bundleMetadata.bundleName }]
+                  : []),
                 { label: "Service", value: order.serviceName },
                 { label: "Items", value: `${order.itemCount} ${order.serviceUnit}` },
                 { label: "Pickup", value: `${order.pickupDate}, ${order.pickupTime}` },
@@ -742,6 +768,16 @@ export default function TrackOrder() {
                   <span className="text-sm text-gray-900 font-medium">{value}</span>
                 </div>
               ))}
+              {order.bundleMetadata && (
+                <div className="rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3">
+                  <div className="flex items-center justify-between gap-3 text-sm">
+                    <span className="text-emerald-700 font-medium">Bundle savings</span>
+                    <span className="font-semibold text-emerald-700">
+                      {order.bundleMetadata.savingsAmount} EGP
+                    </span>
+                  </div>
+                </div>
+              )}
               <div className="border-t border-gray-100 pt-3 flex justify-between">
                 <span className="text-sm text-gray-500">Total</span>
                 <span className="text-sm font-semibold text-[#1D6076]">

@@ -51,8 +51,12 @@ async function proxyRequest(
   }
 
   const responseBody = await response.text();
+  const isExpectedNoActiveRun =
+    backendPath === "driver/runs/active" &&
+    (response.status === 400 || response.status === 404) &&
+    responseBody.toLowerCase().includes("no active run");
 
-  if (!response.ok) {
+  if (!response.ok && !isExpectedNoActiveRun) {
     console.error("[backend proxy error]", {
       method: request.method,
       backendUrl: backendUrl.toString(),
