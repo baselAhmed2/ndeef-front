@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { chargeWalletRequest, getPaymentHistoryRequest } from "../lib/api";
+import { chargeWalletRequest, getWalletInfoRequest } from "../lib/api";
 
 type WalletTransaction = {
   id: number;
@@ -27,10 +27,10 @@ type WalletTransaction = {
   positive: boolean;
   paymentMethod: string;
   paymentStatus: string;
-  paymentUrl?: string | null;
+  source: string;
 };
 
-type ActivityFilter = "all" | "wallet" | "mobile" | "cash" | "card";
+type ActivityFilter = "all" | "wallet" | "mobile" | "cash" | "refund";
 
 const QUICK_AMOUNTS = [100, 250, 500, 1000] as const;
 
@@ -58,10 +58,8 @@ function formatMoney(amount: number) {
   return `${amount.toFixed(2)} EGP`;
 }
 
-function formatTransactionDate(value: string | null) {
-  if (!value) {
-    return "Pending payment";
-  }
+function formatTransactionDate(value: string | null | undefined) {
+  if (!value) return "Pending transaction";
 
   const date = new Date(value);
   return date.toLocaleString("en-US", {
@@ -73,15 +71,18 @@ function formatTransactionDate(value: string | null) {
   });
 }
 
-function formatPaymentStatus(status: string) {
-  const normalized = String(status || "").toLowerCase();
-  if (normalized === "paid") return "Paid";
-  if (normalized === "pending") return "Pending";
-  if (normalized === "failed") return "Failed";
-  return status || "Unknown";
+function getMethodFromSource(source: string) {
+  const normalized = String(source || "").toLowerCase();
+  if (normalized.includes("refund")) return "Refund";
+  if (normalized.includes("mobile")) return "MobilePayment";
+  if (normalized.includes("cash")) return "Cash";
+  return "Wallet";
 }
 
-function getFilterForMethod(method: string): ActivityFilter {
+function getFilterForTransaction(method: string, source: string): ActivityFilter {
+  const normalizedSource = String(source || "").toLowerCase();
+  if (normalizedSource.includes("refund")) return "refund";
+
   switch (method) {
     case "Wallet":
       return "wallet";
@@ -89,8 +90,8 @@ function getFilterForMethod(method: string): ActivityFilter {
       return "mobile";
     case "Cash":
       return "cash";
-    case "CreditCard":
-      return "card";
+    case "Refund":
+      return "refund";
     default:
       return "all";
   }
@@ -104,7 +105,7 @@ function getMethodChipClass(method: string) {
       return "bg-sky-50 text-sky-700";
     case "Cash":
       return "bg-amber-50 text-amber-700";
-    case "CreditCard":
+    case "Refund":
       return "bg-violet-50 text-violet-700";
     default:
       return "bg-slate-100 text-slate-600";
@@ -113,6 +114,7 @@ function getMethodChipClass(method: string) {
 
 function getStatusChipClass(status: string) {
   switch (String(status).toLowerCase()) {
+    case "completed":
     case "paid":
       return "bg-emerald-50 text-emerald-700";
     case "pending":
@@ -124,17 +126,18 @@ function getStatusChipClass(status: string) {
   }
 }
 
-function inferTransactionTitle(method: string, status: string) {
-  const normalizedMethod = String(method || "").toLowerCase();
-  const normalizedStatus = String(status || "").toLowerCase();
+function inferTransactionTitle(source: string, type: string) {
+  const normalizedSource = String(source || "").toLowerCase();
+  const normalizedType = String(type || "").toLowerCase();
 
-  if (normalizedMethod === "wallet") {
-    return normalizedStatus === "paid" ? "Wallet Payment" : "Wallet Charge";
+  if (normalizedSource.includes("walletcharge")) return "Wallet Charge";
+  if (normalizedSource.includes("walletpayment")) {
+    return normalizedType === "debit" ? "Wallet Payment" : "Wallet Credit";
   }
-  if (normalizedMethod === "mobilepayment") return "Mobile Wallet Payment";
-  if (normalizedMethod === "cash") return "Cash Payment";
-  if (normalizedMethod === "creditcard") return "Card Payment";
-  return method || "Payment Activity";
+  if (normalizedSource.includes("refund")) return "Refund to Wallet";
+  if (normalizedSource.includes("mobilewallet")) return "Mobile Wallet Payment";
+  if (normalizedSource.includes("cashpayment")) return "Cash Payment";
+  return "Wallet Activity";
 }
 
 export default function Wallet() {
@@ -142,6 +145,8 @@ export default function Wallet() {
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [charging, setCharging] = useState(false);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [walletActive, setWalletActive] = useState(true);
   const [totalCharged, setTotalCharged] = useState(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [filter, setFilter] = useState<ActivityFilter>("all");
@@ -156,53 +161,49 @@ export default function Wallet() {
       return;
     }
     const authToken = token;
+
     let active = true;
 
-    async function loadHistory() {
+    async function loadWalletInfo() {
       try {
         setLoading(true);
-        const history = await getPaymentHistoryRequest(authToken);
+        const walletInfo = await getWalletInfoRequest(authToken);
         if (!active) return;
 
-        const mapped = history.map((item) => {
+        const mapped = (walletInfo.transactions ?? []).map((item) => {
           const amount = Number(item.amount ?? 0);
-          const normalizedMethod = String(item.paymentMethod || "");
-          const normalizedStatus = String(item.paymentStatus || "");
-          const positive =
-            normalizedMethod.toLowerCase() === "wallet" &&
-            normalizedStatus.toLowerCase() !== "paid";
+          const source = String(item.source || "");
+          const type = String(item.type || "");
+          const status = String(item.status || "");
+          const method = getMethodFromSource(source);
+          const positive = type.toLowerCase() === "credit";
 
           return {
             id: item.id,
-            title: inferTransactionTitle(normalizedMethod, normalizedStatus),
+            title: inferTransactionTitle(source, type),
             amount: positive ? amount : -amount,
             amountLabel: `${positive ? "+" : "-"}${formatMoney(amount)}`,
-            time: formatTransactionDate(item.paymentDate),
+            time: formatTransactionDate(item.createdAt),
             positive,
-            paymentMethod: normalizedMethod,
-            paymentStatus: normalizedStatus,
-            paymentUrl: item.paymentUrl ?? null,
+            paymentMethod: method,
+            paymentStatus: status,
+            source,
           };
         });
 
+        setWalletBalance(Number(walletInfo.balance ?? 0));
+        setWalletActive(Boolean(walletInfo.isActive ?? true));
+        setTotalCharged(Number(walletInfo.totalCharged ?? 0));
         setTransactions(mapped);
-        setTotalCharged(
-          mapped
-            .filter((transaction) => transaction.positive)
-            .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0),
-        );
       } catch (error) {
         if (!active) return;
         toast.error(error instanceof Error ? error.message : "Failed to load wallet activity.");
       } finally {
-        if (active) {
-          setLoading(false);
-        }
+        if (active) setLoading(false);
       }
     }
 
-    void loadHistory();
-
+    void loadWalletInfo();
     return () => {
       active = false;
     };
@@ -210,7 +211,6 @@ export default function Wallet() {
 
   useEffect(() => {
     if (!chargeStatus) return;
-
     if (chargeStatus === "success") {
       toast.success("Wallet charge completed successfully.");
     } else if (chargeStatus === "failed") {
@@ -218,23 +218,21 @@ export default function Wallet() {
     }
   }, [chargeStatus]);
 
-  const walletPaymentsTotal = useMemo(
+  const refundsTotal = useMemo(
     () =>
       transactions
-        .filter((transaction) => transaction.paymentMethod === "Wallet" && transaction.paymentStatus.toLowerCase() === "paid")
+        .filter((transaction) => transaction.source.toLowerCase().includes("refund"))
         .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0),
-    [transactions],
-  );
-
-  const paidTransactionsCount = useMemo(
-    () => transactions.filter((transaction) => transaction.paymentStatus.toLowerCase() === "paid").length,
     [transactions],
   );
 
   const filteredTransactions = useMemo(() => {
     if (filter === "all") return transactions;
-    return transactions.filter((transaction) => getFilterForMethod(transaction.paymentMethod) === filter);
+    return transactions.filter(
+      (transaction) => getFilterForTransaction(transaction.paymentMethod, transaction.source) === filter,
+    );
   }, [filter, transactions]);
+
   const handleChargeWallet = async () => {
     if (!user?.token || charging) return;
 
@@ -297,7 +295,7 @@ export default function Wallet() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Wallet</h1>
-            <p className="text-sm text-gray-500">Charge your wallet and review payment activity returned from backend.</p>
+            <p className="text-sm text-gray-500">Charge wallet, review balance, and track refunds from backend.</p>
           </div>
         </div>
       </div>
@@ -312,7 +310,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm font-semibold text-emerald-900">Wallet charge completed</p>
                 <p className="mt-1 text-sm text-emerald-800/90">
-                  Your charge flow returned successfully. The latest payment activity below is loaded from backend history.
+                  Your balance and wallet activity below are now read from backend wallet info.
                 </p>
               </div>
             </div>
@@ -328,7 +326,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm font-semibold text-rose-900">Wallet charge failed</p>
                 <p className="mt-1 text-sm text-rose-800/90">
-                  The payment gateway returned a failed status. You can retry the charge using the form below.
+                  The payment gateway returned a failed status. You can retry the charge below.
                 </p>
               </div>
             </div>
@@ -341,7 +339,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm uppercase tracking-[0.2em] text-white/70">Wallet funding</p>
                 <p className="mt-3 max-w-md text-sm leading-6 text-white/85">
-                  Start a real wallet charge from backend. After Kashier redirects back here, the page will keep your latest payment activity in sync.
+                  Start a real wallet charge from backend. Returned funds and successful charges will appear here automatically.
                 </p>
               </div>
               <div className="rounded-2xl bg-white/10 p-3">
@@ -393,21 +391,21 @@ export default function Wallet() {
             </div>
           </div>
 
-        <div className="rounded-[30px] border border-[#dce9ee] bg-white p-6 shadow-sm">
+          <div className="rounded-[30px] border border-[#dce9ee] bg-white p-6 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="rounded-2xl bg-[#1D6076]/10 p-3 text-[#1D6076]">
                 <ShieldCheck size={22} strokeWidth={2} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Backend contract</p>
+                <p className="text-sm font-semibold text-gray-900">Backend wallet sync</p>
                 <p className="mt-1 text-sm leading-6 text-gray-500">
-                  The current backend exposes wallet charging and payment history, but it does not expose a dedicated current wallet balance endpoint.
+                  This page now reads live wallet details from <code className="rounded bg-slate-100 px-1 py-0.5">GET /api/wallet/info</code>.
                 </p>
               </div>
             </div>
 
-            <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              The cards below reflect real payment activity from backend. They do not claim a live wallet balance that the API does not currently return.
+            <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm ${walletActive ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
+              {walletActive ? "Wallet is active on backend." : "Wallet is inactive on backend."}
             </div>
           </div>
         </div>
@@ -417,9 +415,9 @@ export default function Wallet() {
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
               <WalletIcon size={20} strokeWidth={2} />
             </div>
-            <p className="text-sm text-gray-500">Wallet payments used</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(walletPaymentsTotal)}</p>
-            <p className="mt-1 text-sm text-gray-500">Paid orders whose payment method was `Wallet`.</p>
+            <p className="text-sm text-gray-500">Current wallet balance</p>
+            <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(walletBalance)}</p>
+            <p className="mt-1 text-sm text-gray-500">Real available balance from backend.</p>
           </div>
 
           <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -428,24 +426,24 @@ export default function Wallet() {
             </div>
             <p className="text-sm text-gray-500">Total wallet charges</p>
             <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(totalCharged)}</p>
-            <p className="mt-1 text-sm text-gray-500">Derived from positive wallet history records returned by backend.</p>
+            <p className="mt-1 text-sm text-gray-500">Lifetime amount charged into wallet.</p>
           </div>
 
           <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 text-violet-600">
               <Clock3 size={20} strokeWidth={2} />
             </div>
-            <p className="text-sm text-gray-500">Paid transactions</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900">{paidTransactionsCount}</p>
-            <p className="mt-1 text-sm text-gray-500">Successful payment records returned by the backend.</p>
+            <p className="text-sm text-gray-500">Refunds returned</p>
+            <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(refundsTotal)}</p>
+            <p className="mt-1 text-sm text-gray-500">Refund credits returned to wallet on cancelled orders.</p>
           </div>
         </div>
 
         <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Payment activity</h2>
-              <p className="text-sm text-gray-500">Live records from <code className="rounded bg-slate-100 px-1 py-0.5">GET /api/payments/history</code>.</p>
+              <h2 className="text-lg font-bold text-gray-900">Wallet activity</h2>
+              <p className="text-sm text-gray-500">Live records from <code className="rounded bg-slate-100 px-1 py-0.5">GET /api/wallet/info</code>.</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -458,7 +456,7 @@ export default function Wallet() {
                 ["wallet", "Wallet"],
                 ["mobile", "Mobile"],
                 ["cash", "Cash"],
-                ["card", "Card"],
+                ["refund", "Refunds"],
               ] as const).map(([value, label]) => (
                 <button
                   key={value}
@@ -478,7 +476,7 @@ export default function Wallet() {
           <div className="space-y-3">
             {filteredTransactions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-                No payment activity was returned for this filter yet.
+                No wallet activity was returned for this filter yet.
               </div>
             ) : (
               filteredTransactions.map((transaction) => (
@@ -493,7 +491,7 @@ export default function Wallet() {
                         {transaction.paymentMethod}
                       </span>
                       <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getStatusChipClass(transaction.paymentStatus)}`}>
-                        {formatPaymentStatus(transaction.paymentStatus)}
+                        {transaction.paymentStatus}
                       </span>
                     </div>
                     <p className="mt-1 text-xs text-gray-500">{transaction.time}</p>
@@ -505,7 +503,7 @@ export default function Wallet() {
                     </span>
                     {transaction.paymentStatus.toLowerCase() === "failed" ? (
                       <XCircle className="h-4 w-4 text-rose-500" />
-                    ) : transaction.paymentStatus.toLowerCase() === "paid" ? (
+                    ) : transaction.paymentStatus.toLowerCase() === "completed" || transaction.paymentStatus.toLowerCase() === "paid" ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                     ) : (
                       <Clock3 className="h-4 w-4 text-amber-500" />

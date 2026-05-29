@@ -101,6 +101,23 @@ export interface WalletPaymentResponse {
   [key: string]: unknown;
 }
 
+export interface BackendWalletInfoTransactionDto {
+  id: number;
+  orderId?: number | null;
+  amount: number;
+  type: string;
+  source: string;
+  status: string;
+  createdAt: string;
+}
+
+export interface BackendCustomerWalletInfoDto {
+  balance: number;
+  totalCharged: number;
+  isActive: boolean;
+  transactions: BackendWalletInfoTransactionDto[];
+}
+
 export interface BackendWalletHistoryItemDto {
   id: number;
   amount: number;
@@ -1024,7 +1041,9 @@ export function mapOrderDtoToUiOrder(order: BackendOrderDto): UiOrder {
     itemCount,
     paymentStatus: mapBackendPaymentStatus(order.payment?.paymentStatus),
     createdAt: order.createdAt,
-    updatedAt: order.payment?.paymentDate ?? order.createdAt,
+    // The current order payload does not expose a real updated timestamp.
+    // Falling back to paymentDate produced misleading "last updated" times.
+    updatedAt: order.createdAt,
     notes: order.notes,
     cancellationReason: order.cancellationReason,
     bundleMetadata: order.bundleOrderMetadata
@@ -1253,6 +1272,10 @@ export async function chargeWalletRequest(token: string, amount: number) {
     },
     token,
   );
+}
+
+export async function getWalletInfoRequest(token: string) {
+  return request<BackendCustomerWalletInfoDto>("/wallet/info", undefined, token);
 }
 
 export async function getPaymentHistoryRequest(token: string) {
@@ -1730,7 +1753,7 @@ export async function processPaymentRequest(
   payload: {
     orderId: number;
     amount: number;
-    paymentMethod: "CreditCard" | "MobilePayment" | "Cash";
+    paymentMethod: "CreditCard" | "MobilePayment" | "Cash" | "Wallet";
   },
 ) {
   return request<BackendPaymentDto>(

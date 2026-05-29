@@ -30,6 +30,7 @@ import {
   getBundleByIdRequest,
   getLaundryRequest,
   getUserAddressesRequest,
+  getWalletInfoRequest,
   mapLaundryDtoToUiLaundry,
   placeBundleOrderRequest,
   placeOrderRequest,
@@ -118,6 +119,8 @@ export default function OrderPage() {
   const [selectedServices, setSelectedServices] = useState<UiServiceItem[]>([]);
   const [savedAddresses, setSavedAddresses] = useState<BackendAddressDto[]>([]);
   const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [walletBalance, setWalletBalance] = useState(0);
+  const [useWalletBalance, setUseWalletBalance] = useState(false);
   const [loading, setLoading] = useState(true);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [selectedDate, setSelectedDate] = useState("Today");
@@ -189,6 +192,9 @@ export default function OrderPage() {
           bundleId ? getBundleByIdRequest(bundleId).catch(() => null) : Promise.resolve(null),
           user?.token ? getUserAddressesRequest(user.token).catch(() => []) : Promise.resolve([]),
         ]);
+        const walletInfo = user?.token
+          ? await getWalletInfoRequest(user.token).catch(() => null)
+          : null;
         const mappedLaundry = mapLaundryDtoToUiLaundry(response);
         const nextSelectedServices = bundleResponse
           ? []
@@ -204,6 +210,7 @@ export default function OrderPage() {
         setSelectedServices(nextSelectedServices);
         setSavedAddresses(addressResponse);
         setSelectedAddressId(primaryAddress?.id ?? null);
+        setWalletBalance(Number(walletInfo?.balance ?? 0));
         if (primaryAddress) {
           const formattedAddress = [primaryAddress.street, primaryAddress.area, primaryAddress.city]
             .filter(Boolean)
@@ -442,6 +449,7 @@ export default function OrderPage() {
               serviceId: item.serviceId,
               quantity: item.quantity,
             })),
+            useWalletBalance,
             scheduledPickupTime: toPickupDateTime(selectedDate, selectedTime),
           })
         : await placeOrderRequest(user.token, {
@@ -950,8 +958,8 @@ export default function OrderPage() {
             PAYMENT METHOD
           </p>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
               type="button"
               onClick={() => setPaymentMethod("cash")}
               className={`text-left rounded-xl border px-4 py-3.5 transition-all ${
@@ -982,13 +990,37 @@ export default function OrderPage() {
                 <CreditCard size={16} className="text-[#1D6076]" strokeWidth={2} />
                 <p className="text-sm text-gray-900 font-medium">Credit Card</p>
               </div>
-              <p className="text-xs text-gray-500">
-                The order is created first, then the backend opens the card checkout for that order.
-              </p>
-            </button>
+                <p className="text-xs text-gray-500">
+                  The order is created first, then the backend opens the card checkout for that order.
+                </p>
+              </button>
+            </div>
+
+            {selectedBundle ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium text-emerald-900">Use wallet balance first</p>
+                    <p className="mt-1 text-xs leading-5 text-emerald-800/90">
+                      Available wallet balance: {walletBalance.toFixed(2)} EGP. For bundle orders, backend can deduct from wallet first and leave only the remaining amount for the selected payment flow.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setUseWalletBalance((current) => !current)}
+                    className={`min-w-[88px] rounded-full px-3 py-2 text-xs font-semibold transition ${
+                      useWalletBalance
+                        ? "bg-emerald-600 text-white"
+                        : "bg-white text-emerald-800 border border-emerald-200"
+                    }`}
+                  >
+                    {useWalletBalance ? "Enabled" : "Enable"}
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
-      </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-gray-100 shadow-lg px-4 md:px-8 py-4">
         <div className="max-w-2xl mx-auto">

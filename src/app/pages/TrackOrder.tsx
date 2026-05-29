@@ -452,7 +452,7 @@ export default function TrackOrder() {
         }
       }
 
-      if (!aggregated.toLowerCase().includes("complaint") && !aggregated.includes("شكوى")) {
+      if (!aggregated.toLowerCase().includes("complaint") && !aggregated.includes("Ø´ÙƒÙˆÙ‰")) {
         throw new Error("The backend did not confirm complaint submission.");
       }
 
@@ -627,7 +627,7 @@ export default function TrackOrder() {
             >
               <Clock size={12} style={{ color: cfg.color }} strokeWidth={2} />
               <p className="text-xs" style={{ color: cfg.color }}>
-                Last updated {timeAgo(order.updatedAt)} · {formatDate(order.updatedAt)}
+                Order created {timeAgo(order.createdAt)} | {formatDate(order.createdAt)}
               </p>
             </div>
           </div>
