@@ -1,6 +1,6 @@
 const fetch = require('node-fetch'); // Next.js context has global fetch usually, but just in case
 async function testLogin() {
-  const url = 'https://ndeefapp.runasp.net/api/auth/login';
+  const url = 'https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io/api/auth/login';
   try {
     const res = await globalThis.fetch(url, {
       method: 'POST',

@@ -17,6 +17,15 @@ export function GlobalPreferenceFab() {
       className={`ndeef-preferences-widget fixed z-[999] flex items-center gap-2 rounded-2xl border border-white/60 bg-white/90 p-2 shadow-2xl shadow-slate-900/15 backdrop-blur-xl max-sm:flex-wrap ${
         isDashboardArea ? "bottom-4 right-4" : "bottom-4 left-4"
       }`}
+      style={
+        isDark
+          ? {
+              background: "rgba(255, 255, 255, 0.96)",
+              borderColor: "rgba(226, 232, 240, 0.92)",
+              boxShadow: "0 24px 60px rgba(15, 23, 42, 0.18)",
+            }
+          : undefined
+      }
       aria-label="Display preferences"
     >
       <motion.button
@@ -24,6 +33,13 @@ export function GlobalPreferenceFab() {
         onClick={toggleLanguage}
         whileTap={{ scale: 0.94 }}
         className="ndeef-preference-button group inline-flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
+        style={
+          isDark
+            ? {
+                color: "#334155",
+              }
+            : undefined
+        }
         aria-label={isArabic ? "Switch to English" : "Switch to Arabic"}
         title={isArabic ? "Switch to English" : "Switch to Arabic"}
       >
@@ -31,13 +47,29 @@ export function GlobalPreferenceFab() {
         <span>{isArabic ? "EN" : "AR"}</span>
       </motion.button>
 
-      <div className="h-6 w-px bg-slate-200" />
+      <div
+        className="h-6 w-px bg-slate-200"
+        style={
+          isDark
+            ? {
+                backgroundColor: "#e2e8f0",
+              }
+            : undefined
+        }
+      />
 
       <motion.button
         type="button"
         onClick={toggleTheme}
         whileTap={{ scale: 0.94 }}
         className="ndeef-preference-button inline-flex h-10 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-slate-700 transition-all hover:bg-slate-100"
+        style={
+          isDark
+            ? {
+                color: "#334155",
+              }
+            : undefined
+        }
         aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
         title={isDark ? "Switch to light mode" : "Switch to dark mode"}
       >

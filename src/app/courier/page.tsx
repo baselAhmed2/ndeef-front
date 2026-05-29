@@ -44,9 +44,18 @@ const STATUS_META = {
 const AVATAR_BG = ["#1D5B70", "#EBA050", "#7c3aed", "#0891b2", "#059669", "#dc2626"];
 
 const TABS: { id: Tab; label: string; sublabel: string }[] = [
-  { id: "active", label: "In Progress", sublabel: "Assigned, accepted, or picked up" },
+  { id: "active", label: "In Progress", sublabel: "Assigned, ready for pickup, or in transit" },
   { id: "done", label: "Completed", sublabel: "All delivered orders" },
 ];
+
+function isActiveCourierOrderStatus(status: CourierDashboardOrder["status"]) {
+  return (
+    status === "pending" ||
+    status === "accepted" ||
+    status === "ready_for_pickup" ||
+    status === "picked_up"
+  );
+}
 
 function getServiceIcon(service: string) {
   switch (serviceIconKey(service)) {
@@ -341,8 +350,7 @@ export default function CourierOrdersPage() {
 
   const counts = useMemo(
     () => ({
-      active: orders.filter((o) => o.status === "pending" || o.status === "accepted" || o.status === "picked_up")
-        .length,
+      active: orders.filter((o) => isActiveCourierOrderStatus(o.status)).length,
       done: orders.filter((o) => o.status === "delivered").length,
     }),
     [orders],
@@ -353,7 +361,7 @@ export default function CourierOrdersPage() {
       orders.filter((o) => {
         const tabMatch =
           activeTab === "active"
-            ? o.status === "pending" || o.status === "accepted" || o.status === "picked_up"
+            ? isActiveCourierOrderStatus(o.status)
             : o.status === "delivered";
         const searchMatch =
           !search ||

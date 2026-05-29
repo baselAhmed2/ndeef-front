@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -78,7 +78,13 @@ function getSlotStartDate(dateLabel: string, timeSlot: string) {
 
 function toPickupDateTime(dateLabel: string, timeSlot: string) {
   const date = getSlotStartDate(dateLabel, timeSlot);
-  return date.toISOString();
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  const hours = String(date.getHours()).padStart(2, "0");
+  const minutes = String(date.getMinutes()).padStart(2, "0");
+  const seconds = String(date.getSeconds()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
 function formatMapAddress(latitude: number, longitude: number) {
@@ -129,6 +135,8 @@ export default function OrderPage() {
   const [mapLongitude, setMapLongitude] = useState(31.235712);
   const [mapError, setMapError] = useState("");
   const [mapLoadingLocation, setMapLoadingLocation] = useState(false);
+  const [orderRedirecting, setOrderRedirecting] = useState(false);
+  const orderSubmissionLockRef = useRef(false);
 
   const availableTimeSlots = useMemo(() => {
     const now = new Date();
@@ -400,18 +408,24 @@ export default function OrderPage() {
   };
 
   const handlePlaceOrder = async () => {
+    if (orderSubmissionLockRef.current || validating || orderRedirecting) return;
     if ((!selectedBundle && selectedServices.length === 0) || !user?.token) return;
 
+    orderSubmissionLockRef.current = true;
+    let shouldKeepLockedAfterSubmit = false;
     setSubmitError("");
+    setOrderRedirecting(false);
     const normalizedRole = (user.role ?? "").toLowerCase();
     if (!normalizedRole.includes("customer")) {
       setSubmitError("Only customer accounts can place orders.");
       window.scrollTo({ top: 0, behavior: "smooth" });
+      orderSubmissionLockRef.current = false;
       return;
     }
 
     if (!validate()) {
       window.scrollTo({ top: 0, behavior: "smooth" });
+      orderSubmissionLockRef.current = false;
       return;
     }
 
@@ -443,12 +457,17 @@ export default function OrderPage() {
           });
 
       if (paymentMethod === "cash") {
+        shouldKeepLockedAfterSubmit = true;
+        setOrderRedirecting(true);
         router.push(`/track-order/${order.id}?notice=placed`);
         return;
       }
 
+      shouldKeepLockedAfterSubmit = true;
+      setOrderRedirecting(true);
       router.push(`/payment?orderId=${order.id}`);
     } catch (error) {
+      setOrderRedirecting(false);
       setSubmitError(
         error instanceof ApiError
           ? error.message
@@ -458,7 +477,10 @@ export default function OrderPage() {
       );
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {
-      setValidating(false);
+      if (!shouldKeepLockedAfterSubmit) {
+        setValidating(false);
+        orderSubmissionLockRef.current = false;
+      }
     }
   };
 
@@ -982,13 +1004,13 @@ export default function OrderPage() {
           </div>
           <button
             onClick={handlePlaceOrder}
-            disabled={validating}
-            className="w-full bg-[#1D6076] text-white py-4 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#2a7a94] active:scale-[0.99] transition-all disabled:opacity-70 shadow-sm"
+            disabled={validating || orderRedirecting}
+            className="w-full bg-[#1D6076] text-white py-4 rounded-2xl text-sm font-medium flex items-center justify-center gap-2 hover:bg-[#2a7a94] active:scale-[0.99] transition-all disabled:opacity-70 disabled:cursor-not-allowed shadow-sm"
           >
-            {validating ? (
+            {validating || orderRedirecting ? (
               <>
                 <Loader2 size={18} className="animate-spin" strokeWidth={2} />
-                Placing order...
+                {orderRedirecting ? "Redirecting to your order..." : "Placing order..."}
               </>
             ) : (
               <>

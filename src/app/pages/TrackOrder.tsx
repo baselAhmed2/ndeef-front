@@ -1,3 +1,5 @@
+"use client";
+
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -34,7 +36,9 @@ import {
   UiOrderStatus,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
+import { usePreferences } from "@/app/context/PreferencesContext";
 import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
+import { getRoutePath } from "@/app/lib/platform";
 
 type FlowState = "loading" | "invalid" | "not_found" | "success";
 
@@ -144,10 +148,12 @@ function TimelineStep({
   status,
   currentStatus,
   isLast,
+  isDark,
 }: {
   status: UiOrderStatus;
   currentStatus: UiOrderStatus;
   isLast: boolean;
+  isDark: boolean;
 }) {
   const cfg = statusConfig[status];
   const Icon = StatusIcon[status];
@@ -168,7 +174,7 @@ function TimelineStep({
                   color: cfg.color,
                   ...(isActive ? { ringColor: `${cfg.color}30` } : {}),
                 }
-              : { backgroundColor: "#f3f4f6", color: "#9ca3af" }
+              : { backgroundColor: isDark ? "#163042" : "#f3f4f6", color: isDark ? "#6f8fa1" : "#9ca3af" }
           }
         >
           <Icon size={15} strokeWidth={2} />
@@ -177,7 +183,7 @@ function TimelineStep({
           <div
             className="w-0.5 flex-1 mt-1 min-h-[28px]"
             style={{
-              backgroundColor: isDone && !isActive ? cfg.color : "#e5e7eb",
+              backgroundColor: isDone && !isActive ? cfg.color : isDark ? "#213d4f" : "#e5e7eb",
               opacity: isDone ? 0.35 : 1,
             }}
           />
@@ -187,12 +193,14 @@ function TimelineStep({
       <div className="flex-1 pb-5">
         <p
           className="text-sm font-medium mb-0.5"
-          style={{ color: isDone || isActive ? cfg.color : "#9ca3af" }}
+          style={{ color: isDone || isActive ? cfg.color : isDark ? "#6f8fa1" : "#9ca3af" }}
         >
           {cfg.label}
         </p>
         {isActive && (
-          <p className="text-xs text-gray-500 leading-relaxed">{cfg.description}</p>
+          <p className={`text-xs leading-relaxed ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>
+            {cfg.description}
+          </p>
         )}
       </div>
     </div>
@@ -201,10 +209,11 @@ function TimelineStep({
 
 export default function TrackOrder() {
   const params = useParams<{ id: string }>();
-  const id = params?.id ?? "";
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const id = params?.id || searchParams?.get("id") || "";
+  const router = useRouter();
   const { user, isAuthReady, isLoggedIn } = useAuth();
+  const { isDark } = usePreferences();
 
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [order, setOrder] = useState<UiOrder | null>(null);
@@ -245,7 +254,7 @@ export default function TrackOrder() {
   useEffect(() => {
     if (!isAuthReady) return;
     if (!isLoggedIn) {
-      router.replace(`/login?from=${encodeURIComponent(`/track-order/${id}`)}`);
+      router.replace(`/login?from=${encodeURIComponent(getRoutePath("/track-order", id))}`);
     }
   }, [id, isAuthReady, isLoggedIn, router]);
 
@@ -262,7 +271,7 @@ export default function TrackOrder() {
 
   useEffect(() => {
     if (searchParams?.get("notice") === "placed") {
-      router.replace(`/track-order/${id}`);
+      router.replace(getRoutePath("/track-order", id));
     }
   }, [id, router, searchParams]);
 
@@ -391,7 +400,12 @@ export default function TrackOrder() {
       setComplaintError("");
       setComplaintSuccess("");
 
-      const response = await fetch("/api/backend/chat", {
+      const isCapacitor = typeof window !== "undefined" && (window as any).Capacitor;
+      const apiBase = isCapacitor
+        ? "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io/api"
+        : "/api/backend";
+
+      const response = await fetch(`${apiBase}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -469,19 +483,68 @@ export default function TrackOrder() {
 
   if (!isAuthReady || !isLoggedIn) return null;
 
+  const pageClass = isDark ? "min-h-screen bg-[#071923]" : "min-h-screen bg-[#f5f5f5]";
+  const headerClass = isDark
+    ? "bg-[#0d2230] border-b border-white/10 shadow-none"
+    : "bg-white border-b border-gray-100 shadow-sm";
+  const backButtonClass = isDark ? "hover:bg-white/5" : "hover:bg-gray-50";
+  const titleClass = isDark ? "text-white" : "text-gray-900";
+  const strongTextClass = isDark ? "text-white" : "text-gray-900";
+  const bodyTextClass = isDark ? "text-[#d5e7f0]" : "text-gray-800";
+  const mutedTextClass = isDark ? "text-[#8db7cb]" : "text-gray-500";
+  const faintTextClass = isDark ? "text-[#6f8fa1]" : "text-gray-400";
+  const surfaceClass = isDark
+    ? "bg-[#102231] rounded-2xl border border-white/10 shadow-none"
+    : "bg-white rounded-2xl border border-gray-100 shadow-sm";
+  const softStatCardClass = isDark
+    ? "rounded-2xl border border-white/10 bg-[#132a3a] px-4 py-3"
+    : "rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3";
+  const routeSnapshotClass = "rounded-2xl border border-dashed p-4";
+  const routeFallbackClass = isDark
+    ? "flex-1 rounded-2xl border border-dashed border-white/10 bg-[#132a3a] px-4 py-3 text-sm text-[#8db7cb]"
+    : "flex-1 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-3 text-sm !text-[#456273]";
+  const routeActionClass = isDark
+    ? "flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-[#132a3a] px-4 py-3 text-sm font-semibold text-[#74c6e2] border border-white/10 transition hover:bg-[#193447]"
+    : "flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold !text-[#1D6076] border border-[#1D6076]/20 transition hover:bg-[#1D6076]/5";
+  const modalSurfaceClass = isDark ? "bg-[#102231] border border-white/10" : "bg-white";
+  const fieldClass = isDark
+    ? "min-h-32 w-full rounded-2xl border border-white/10 bg-[#132a3a] px-4 py-3 text-sm text-white outline-none transition focus:border-[#4ea8c7] focus:bg-[#193447]"
+    : "min-h-32 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1D6076] focus:bg-white";
+  const statusCardStyle = isDark
+    ? { backgroundColor: "#0f1d29", borderColor: "rgba(148, 163, 184, 0.12)" }
+    : { backgroundColor: cfg.bg, borderColor: `${cfg.color}20` };
+  const statusIconStyle = isDark
+    ? { backgroundColor: "rgba(78, 168, 199, 0.14)" }
+    : { backgroundColor: `${cfg.color}20` };
+  const statusMetaStyle = isDark
+    ? { borderColor: "rgba(148, 163, 184, 0.12)" }
+    : { borderColor: `${cfg.color}20` };
+  const routeSnapshotStyle = isDark
+    ? { backgroundColor: "#0b1822", borderColor: "rgba(148, 163, 184, 0.16)" }
+    : undefined;
+  const routeMutedStyle = isDark ? { color: "#8db7cb" } : undefined;
+  const routeFaintStyle = isDark ? { color: "#6f8fa1" } : undefined;
+  const routeTitleStyle = isDark ? { color: "#f8fbff" } : undefined;
+  const routeFallbackStyle = isDark
+    ? { background: "#102231", borderColor: "rgba(148, 163, 184, 0.12)", color: "#8db7cb" }
+    : undefined;
+  const routeActionStyle = isDark
+    ? { background: "#102231", borderColor: "rgba(148, 163, 184, 0.12)", color: "#74c6e2" }
+    : undefined;
+
   return (
-    <div className="min-h-screen bg-[#f5f5f5]" dir="ltr">
-      <div className="bg-white px-4 md:px-8 py-4 border-b border-gray-100 sticky top-16 z-20 shadow-sm">
+    <div className={`ndeef-track-page ${pageClass}`} dir="ltr">
+      <div className={`ndeef-track-header ${headerClass} px-4 md:px-8 py-4 sticky top-16 z-20`}>
         <div className="max-w-2xl mx-auto flex items-center gap-3">
           <button
             onClick={() => router.back()}
-            className="p-2 -ml-1 rounded-xl hover:bg-gray-50 active:scale-95 transition-all"
+            className={`p-2 -ml-1 rounded-xl active:scale-95 transition-all ${backButtonClass}`}
           >
-            <ArrowLeft size={22} className="text-gray-800" strokeWidth={2} />
+            <ArrowLeft size={22} className={strongTextClass} strokeWidth={2} />
           </button>
           <div className="flex-1">
-            <h1 className="text-gray-900 text-lg">Track Order</h1>
-            {order && <p className="text-xs text-gray-400">Order #{order.id}</p>}
+            <h1 className={`ndeef-track-title ${titleClass} text-lg`}>Track Order</h1>
+            {order && <p className={`ndeef-track-faint text-xs ${faintTextClass}`}>Order #{order.id}</p>}
           </div>
         </div>
       </div>
@@ -489,7 +552,7 @@ export default function TrackOrder() {
       {flowState === "loading" && (
         <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
           <Loader2 size={30} className="text-[#1D6076] animate-spin" strokeWidth={1.5} />
-          <p className="text-gray-400 text-sm">Fetching order...</p>
+          <p className={`ndeef-track-faint text-sm ${faintTextClass}`}>Fetching order...</p>
         </div>
       )}
 
@@ -498,8 +561,8 @@ export default function TrackOrder() {
           <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mb-5">
             <AlertCircle size={34} className="text-red-400" strokeWidth={1.5} />
           </div>
-          <h2 className="text-xl text-gray-900 mb-3">Invalid Request</h2>
-          <p className="text-gray-500 text-sm mb-7 max-w-xs">
+          <h2 className={`ndeef-track-title text-xl mb-3 ${titleClass}`}>Invalid Request</h2>
+          <p className={`ndeef-track-muted text-sm mb-7 max-w-xs ${mutedTextClass}`}>
             We couldn&apos;t load this order from the backend.
           </p>
           <Link
@@ -516,8 +579,8 @@ export default function TrackOrder() {
           <div className="w-20 h-20 rounded-full bg-red-50 flex items-center justify-center mb-5">
             <AlertCircle size={34} className="text-red-400" strokeWidth={1.5} />
           </div>
-          <h2 className="text-xl text-gray-900 mb-3">Order Not Found</h2>
-          <p className="text-gray-500 text-sm mb-7 max-w-xs">
+          <h2 className={`ndeef-track-title text-xl mb-3 ${titleClass}`}>Order Not Found</h2>
+          <p className={`ndeef-track-muted text-sm mb-7 max-w-xs ${mutedTextClass}`}>
             We couldn&apos;t find this order for your current account.
           </p>
           <Link
@@ -532,13 +595,13 @@ export default function TrackOrder() {
       {flowState === "success" && order && (
         <div className="max-w-2xl mx-auto px-4 md:px-8 py-5 space-y-4 pb-10">
           <div
-            className="rounded-2xl p-5 shadow-sm border"
-            style={{ backgroundColor: cfg.bg, borderColor: `${cfg.color}20` }}
+            className={`ndeef-track-status-card rounded-2xl p-5 border ${isDark ? "shadow-none" : "shadow-sm"}`}
+            style={statusCardStyle}
           >
             <div className="flex items-start gap-3">
               <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
-                style={{ backgroundColor: `${cfg.color}20` }}
+                className="ndeef-track-status-icon w-12 h-12 rounded-xl flex items-center justify-center shrink-0"
+                style={statusIconStyle}
               >
                 {(() => {
                   const Icon = StatusIcon[currentStatus];
@@ -552,16 +615,16 @@ export default function TrackOrder() {
                 >
                   CURRENT STATUS
                 </p>
-                <h2 className="text-gray-900 text-lg">{cfg.label}</h2>
-                <p className="text-gray-500 text-xs mt-1 leading-relaxed">
+                <h2 className={`ndeef-track-title ${strongTextClass} text-lg`}>{cfg.label}</h2>
+                <p className={`ndeef-track-muted text-xs mt-1 leading-relaxed ${mutedTextClass}`}>
                   {cfg.description}
                 </p>
               </div>
             </div>
 
             <div
-              className="flex items-center gap-1.5 mt-4 pt-3 border-t"
-              style={{ borderColor: `${cfg.color}20` }}
+              className="ndeef-track-status-meta flex items-center gap-1.5 mt-4 pt-3 border-t"
+              style={statusMetaStyle}
             >
               <Clock size={12} style={{ color: cfg.color }} strokeWidth={2} />
               <p className="text-xs" style={{ color: cfg.color }}>
@@ -570,8 +633,8 @@ export default function TrackOrder() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-400 tracking-wider mb-4">
+          <div className={`ndeef-track-surface ${surfaceClass} p-5`}>
+            <p className={`ndeef-track-faint text-xs font-semibold tracking-wider mb-4 ${faintTextClass}`}>
               TRACKING TIMELINE
             </p>
             {([...statusOrder, "cancelled"] as UiOrderStatus[])
@@ -582,11 +645,12 @@ export default function TrackOrder() {
                   status={status}
                   currentStatus={currentStatus}
                   isLast={index === list.length - 1}
+                  isDark={isDark}
                 />
               ))}
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+          <div className={`ndeef-track-surface ${surfaceClass} p-5 space-y-4`}>
             <div className="flex items-start gap-3">
               <div className="w-11 h-11 rounded-xl bg-[#1D6076]/10 flex items-center justify-center shrink-0">
                 {hasCourierLocation ? (
@@ -596,11 +660,11 @@ export default function TrackOrder() {
                 )}
               </div>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-gray-400 tracking-wider mb-1">
+                <p className={`ndeef-track-faint text-xs font-semibold tracking-wider mb-1 ${faintTextClass}`}>
                   DELIVERY TRACKING
                 </p>
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-gray-900 text-base">
+                  <h3 className={`ndeef-track-title ${strongTextClass} text-base`}>
                     {driverAssigned ? "Courier update" : "Courier not assigned yet"}
                   </h3>
                   <span
@@ -619,45 +683,79 @@ export default function TrackOrder() {
                     {driverStageLabel}
                   </span>
                 </div>
-                <p className="text-sm text-gray-500 mt-1 leading-relaxed">
+                <p className={`ndeef-track-muted text-sm mt-1 leading-relaxed ${mutedTextClass}`}>
                   {trackingSummary}
                 </p>
               </div>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <p className="text-[11px] font-semibold tracking-wide text-gray-400 mb-1">
+              <div className={`ndeef-track-soft ${softStatCardClass}`}>
+                <p className={`ndeef-track-faint text-[11px] font-semibold tracking-wide mb-1 ${faintTextClass}`}>
                   Delivery ETA
                 </p>
-                <p className="text-sm font-semibold text-gray-900">{deliveryEtaLabel}</p>
-                <p className="text-xs text-gray-500 mt-1">{deliveryEtaHint}</p>
+                <p className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}>{deliveryEtaLabel}</p>
+                <p className={`ndeef-track-muted text-xs mt-1 ${mutedTextClass}`}>{deliveryEtaHint}</p>
               </div>
 
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <p className="text-[11px] font-semibold tracking-wide text-gray-400 mb-1">
+              <div className={`ndeef-track-soft ${softStatCardClass}`}>
+                <p className={`ndeef-track-faint text-[11px] font-semibold tracking-wide mb-1 ${faintTextClass}`}>
                   Scheduled Delivery
                 </p>
-                <p className="text-sm font-semibold text-gray-900">{scheduledDeliveryLabel}</p>
-                <p className="text-xs text-gray-500 mt-1">
+                <p className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}>{scheduledDeliveryLabel}</p>
+                <p className={`ndeef-track-muted text-xs mt-1 ${mutedTextClass}`}>
                   Customer delivery window
                 </p>
               </div>
 
-              <div className="rounded-2xl border border-gray-100 bg-gray-50 px-4 py-3">
-                <p className="text-[11px] font-semibold tracking-wide text-gray-400 mb-1">
+              <div className={`ndeef-track-soft ${softStatCardClass}`}>
+                <p className={`ndeef-track-faint text-[11px] font-semibold tracking-wide mb-1 ${faintTextClass}`}>
                   Live Tracking
                 </p>
-                <p className="text-sm font-semibold text-gray-900">{liveTrackingLabel}</p>
-                <p className="text-xs text-gray-500 mt-1">{liveTrackingHint}</p>
+                <p className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}>{liveTrackingLabel}</p>
+                <p className={`ndeef-track-muted text-xs mt-1 ${mutedTextClass}`}>{liveTrackingHint}</p>
               </div>
             </div>
 
-            <div className="rounded-2xl border border-dashed border-gray-200 bg-gradient-to-br from-[#f7fbfd] to-[#f8fafc] p-4">
+            {hasCourierAssignment && (
+              <div className="rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] p-4">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#1D6076]/10 flex items-center justify-center shrink-0">
+                    <UserRound size={18} className="text-[#1D6076]" strokeWidth={2} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[11px] font-semibold tracking-wide text-[#1D6076] mb-1">
+                      COURIER DETAILS
+                    </p>
+                    <p className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}>
+                      {track?.courierName?.trim() || "Assigned courier"}
+                    </p>
+                    <p className={`ndeef-track-muted text-xs mt-1 ${mutedTextClass}`}>
+                      {track?.courierPhone?.trim() || "Phone number not shared yet"}
+                    </p>
+                  </div>
+                  {track?.courierPhone?.trim() && (
+                    <a
+                      href={`tel:${track.courierPhone.trim()}`}
+                      className="inline-flex shrink-0 items-center justify-center rounded-xl bg-[#1D6076] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#2a7a94]"
+                    >
+                      Call
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
+            <div className={`ndeef-track-route ${routeSnapshotClass}`} style={routeSnapshotStyle}>
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
                   <Route size={16} className="text-[#1D6076]" strokeWidth={2} />
-                  <p className="text-sm font-semibold text-gray-900">Courier route snapshot</p>
+                  <p
+                    className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}
+                    style={routeTitleStyle}
+                  >
+                    Courier route snapshot
+                  </p>
                 </div>
                 {hasCourierLocation && (
                   <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full">
@@ -672,49 +770,51 @@ export default function TrackOrder() {
                     <Package size={16} className="text-[#EBA050]" strokeWidth={2} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-0.5">From laundry</p>
-                    <p className="text-sm font-medium text-gray-900">{track?.laundryName || order.laundryName}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">
+                    <p className={`ndeef-track-faint text-xs mb-0.5 ${faintTextClass}`} style={routeFaintStyle}>From laundry</p>
+                    <p className={`ndeef-track-title text-sm font-medium ${strongTextClass}`} style={routeTitleStyle}>
+                      {track?.laundryName || order.laundryName}
+                    </p>
+                    <p className={`ndeef-track-muted text-xs mt-0.5 ${mutedTextClass}`} style={routeMutedStyle}>
                       {formatAddressForDisplay(track?.laundryAddress)}
                     </p>
                     {laundryCoords && (
-                      <p className="text-[11px] text-gray-400 mt-1">
+                      <p className={`ndeef-track-faint text-[11px] mt-1 ${faintTextClass}`} style={routeFaintStyle}>
                         {laundryCoords.lat.toFixed(5)}, {laundryCoords.lng.toFixed(5)}
                       </p>
                     )}
                   </div>
                 </div>
 
-                <div className="ml-4 border-l-2 border-dashed border-gray-200 h-6" />
+                <div className={`ndeef-track-divider ml-4 border-l-2 border-dashed h-6 ${isDark ? "border-white/10" : "border-gray-200"}`} />
 
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-xl bg-[#1D6076]/10 flex items-center justify-center shrink-0 mt-0.5">
                     <Truck size={16} className="text-[#1D6076]" strokeWidth={2} />
                   </div>
                   <div className="flex-1">
-                    <p className="text-xs text-gray-400 mb-0.5">Courier position</p>
-                    <p className="text-sm font-medium text-gray-900">{courierSnapshotTitle}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{courierSnapshotHint}</p>
+                    <p className={`ndeef-track-faint text-xs mb-0.5 ${faintTextClass}`} style={routeFaintStyle}>Courier position</p>
+                    <p className={`ndeef-track-title text-sm font-medium ${strongTextClass}`} style={routeTitleStyle}>{courierSnapshotTitle}</p>
+                    <p className={`ndeef-track-muted text-xs mt-0.5 ${mutedTextClass}`} style={routeMutedStyle}>{courierSnapshotHint}</p>
                   </div>
                 </div>
 
-                <div className="ml-4 border-l-2 border-dashed border-gray-200 h-6" />
+                <div className={`ndeef-track-divider ml-4 border-l-2 border-dashed h-6 ${isDark ? "border-white/10" : "border-gray-200"}`} />
 
                 <div className="flex items-start gap-3">
                   <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0 mt-0.5">
                     <Navigation size={16} className="text-emerald-600" strokeWidth={2} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-0.5">Destination</p>
-                    <p className="text-sm font-medium text-gray-900">
+                    <p className={`ndeef-track-faint text-xs mb-0.5 ${faintTextClass}`} style={routeFaintStyle}>Destination</p>
+                    <p className={`ndeef-track-title text-sm font-medium ${strongTextClass}`} style={routeTitleStyle}>
                       {formatAddressForDisplay(order.deliveryAddress)}
                     </p>
                     {destinationCoords && (
-                      <p className="text-[11px] text-gray-400 mt-1">
+                      <p className={`ndeef-track-faint text-[11px] mt-1 ${faintTextClass}`} style={routeFaintStyle}>
                         {destinationCoords.lat.toFixed(6)}, {destinationCoords.lng.toFixed(6)}
                       </p>
                     )}
-                    <p className="text-xs text-gray-500 mt-0.5">Delivery address on file</p>
+                    <p className={`ndeef-track-muted text-xs mt-0.5 ${mutedTextClass}`} style={routeMutedStyle}>Delivery address on file</p>
                   </div>
                 </div>
               </div>
@@ -731,7 +831,7 @@ export default function TrackOrder() {
                     Open courier location
                   </a>
                 ) : (
-                  <div className="flex-1 rounded-2xl border border-dashed border-gray-200 bg-white px-4 py-3 text-sm text-gray-500">
+                  <div className={`ndeef-track-fallback ${routeFallbackClass}`} style={routeFallbackStyle}>
                     Live courier map will appear here automatically once coordinates are available.
                   </div>
                 )}
@@ -740,7 +840,8 @@ export default function TrackOrder() {
                   href={liveRouteHref}
                   target="_blank"
                   rel="noreferrer"
-                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-[#1D6076] border border-[#1D6076]/20 transition hover:bg-[#1D6076]/5"
+                  className={`ndeef-track-route-action ${routeActionClass}`}
+                  style={routeActionStyle}
                 >
                   <MapPin size={16} strokeWidth={2} />
                   {hasCourierLocation ? "Open live route" : "Open destination route"}
@@ -749,8 +850,8 @@ export default function TrackOrder() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-400 tracking-wider mb-4">
+          <div className={`ndeef-track-surface ${surfaceClass} p-5`}>
+            <p className={`ndeef-track-faint text-xs font-semibold tracking-wider mb-4 ${faintTextClass}`}>
               ORDER DETAILS
             </p>
             <div className="space-y-3">
@@ -764,8 +865,8 @@ export default function TrackOrder() {
                 { label: "Pickup", value: `${order.pickupDate}, ${order.pickupTime}` },
               ].map(({ label, value }) => (
                 <div key={label} className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">{label}</span>
-                  <span className="text-sm text-gray-900 font-medium">{value}</span>
+                  <span className={`ndeef-track-muted text-sm ${mutedTextClass}`}>{label}</span>
+                  <span className={`ndeef-track-title text-sm font-medium ${strongTextClass}`}>{value}</span>
                 </div>
               ))}
               {order.bundleMetadata && (
@@ -778,8 +879,8 @@ export default function TrackOrder() {
                   </div>
                 </div>
               )}
-              <div className="border-t border-gray-100 pt-3 flex justify-between">
-                <span className="text-sm text-gray-500">Total</span>
+              <div className={`pt-3 flex justify-between ${isDark ? "border-t border-white/10" : "border-t border-gray-100"}`}>
+                <span className={`ndeef-track-muted text-sm ${mutedTextClass}`}>Total</span>
                 <span className="text-sm font-semibold text-[#1D6076]">
                   {order.total} EGP
                 </span>
@@ -787,8 +888,8 @@ export default function TrackOrder() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-400 tracking-wider mb-3">
+          <div className={`ndeef-track-surface ${surfaceClass} p-5`}>
+            <p className={`ndeef-track-faint text-xs font-semibold tracking-wider mb-3 ${faintTextClass}`}>
               ADDRESSES
             </p>
             <div className="space-y-3">
@@ -797,8 +898,8 @@ export default function TrackOrder() {
                   <MapPin size={14} className="text-[#EBA050]" strokeWidth={2} />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400 mb-0.5">Pickup Address</p>
-                  <p className="text-sm text-gray-800">{order.pickupAddress}</p>
+                  <p className={`ndeef-track-faint text-xs mb-0.5 ${faintTextClass}`}>Pickup Address</p>
+                  <p className={`ndeef-track-body text-sm ${bodyTextClass}`}>{order.pickupAddress}</p>
                 </div>
               </div>
               <div className="flex items-start gap-2.5">
@@ -806,8 +907,8 @@ export default function TrackOrder() {
                   <MapPin size={14} className="text-[#1D6076]" strokeWidth={2} />
                 </div>
                 <div>
-                  <p className="text-xs text-gray-400 mb-0.5">Delivery Address</p>
-                  <p className="text-sm text-gray-800">{order.deliveryAddress}</p>
+                  <p className={`ndeef-track-faint text-xs mb-0.5 ${faintTextClass}`}>Delivery Address</p>
+                  <p className={`ndeef-track-body text-sm ${bodyTextClass}`}>{order.deliveryAddress}</p>
                 </div>
               </div>
               {track?.laundryAddress && (
@@ -816,8 +917,8 @@ export default function TrackOrder() {
                     <Package size={14} className="text-emerald-600" strokeWidth={2} />
                   </div>
                   <div>
-                    <p className="text-xs text-gray-400 mb-0.5">Laundry Address</p>
-                    <p className="text-sm text-gray-800">{track.laundryAddress}</p>
+                    <p className={`ndeef-track-faint text-xs mb-0.5 ${faintTextClass}`}>Laundry Address</p>
+                    <p className={`ndeef-track-body text-sm ${bodyTextClass}`}>{track.laundryAddress}</p>
                   </div>
                 </div>
               )}
@@ -825,10 +926,10 @@ export default function TrackOrder() {
           </div>
 
           {canReportDeliveredIssue && (
-            <div className="bg-white rounded-2xl border border-amber-100 shadow-sm p-5">
+            <div className={`ndeef-track-surface ${surfaceClass} ${isDark ? "border-amber-500/20" : "border-amber-100"} p-5`}>
               <div className="mb-4 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/5 p-4">
-                <p className="text-sm font-semibold text-gray-900">Rate this laundry</p>
-                <p className="mt-1 text-sm text-gray-500 leading-relaxed">
+                <p className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}>Rate this laundry</p>
+                <p className={`ndeef-track-muted mt-1 text-sm leading-relaxed ${mutedTextClass}`}>
                   Your order is delivered. You can now rate the laundry and leave feedback about the service.
                 </p>
                 <button
@@ -844,8 +945,8 @@ export default function TrackOrder() {
                   <RotateCcw size={18} className="text-amber-600" strokeWidth={2} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-gray-900">Complaint or return request</p>
-                  <p className="mt-1 text-sm text-gray-500 leading-relaxed">
+                  <p className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}>Complaint or return request</p>
+                  <p className={`ndeef-track-muted mt-1 text-sm leading-relaxed ${mutedTextClass}`}>
                     The backend supports post-delivery complaints. It does not expose a separate return endpoint, so return issues are sent as a complaint for follow-up.
                   </p>
                 </div>
@@ -879,7 +980,7 @@ export default function TrackOrder() {
           {canCancelOrder && (
             <button
               onClick={() => setShowCancelModal(true)}
-              className="w-full bg-red-50 text-red-600 py-3.5 rounded-2xl text-sm font-medium hover:bg-red-100 transition-all"
+              className={`w-full py-3.5 rounded-2xl text-sm font-medium transition-all ${isDark ? "bg-red-500/10 text-red-300 hover:bg-red-500/20" : "bg-red-50 text-red-600 hover:bg-red-100"}`}
             >
               Cancel Order
             </button>
@@ -889,15 +990,15 @@ export default function TrackOrder() {
 
       {showCancelModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl p-5 shadow-xl">
-            <h2 className="text-lg text-gray-900 mb-2">Cancel this order?</h2>
-            <p className="text-sm text-gray-500 mb-5 leading-relaxed">
+          <div className={`ndeef-track-modal w-full max-w-md rounded-3xl p-5 shadow-xl ${modalSurfaceClass}`}>
+            <h2 className={`ndeef-track-title text-lg mb-2 ${strongTextClass}`}>Cancel this order?</h2>
+            <p className={`ndeef-track-muted text-sm mb-5 leading-relaxed ${mutedTextClass}`}>
               The current backend only allows cancellation while the order is still pending confirmation.
             </p>
             <div className="flex gap-2.5">
               <button
                 onClick={() => setShowCancelModal(false)}
-                className="flex-1 py-3 rounded-2xl bg-gray-100 text-gray-700 text-sm font-medium hover:bg-gray-200 transition-all"
+                className={`flex-1 py-3 rounded-2xl text-sm font-medium transition-all ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
                 disabled={isCancelling}
               >
                 Keep Order
@@ -916,18 +1017,18 @@ export default function TrackOrder() {
 
       {showComplaintModal && (
         <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-end md:items-center justify-center p-4">
-          <div className="w-full max-w-md bg-white rounded-3xl p-5 shadow-xl">
+          <div className={`ndeef-track-modal w-full max-w-md rounded-3xl p-5 shadow-xl ${modalSurfaceClass}`}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center">
                 <MessageCircleWarning size={18} className="text-amber-600" strokeWidth={2} />
               </div>
               <div>
-                <h2 className="text-lg text-gray-900">Report issue with delivered order</h2>
-                <p className="text-xs text-gray-400">Order #{order?.id ?? ""}</p>
+                <h2 className={`ndeef-track-title text-lg ${strongTextClass}`}>Report issue with delivered order</h2>
+                <p className={`ndeef-track-faint text-xs ${faintTextClass}`}>Order #{order?.id ?? ""}</p>
               </div>
             </div>
 
-            <p className="text-sm text-gray-500 mb-4 leading-relaxed">
+            <p className={`ndeef-track-muted text-sm mb-4 leading-relaxed ${mutedTextClass}`}>
               Your message will be sent to the backend complaint flow and routed to the laundry admin and support team.
             </p>
 
@@ -935,7 +1036,7 @@ export default function TrackOrder() {
               value={complaintText}
               onChange={(event) => setComplaintText(event.target.value)}
               placeholder="Describe the issue or return reason..."
-              className="min-h-32 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-800 outline-none transition focus:border-[#1D6076] focus:bg-white"
+              className={fieldClass}
             />
 
             {complaintError && (
@@ -948,7 +1049,7 @@ export default function TrackOrder() {
               <button
                 onClick={() => setShowComplaintModal(false)}
                 disabled={isSubmittingComplaint}
-                className="flex-1 rounded-2xl bg-gray-100 py-3 text-sm font-medium text-gray-700 transition hover:bg-gray-200"
+                className={`flex-1 rounded-2xl py-3 text-sm font-medium transition ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-gray-100 text-gray-700 hover:bg-gray-200"}`}
               >
                 Close
               </button>

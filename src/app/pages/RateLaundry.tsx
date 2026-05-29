@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import {
   AlertCircle,
   ArrowLeft,
@@ -14,6 +14,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
+import { getRoutePath } from "@/app/lib/platform";
 import {
   addReviewRequest,
   announceLaundryRatingUpdated,
@@ -137,7 +138,8 @@ function SubmittingScreen({ step }: { step: SubmissionStep }) {
 
 export default function RateLaundry() {
   const params = useParams<{ id: string }>();
-  const id = params?.id ?? "";
+  const searchParams = useSearchParams();
+  const id = params?.id || searchParams?.get("id") || "";
   const router = useRouter();
   const { user, isAuthReady, isLoggedIn } = useAuth();
 
@@ -346,7 +348,7 @@ export default function RateLaundry() {
           <p className="text-gray-500 text-sm mb-6">
             The current backend order response does not include a direct laundry id, so the app couldn&apos;t safely match the laundry for this review.
           </p>
-          <Link href={`/track-order/${order.id}`} className="text-[#1D6076] text-sm underline">
+          <Link href={getRoutePath("/track-order", String(order.id))} className="text-[#1D6076] text-sm underline">
             Back to Order
           </Link>
         </div>
@@ -362,7 +364,7 @@ export default function RateLaundry() {
             You can rate the laundry only after the order is delivered.
           </p>
           <Link
-            href={`/track-order/${order.id}`}
+            href={getRoutePath("/track-order", String(order.id))}
             className="bg-[#1D6076] text-white px-8 py-3.5 rounded-2xl text-sm font-medium hover:bg-[#2a7a94] transition-all"
           >
             Track Order
@@ -394,7 +396,7 @@ export default function RateLaundry() {
               {existingComment}
             </div>
           )}
-          <Link href={`/track-order/${order.id}`} className="text-[#1D6076] text-sm underline">
+          <Link href={getRoutePath("/track-order", String(order.id))} className="text-[#1D6076] text-sm underline">
             View Order
           </Link>
         </div>
@@ -425,7 +427,7 @@ export default function RateLaundry() {
             {starLabels[existingRating]} - {order.laundryName}
           </p>
           <button
-            onClick={() => router.push(`/track-order/${order.id}`)}
+            onClick={() => router.push(getRoutePath("/track-order", String(order.id)))}
             className="w-full max-w-xs bg-[#1D6076] text-white py-4 rounded-2xl text-sm font-medium hover:bg-[#2a7a94] active:scale-[0.99] transition-all mb-3"
           >
             View Order

@@ -51,13 +51,13 @@ export function AppMotionShell({ children }: { children: ReactNode }) {
         style={{ scaleX: progressScaleX }}
       />
 
-      <AnimatePresence mode="wait">
+      <AnimatePresence mode="sync">
         <motion.div
           key={pathname}
-          initial={prefersReducedMotion ? false : { opacity: 0, y: 18, filter: "blur(10px)" }}
-          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0, filter: "blur(0px)" }}
-          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -12, filter: "blur(8px)" }}
-          transition={{ duration: 0.42, ease: [0.22, 1, 0.36, 1] }}
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
           className="relative z-[1]"
         >
           {children}

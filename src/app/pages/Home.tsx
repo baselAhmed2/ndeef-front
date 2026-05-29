@@ -15,6 +15,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
 import { Monogram } from '../components/brand/Monogram';
+import { getRoutePath } from "@/app/lib/platform";
 
 const HERO_IMG = 'https://images.unsplash.com/photo-1596433904747-e8b061219a71?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=1400';
 const DELIVERY_IMG = 'https://images.unsplash.com/photo-1576192350050-d9e08ee1f122?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&q=80&w=800';
@@ -149,6 +150,12 @@ export default function Home() {
   }, [searchParams, router]);
 
   useEffect(() => {
+    if (isLoggedIn) return;
+
+    router.prefetch('/signup');
+  }, [isLoggedIn, router]);
+
+  useEffect(() => {
     const loadPreview = async () => {
       try {
         const response = await getLaundriesRequest({ pageIndex: 1, pageSize: 3 });
@@ -257,15 +264,6 @@ export default function Home() {
                 <MapPin size={16} strokeWidth={2.5} />
                 Find Laundries Near Me
               </Link>
-              {!isLoggedIn && (
-                <Link
-                  href="/signup"
-                  className="flex items-center gap-2 px-7 py-4 rounded-2xl text-sm font-semibold text-white border border-white/30 bg-white/10 backdrop-blur-sm hover:bg-white/20 active:scale-[0.98] transition-all"
-                >
-                  Get Started Free
-                  <ArrowRight size={16} strokeWidth={2.5} />
-                </Link>
-              )}
             </motion.div>
 
             {/* Trust indicators */}
@@ -477,7 +475,7 @@ export default function Home() {
               <motion.div key={l.id} variants={itemVariants}>
                 <motion.button
                   type="button"
-                  onClick={() => handleProtectedNavigation(`/laundry/${l.id}`)}
+                  onClick={() => handleProtectedNavigation(getRoutePath("/laundry", String(l.id)))}
                   className="group block w-full text-left"
                   whileHover={{ y: -8 }}
                   whileTap={{ scale: 0.99 }}

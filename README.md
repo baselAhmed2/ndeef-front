@@ -9,7 +9,7 @@
 
   Create `.env.local` and set:
 
-  `NDEEF_BACKEND_URL=http://ndeefapp.runasp.net`
+  `NDEEF_BACKEND_URL=https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io`
 
   `NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com`
 

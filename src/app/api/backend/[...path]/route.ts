@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_BASE_URL =
-  process.env.NDEEF_BACKEND_URL ?? "https://ndeefapp.runasp.net";
+  process.env.NDEEF_BACKEND_URL ?? "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io";
 
 async function proxyRequest(
   request: NextRequest,

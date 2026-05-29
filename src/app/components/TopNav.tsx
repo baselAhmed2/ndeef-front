@@ -55,6 +55,7 @@ export function TopNav() {
     href === "/" ? currentPath === "/" : currentPath === href || currentPath.startsWith(`${href}/`);
   const initials = `${user?.firstName?.[0] ?? ""}${user?.lastName?.[0] ?? ""}`.trim() || "N";
   const displayName = user?.firstName || user?.name || "Account";
+  const avatarUrl = user?.avatarUrl?.trim() || "";
 
   const handleLogout = () => {
     logout();
@@ -108,11 +109,19 @@ export function TopNav() {
                   onClick={() => setUserMenu(v => !v)}
                   className="ndeef-topnav-user flex items-center gap-2 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-2 transition-all dark:bg-white/6 dark:hover:bg-white/10 dark:border-white/10"
                 >
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#1D6076] to-[#2a7a94] flex items-center justify-center">
-                    <span className="text-white text-xs font-semibold">
-                      {initials}
-                    </span>
-                  </div>
+                  {avatarUrl ? (
+                    <img
+                      src={avatarUrl}
+                      alt={displayName}
+                      className="h-7 w-7 rounded-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#1D6076] to-[#2a7a94] flex items-center justify-center">
+                      <span className="text-white text-xs font-semibold">
+                        {initials}
+                      </span>
+                    </div>
+                  )}
                   <span className="ndeef-topnav-account-name text-sm font-medium hidden sm:block">{displayName}</span>
                   <ChevronDown size={14} className={`text-gray-500 transition-transform dark:text-slate-400 ${userMenu ? 'rotate-180' : ''}`} strokeWidth={2} />
                 </button>
@@ -213,9 +222,17 @@ export function TopNav() {
               {isLoggedIn && user && (
                 <div className="px-5 py-4 bg-[#1D6076]/5 border-b border-gray-100 dark:bg-[#1D6076]/12 dark:border-white/10">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1D6076] to-[#2a7a94] flex items-center justify-center">
-                      <span className="text-white text-sm font-semibold">{initials}</span>
-                    </div>
+                    {avatarUrl ? (
+                      <img
+                        src={avatarUrl}
+                        alt={displayName}
+                        className="h-10 w-10 rounded-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1D6076] to-[#2a7a94] flex items-center justify-center">
+                        <span className="text-white text-sm font-semibold">{initials}</span>
+                      </div>
+                    )}
                     <div>
                       <p className="text-sm font-semibold text-gray-900 dark:text-slate-100">{user.name}</p>
                       <p className="text-xs text-gray-400 dark:text-slate-400">{user.email}</p>

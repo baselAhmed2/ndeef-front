@@ -245,6 +245,7 @@ export default function Profile() {
         setPoints(loadedPoints);
         setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
         setAvatarUrl(profile.avatarUrl ?? null);
+        updateUser({ avatarUrl: profile.avatarUrl ?? null });
         setFormData({
           firstName: profile.firstName ?? "",
           lastName: profile.lastName ?? "",
@@ -268,7 +269,7 @@ export default function Profile() {
     return () => {
       active = false;
     };
-  }, [isAuthReady, user?.token]);
+  }, [isAuthReady, updateUser, user?.token]);
 
   const refreshAddresses = async () => {
     if (!user?.token) return;
@@ -368,6 +369,7 @@ export default function Profile() {
       const response = await uploadUserAvatarRequest(user.token, formData);
       const nextAvatar = response.avatarUrl ?? response.AvatarUrl ?? null;
       setAvatarUrl(nextAvatar);
+      updateUser({ avatarUrl: nextAvatar });
       toast.success("Avatar updated successfully.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to upload avatar.");

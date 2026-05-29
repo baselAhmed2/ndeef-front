@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -193,7 +193,7 @@ function SegmentedControl({
     { key: "Courier", label: "Courier", icon: Truck },
   ];
   return (
-    <div className="ndeef-auth-segment flex p-1 bg-gray-100/80 dark:bg-[#122633]/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-white/5 shadow-inner">
+    <div className="ndeef-auth-segment flex rounded-2xl border border-slate-200/80 bg-[linear-gradient(180deg,#f8fbfd,#eef4f8)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-sm dark:border-white/5 dark:bg-[#122633]/80">
       {options.map(({ key, label, icon: Icon }) => (
         <motion.button
           key={key}
@@ -201,19 +201,19 @@ function SegmentedControl({
           onClick={() => onChange(key)}
           whileTap={{ scale: 0.98 }}
           className={`flex-1 flex items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 relative ${value === key
-              ? "text-[#0f4c5c] dark:text-[#EBA050]"
+              ? "text-[#307C91] dark:text-[#307C91]"
               : "text-gray-500 hover:text-gray-700 dark:text-[#7AAFC2] dark:hover:text-[#EEF4F8]"
             }`}
         >
           {value === key && (
             <motion.div
               layoutId="activeSignupTab"
-              className="ndeef-auth-segment-active absolute inset-0 bg-white dark:bg-[#1A3347] rounded-xl shadow-sm border border-gray-200/20 dark:border-white/5"
+              className="ndeef-auth-segment-active absolute inset-0 rounded-xl border border-slate-200 bg-white shadow-[0_10px_24px_rgba(15,23,42,0.08)] dark:border-white/5 dark:bg-[#1A3347]"
               transition={{ type: "spring", bounce: 0.15, duration: 0.55 }}
             />
           )}
           <span className="relative z-10 flex items-center gap-1 sm:gap-2">
-            <Icon size={15} className={`shrink-0 ${value === key ? "text-[#0f4c5c] dark:text-[#EBA050]" : "text-gray-400 dark:text-[#7AAFC2]"}`} />
+            <Icon size={15} className={`shrink-0 ${value === key ? "text-[#307C91] dark:text-[#307C91]" : "text-gray-400 dark:text-[#7AAFC2]"}`} />
             <span className="max-[370px]:hidden truncate whitespace-nowrap">{label}</span>
           </span>
         </motion.button>
@@ -269,20 +269,18 @@ function PasswordStrength({ password }: { password: string }) {
   );
 }
 
-export default function SignupPage({
-  initialRole,
-}: {
-  initialRole?: string | null;
-}) {
+export default function SignupPage({ initialRole }: { initialRole?: string | null } = {}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const roleParam = initialRole || searchParams?.get("role");
   const { signup, socialLogin } = useAuth();
   const pageRef = useRef<HTMLDivElement | null>(null);
 
   const [step, setStep] = useState(0);
   const [accountType, setAccountType] = useState<AccountType>(
-    initialRole === "LaundryAdmin"
+    roleParam === "LaundryAdmin"
       ? "LaundryAdmin"
-      : initialRole === "Courier"
+      : roleParam === "Courier"
         ? "Courier"
         : "Customer",
   );
@@ -306,9 +304,9 @@ export default function SignupPage({
     const clearForm = () => {
       setStep(0);
       setAccountType(
-        initialRole === "LaundryAdmin"
+        roleParam === "LaundryAdmin"
           ? "LaundryAdmin"
-          : initialRole === "Courier"
+          : roleParam === "Courier"
             ? "Courier"
             : "Customer",
       );
@@ -339,7 +337,7 @@ export default function SignupPage({
     return () => {
       window.removeEventListener("pageshow", clearForm);
     };
-  }, [initialRole]);
+  }, [roleParam]);
 
   const isFieldValid = (field: string, value: string): boolean => {
     switch (field) {
@@ -879,7 +877,7 @@ export default function SignupPage({
                   <>
                     <InputField
                       label="Laundry name"
-                      placeholder="Ndeef Laundry"
+                      placeholder="Nazeef Laundry"
                       value={laundryName}
                       onChange={(v) => {
                         setLaundryName(v);

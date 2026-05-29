@@ -33,6 +33,7 @@ import {
   subscribeLaundryRatingUpdates,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
+import { getRoutePath } from "@/app/lib/platform";
 
 type FlowState =
   | "permission_request"
@@ -45,6 +46,8 @@ type FlowState =
 type SortOption = "distance" | "rating";
 type FilterOption = "all" | "available";
 const NEARBY_STATE_KEY = "ndeef_nearby_state";
+const NEARBY_CACHE_VERSION =
+  "azure-backend:https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io";
 
 const sectionReveal = {
   hidden: { opacity: 0, y: 24 },
@@ -329,7 +332,7 @@ function LaundryCard({ laundry, index }: { laundry: UiLaundry; index: number }) 
       }}
     >
       <Link
-        href={`/laundry/${laundry.id}?from=${encodeURIComponent("/nearby")}`}
+        href={getRoutePath("/laundry", String(laundry.id), "id", { from: "/nearby" })}
         className="ndeef-page-card group mx-auto block w-full max-w-[980px] overflow-hidden rounded-[24px] border border-slate-200/80 bg-white shadow-[0_10px_28px_rgba(15,23,42,0.08)] active:scale-[0.99] transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_40px_rgba(15,23,42,0.12)]"
       >
         <motion.div
@@ -452,11 +455,17 @@ export default function NearbyLaundries() {
 
     try {
       const saved = JSON.parse(raw) as {
+        version?: string;
         laundryList?: UiLaundry[];
         search?: string;
         sortBy?: SortOption;
         filterBy?: FilterOption;
       };
+
+      if (saved.version !== NEARBY_CACHE_VERSION) {
+        window.sessionStorage.removeItem(NEARBY_STATE_KEY);
+        return;
+      }
 
       if (Array.isArray(saved.laundryList) && saved.laundryList.length > 0) {
         setLaundryList(applyCachedLaundryRatings(saved.laundryList));
@@ -570,6 +579,7 @@ export default function NearbyLaundries() {
     window.sessionStorage.setItem(
       NEARBY_STATE_KEY,
       JSON.stringify({
+        version: NEARBY_CACHE_VERSION,
         laundryList,
         search,
         sortBy,

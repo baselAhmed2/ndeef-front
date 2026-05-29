@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -49,6 +51,7 @@ import {
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import { getRoutePath } from "@/app/lib/platform";
 
 type FlowState =
   | "loading"
@@ -224,9 +227,9 @@ function ServiceRow({
 
 export default function LaundryDetails() {
   const params = useParams<{ id: string }>();
-  const id = params?.id ?? "";
-  const router = useRouter();
   const searchParams = useSearchParams();
+  const id = params?.id || searchParams?.get("id") || "";
+  const router = useRouter();
   const { user } = useAuth();
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [laundry, setLaundry] = useState<UiLaundry | null>(null);
@@ -508,21 +511,19 @@ export default function LaundryDetails() {
 
   const handleContinue = () => {
     if (!laundry || selectedServiceIds.length === 0) return;
-    const params = new URLSearchParams();
-    params.set("services", selectedServiceIds.join(","));
-    router.push(`/order/${laundry.id}?${params.toString()}`);
+    router.push(getRoutePath("/order", String(laundry.id), "laundryId", { services: selectedServiceIds.join(",") }));
   };
 
   const handleBundleOrder = (bundleId: string) => {
     if (!laundry) return;
-    router.push(`/order/${laundry.id}?bundle=${encodeURIComponent(bundleId)}`);
+    router.push(getRoutePath("/order", String(laundry.id), "laundryId", { bundle: bundleId }));
   };
 
   const isFavorite = laundry ? favoriteLaundryIds.includes(Number(laundry.id)) : false;
 
   const handleFavoriteToggle = async () => {
     if (!user?.token || !laundry) {
-      router.push(`/login?from=/laundry/${id}`);
+      router.push(`/login?from=${encodeURIComponent(getRoutePath("/laundry", id))}`);
       return;
     }
 

@@ -278,11 +278,11 @@ function hasSuspiciousArabicSpacing(text: string) {
 }
 
 function improveArabicWordSpacing(text: string) {
-  let formatted = formatAssistantText(text);
-
-  if (!isMostlyArabic(formatted) || !hasSuspiciousArabicSpacing(formatted)) {
-    return formatted;
+  if (!isMostlyArabic(text) || !hasSuspiciousArabicSpacing(text)) {
+    return text;
   }
+
+  let formatted = formatAssistantText(text);
 
   formatted = formatted
     .replace(/([.،,:!؟])(?=\S)/g, "$1 ")
@@ -675,7 +675,12 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
     };
 
     try {
-      const res = await fetch("/api/backend/chat", {
+      const isCapacitor = typeof window !== "undefined" && (window as any).Capacitor;
+      const apiBase = isCapacitor
+        ? "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io/api"
+        : "/api/backend";
+
+      const res = await fetch(`${apiBase}/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -721,8 +726,20 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
           }
 
           if (data) {
+            let contentText = data;
+            try {
+              const trimmed = data.trim();
+              if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                const parsed = JSON.parse(trimmed);
+                if (typeof parsed.content === "string") {
+                  contentText = parsed.content;
+                }
+              }
+            } catch {
+              // fallback to raw text
+            }
             setMessages((prev) =>
-              prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + data } : m)),
+              prev.map((m) => (m.id === assistantId ? { ...m, content: m.content + contentText } : m)),
             );
           }
         }

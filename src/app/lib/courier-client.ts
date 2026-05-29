@@ -705,28 +705,31 @@ export async function getCourierOrders(filter: CourierOrderTab = "new") {
 }
 
 export async function getAllCourierOrders() {
-  const [allOrders, newOrders, activeOrders, doneOrders, historyResult] = await Promise.all([
-    fetchCourierOrdersByFilterCode(0),
-    getCourierOrders("new"),
-    getCourierOrders("active"),
-    getCourierOrders("done"),
-    getCourierDeliveryHistory().catch(() => null),
-  ]);
+  const [allOrders, newOrders, activeOrders, doneOrders, historyResult] =
+    await Promise.allSettled([
+      fetchCourierOrdersByFilterCode(0),
+      getCourierOrders("new"),
+      getCourierOrders("active"),
+      getCourierOrders("done"),
+      getCourierDeliveryHistory(),
+    ]);
 
   const merged = new Map<string, CourierDashboardOrder>();
   for (const result of [allOrders, newOrders, activeOrders, doneOrders]) {
-    for (const order of result.data ?? []) {
+    if (result.status !== "fulfilled") continue;
+    for (const order of result.value.data ?? []) {
       merged.set(order.id, order);
     }
   }
 
-  const historyOrders = historyResult
-    ? Array.isArray(historyResult.data)
-      ? historyResult.data
-      : Array.isArray(historyResult.Data)
-        ? historyResult.Data
-        : []
-    : [];
+  const historyOrders =
+    historyResult.status === "fulfilled"
+      ? Array.isArray(historyResult.value.data)
+        ? historyResult.value.data
+        : Array.isArray(historyResult.value.Data)
+          ? historyResult.value.Data
+          : []
+      : [];
 
   for (const order of historyOrders.map(normalizeCourierHistoryOrder)) {
     merged.set(order.id, order);

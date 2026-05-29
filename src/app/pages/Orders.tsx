@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getRoutePath } from "@/app/lib/platform";
 import { Package, ChevronRight, Clock, MapPin } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { toast } from "sonner";
@@ -62,7 +63,7 @@ function OrderCard({ order }: { order: UiOrder }) {
 
   return (
     <motion.div variants={itemVariants}>
-      <Link href={`/track-order/${order.id}`} className="block">
+      <Link href={getRoutePath("/track-order", String(order.id))} className="block">
         <motion.div
           whileHover={{ y: -6, boxShadow: "0 18px 40px rgba(15,23,42,0.10)" }}
           whileTap={{ scale: 0.992 }}

@@ -14,8 +14,9 @@ import {
   Truck,
 } from "lucide-react";
 import { ChatWidget } from "@/app/components/chat/ChatWidget";
+import { VoiceCallWidget } from "@/app/components/chat/VoiceCallWidget";
 
-const supportEmail = "support@ndeef.com";
+const supportEmail = "support@nazeef.com";
 const supportPhone = "+20 100 555 2222";
 
 const supportHighlights = [
@@ -66,6 +67,7 @@ const faqItems = [
 
 export default function Help() {
   const [chatOpen, setChatOpen] = useState(false);
+  const [voiceCallOpen, setVoiceCallOpen] = useState(false);
 
   return (
     <div
@@ -80,7 +82,7 @@ export default function Help() {
       </div>
 
       <div className="mx-auto max-w-5xl px-4 py-6 md:px-8 md:py-10 lg:px-12">
-        <section className="mb-8 overflow-hidden rounded-[32px] border border-[#1D6076]/10 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
+        <section className="ndeef-help-card mb-8 overflow-hidden rounded-[32px] border border-[#1D6076]/10 bg-white shadow-[0_24px_80px_rgba(15,23,42,0.08)]">
           <div className="grid gap-8 px-6 py-8 md:px-8 md:py-10 lg:grid-cols-[1.4fr_0.9fr] lg:px-10">
             <div>
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-[#1D6076]/15 bg-[#1D6076]/8 px-3 py-1 text-sm font-medium text-[#1D6076]">
@@ -100,31 +102,43 @@ export default function Help() {
                 <button
                   type="button"
                   onClick={() => setChatOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-[#1D6076] px-5 py-3 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-[#174d5f]"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-[#1D6076] px-5 py-3 text-sm font-semibold text-white transition-transform hover:-translate-y-0.5 hover:bg-[#174d5f] shadow-md shadow-[#1D6076]/20"
                 >
                   <MessageCircle size={18} strokeWidth={2} />
                   Start live chat
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setVoiceCallOpen(true)}
+                  className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#1D6076] bg-white px-5 py-3 text-sm font-semibold text-[#1D6076] transition-all hover:-translate-y-0.5 hover:bg-[#1D6076]/5 relative overflow-hidden group shadow-sm shadow-[#1D6076]/5 hover:shadow-lg"
+                >
+                  <Phone size={18} strokeWidth={2} className="group-hover:animate-bounce" />
+                  Call AI Support (Nody)
+                  <span className="absolute top-0 right-0 flex h-2 w-2">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
+                </button>
               </div>
             </div>
 
-            <div className="rounded-[28px] bg-slate-950 p-6 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]">
-              <p className="text-sm uppercase tracking-[0.22em] text-white/55">Quick access</p>
+            <div className="ndeef-help-quick-access rounded-[28px] border border-slate-200/80 bg-[linear-gradient(180deg,#f8fbfd,#ffffff)] p-6 text-slate-900 shadow-[0_18px_46px_rgba(15,23,42,0.08)]">
+              <p className="text-sm uppercase tracking-[0.22em] text-slate-500">Quick access</p>
               <div className="mt-5 space-y-4">
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/45">Email support</p>
+                <div className="ndeef-help-quick-panel rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Email support</p>
                   <p className="mt-2 text-lg font-semibold">{supportEmail}</p>
-                  <p className="mt-1 text-sm text-white/65">For order questions, payment help, and complaints.</p>
+                  <p className="mt-1 text-sm text-slate-600">For order questions, payment help, and complaints.</p>
                 </div>
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
-                  <p className="text-xs uppercase tracking-[0.18em] text-white/45">Phone support</p>
+                <div className="ndeef-help-quick-panel rounded-2xl border border-slate-200 bg-white p-4 shadow-[0_10px_28px_rgba(15,23,42,0.04)]">
+                  <p className="text-xs uppercase tracking-[0.18em] text-slate-400">Phone support</p>
                   <p className="mt-2 text-lg font-semibold">{supportPhone}</p>
-                  <p className="mt-1 text-sm text-white/65">Best for urgent delivery or pickup follow-up.</p>
+                  <p className="mt-1 text-sm text-slate-600">Best for urgent delivery or pickup follow-up.</p>
                 </div>
-                <div className="rounded-2xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-emerald-50">
-                  <p className="text-sm font-semibold">Live chat is available from this page</p>
-                  <p className="mt-1 text-sm text-emerald-100/80">
-                    Ask about orders, tracking, available services, or delivery timing directly from support chat.
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-emerald-900">
+                  <p className="text-sm font-semibold">Live chat & AI Call is available</p>
+                  <p className="mt-1 text-sm text-emerald-800/80">
+                    Ask about orders, tracking, available services, or call Nody for an interactive call.
                   </p>
                 </div>
               </div>
@@ -138,7 +152,7 @@ export default function Help() {
             return (
               <div
                 key={item.title}
-                className="rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.05)]"
+                className="ndeef-help-card rounded-[28px] border border-slate-200/80 bg-white/90 p-5 shadow-[0_12px_40px_rgba(15,23,42,0.05)]"
               >
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[#1D6076]/10 text-[#1D6076]">
                   <Icon size={22} strokeWidth={2} />
@@ -160,7 +174,7 @@ export default function Help() {
             <button
               type="button"
               onClick={() => setChatOpen(true)}
-              className="group flex w-full items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 text-left shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)]"
+              className="ndeef-help-card group flex w-full items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 text-left shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D6076]/10 text-[#1D6076]">
                 <MessageCircle size={24} strokeWidth={2} />
@@ -178,9 +192,36 @@ export default function Help() {
               />
             </button>
 
+            <button
+              type="button"
+              onClick={() => setVoiceCallOpen(true)}
+              className="ndeef-help-card group flex w-full items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 text-left shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)] relative overflow-hidden"
+            >
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D6076]/10 text-[#1D6076] relative">
+                <Phone size={24} strokeWidth={2} className="group-hover:animate-bounce" />
+                <span className="absolute top-1 right-1 flex h-2.5 w-2.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+                </span>
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
+                  AI Call (Nody)
+                </h3>
+                <p className="mt-1 text-sm leading-6 text-slate-600">
+                  Talk to Nody, our AI Customer Support agent, to instantly resolve laundry and order issues.
+                </p>
+              </div>
+              <ChevronRight
+                size={20}
+                className="shrink-0 text-slate-400 transition-transform group-hover:translate-x-1"
+                strokeWidth={2}
+              />
+            </button>
+
             <a
               href={`mailto:${supportEmail}`}
-              className="group flex items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)]"
+              className="ndeef-help-card group flex items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D6076]/10 text-[#1D6076]">
                 <Mail size={24} strokeWidth={2} />
@@ -198,7 +239,7 @@ export default function Help() {
 
             <a
               href="tel:+201005552222"
-              className="group flex items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)]"
+              className="ndeef-help-card group flex items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)]"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D6076]/10 text-[#1D6076]">
                 <Phone size={24} strokeWidth={2} />
@@ -225,17 +266,17 @@ export default function Help() {
             {faqItems.map((item) => (
               <details
                 key={item.question}
-                className="group overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.05)]"
+                className="ndeef-help-faq-item group overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-[0_14px_34px_rgba(15,23,42,0.05)]"
               >
-                <summary className="flex cursor-pointer items-center justify-between gap-4 p-5 transition-colors hover:bg-slate-50">
-                  <h3 className="text-base font-semibold text-slate-900 md:text-lg">{item.question}</h3>
+                <summary className="ndeef-help-faq-trigger flex cursor-pointer items-center justify-between gap-4 p-5 transition-colors hover:bg-slate-50">
+                  <h3 className="ndeef-help-faq-title text-base font-semibold text-slate-900 md:text-lg">{item.question}</h3>
                   <ChevronRight
                     size={20}
-                    className="shrink-0 text-slate-400 transition-transform group-open:rotate-90"
+                    className="ndeef-help-faq-icon shrink-0 text-slate-400 transition-transform group-open:rotate-90"
                     strokeWidth={2}
                   />
                 </summary>
-                <div className="px-5 pb-5 text-sm leading-7 text-slate-600 md:text-base">{item.answer}</div>
+                <div className="ndeef-help-faq-content px-5 pb-5 text-sm leading-7 text-slate-600 md:text-base">{item.answer}</div>
               </details>
             ))}
           </div>
@@ -243,6 +284,7 @@ export default function Help() {
       </div>
 
       {chatOpen && <ChatWidget onClose={() => setChatOpen(false)} />}
+      {voiceCallOpen && <VoiceCallWidget onClose={() => setVoiceCallOpen(false)} />}
     </div>
   );
 }

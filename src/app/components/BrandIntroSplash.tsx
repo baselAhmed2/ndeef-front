@@ -6,8 +6,8 @@ import { useEffect, useState } from "react";
 import introSplash from "@/app/assets/intro-splash.jpeg";
 
 const SPLASH_SESSION_KEY = "ndeef_intro_splash_seen";
-const SPLASH_VISIBLE_MS = 2600;
-const SPLASH_EXIT_MS = 650;
+const SPLASH_VISIBLE_MS = 2200;
+const SPLASH_EXIT_MS = 500;
 
 export function BrandIntroSplash() {
   const [isVisible, setIsVisible] = useState(false);
@@ -49,37 +49,28 @@ export function BrandIntroSplash() {
         <motion.div
           initial={{ opacity: 1 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0, transition: { duration: 0.65, ease: "easeInOut" } }}
+          exit={{ opacity: 0, transition: { duration: 0.5, ease: "easeInOut" } }}
           className="fixed inset-0 z-[100000] overflow-hidden bg-[#081f27]"
         >
-          <motion.div
-            initial={{ scale: 1.06, opacity: 0.88 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.04, opacity: 0.72 }}
-            transition={{ duration: 0.9, ease: "easeOut" }}
+          {/* CSS gradient bg — no blurred full-screen image to save WebView GPU tile memory */}
+          <div
             className="absolute inset-0"
-          >
-            <Image
-              src={introSplash}
-              alt="Nazeef intro splash"
-              fill
-              priority
-              sizes="100vw"
-              className="object-cover blur-[22px] brightness-[0.42] saturate-[1.08]"
-            />
-          </motion.div>
-
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.12),transparent_42%),linear-gradient(180deg,rgba(8,31,39,0.08),rgba(8,31,39,0.72))]" />
+            style={{ background: "linear-gradient(160deg, #0d3040 0%, #081f27 50%, #0a2533 100%)" }}
+          />
+          <div
+            className="absolute inset-0"
+            style={{ background: "radial-gradient(circle at 50% 40%, rgba(235,160,80,0.07), transparent 60%)" }}
+          />
 
           <div className="relative flex h-full items-center justify-center px-6">
             <motion.div
-              initial={{ opacity: 0, y: 28, scale: 0.94 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 18, scale: 0.96 }}
-              transition={{ duration: 0.72, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 16 }}
+              transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
               className="w-full max-w-[460px]"
             >
-              <div className="overflow-hidden rounded-[34px] border border-white/18 bg-white/10 shadow-[0_30px_90px_rgba(0,0,0,0.28)] backdrop-blur-md">
+              <div className="overflow-hidden rounded-[34px] border border-white/10 bg-white/10 shadow-[0_20px_60px_rgba(0,0,0,0.3)]">
                 <div className="relative aspect-square">
                   <Image
                     src={introSplash}

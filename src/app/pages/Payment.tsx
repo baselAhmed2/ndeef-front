@@ -17,6 +17,26 @@ import { useAuth } from "../context/AuthContext";
 
 type FlowState = "loading" | "invalid" | "processing" | "failed";
 
+async function openExternalUrl(url: string) {
+  const capacitor = typeof window !== "undefined" ? (window as typeof window & {
+    Capacitor?: {
+      isNativePlatform?: () => boolean;
+      Plugins?: {
+        Browser?: {
+          open?: (options: { url: string }) => Promise<void>;
+        };
+      };
+    };
+  }).Capacitor : undefined;
+
+  if (capacitor?.isNativePlatform?.() && capacitor.Plugins?.Browser?.open) {
+    await capacitor.Plugins.Browser.open({ url });
+    return;
+  }
+
+  window.location.assign(url);
+}
+
 function FailedScreen({
   message,
   onRetry,
@@ -49,10 +69,11 @@ export default function Payment() {
   const searchParams = useSearchParams();
   const { user, isAuthReady, isLoggedIn } = useAuth();
   const orderId = searchParams?.get("orderId") ?? "";
+  const status = searchParams?.get("status") ?? "";
 
   const [flowState, setFlowState] = useState<FlowState>("loading");
   const [failureMessage, setFailureMessage] = useState(
-    "Could not open the cashier page right now.",
+    status === "failed" ? "Payment failed. Please try again." : "Could not open the cashier page right now.",
   );
 
   useEffect(() => {
@@ -87,7 +108,7 @@ export default function Payment() {
         );
       }
 
-      window.location.assign(cashierUrl);
+      await openExternalUrl(cashierUrl);
     } catch (error) {
       setFailureMessage(
         error instanceof ApiError
@@ -104,8 +125,12 @@ export default function Payment() {
       setFlowState("invalid");
       return;
     }
+    if (status === "failed") {
+      setFlowState("failed");
+      return;
+    }
     openCashier();
-  }, [orderId, user?.token]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orderId, user?.token, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleRetry = () => {
     openCashier();

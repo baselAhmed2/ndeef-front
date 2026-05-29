@@ -47,6 +47,7 @@ export interface AuthUser {
   phone: string;
   role: string;
   token: string | null;
+  avatarUrl?: string | null;
   needsVerification?: boolean; // true if user needs identity verification
 }
 
@@ -792,6 +793,7 @@ export function mapUserDtoToAuthUser(user: BackendUserDto): AuthUser {
     phone: user.phoneNumber ?? "",
     role: user.role,
     token: user.token,
+    avatarUrl: null,
     needsVerification: user.needsVerification,
   };
 }
@@ -816,6 +818,7 @@ export function mapTokenToAuthUser(
     phone: fallback?.phone ?? "",
     role,
     token,
+    avatarUrl: fallback?.avatarUrl ?? null,
   };
 }
 

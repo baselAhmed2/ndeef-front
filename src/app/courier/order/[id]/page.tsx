@@ -37,12 +37,13 @@ import {
   type CourierDashboardOrder,
 } from "@/app/lib/courier-client";
 import { ApiError } from "@/app/lib/admin-api";
+import { usePreferences } from "@/app/context/PreferencesContext";
 
 type OrderStatus = "pending" | "accepted" | "ready_for_pickup" | "picked_up" | "delivered" | "cancelled";
 
 const STEPS: { key: OrderStatus; label: string; desc: string }[] = [
   { key: "pending", label: "New", desc: "Waiting for you" },
-  { key: "accepted", label: "Accepted", desc: "Head to laundry" },
+  { key: "accepted", label: "Assigned", desc: "Laundry admin assigned you" },
   { key: "ready_for_pickup", label: "Ready", desc: "Pickup is unlocked" },
   { key: "picked_up", label: "Picked Up", desc: "On your way" },
   { key: "delivered", label: "Delivered", desc: "Done!" },
@@ -56,25 +57,7 @@ const CANCEL_REASONS = [
   "Other",
 ];
 
-function extractCoordinates(value?: string | null) {
-  if (!value) return null;
-
-  const match = value.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
-  if (!match) return null;
-
-  const lat = Number(match[1]);
-  const lng = Number(match[2]);
-  if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
-
-  return { lat, lng };
-}
-
 function buildMapsUrl(destination: string) {
-  const coordinates = extractCoordinates(destination);
-  if (coordinates) {
-    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${coordinates.lat},${coordinates.lng}`)}`;
-  }
-
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(destination)}`;
 }
 
@@ -276,6 +259,7 @@ function PaymentSection({ paid, amount }: { paid: boolean; amount: number }) {
 export default function CourierOrderDetail() {
   const { id } = useParams() as { id: string };
   const router = useRouter();
+  const { isDark } = usePreferences();
   const [order, setOrder] = useState<CourierDashboardOrder | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -351,6 +335,26 @@ export default function CourierOrderDetail() {
   const cancelled = status === "cancelled";
   const done = delivered || cancelled;
   const canCancel = status === "pending" || status === "accepted";
+  const summaryCardClass = isDark
+    ? "rounded-2xl border border-white/10 bg-[#102231] shadow-sm overflow-hidden"
+    : "bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden";
+  const summaryButtonClass = isDark
+    ? "flex items-center justify-between w-full p-4 bg-[#132a3a] hover:bg-[#193447] transition-all"
+    : "flex items-center justify-between w-full p-4 bg-[#f8fbfd] hover:bg-[#eef6f8] transition-all";
+  const summaryIconWrapClass = isDark
+    ? "w-9 h-9 rounded-xl flex items-center justify-center bg-[#0f1d29]"
+    : "w-9 h-9 rounded-xl flex items-center justify-center bg-[#f0f9ff]";
+  const summaryTitleClass = isDark ? "text-sm font-bold text-white" : "text-sm font-bold text-slate-900";
+  const summaryHintClass = isDark ? "text-xs text-[#8db7cb]" : "text-xs text-slate-500";
+  const summaryChevronClass = isDark ? "w-4 h-4 text-[#8db7cb]" : "w-4 h-4 text-slate-500";
+  const summaryPanelClass = isDark ? "px-4 pb-4 pt-1 space-y-2 bg-[#132a3a]" : "px-4 pb-4 pt-1 space-y-2 bg-[#f8fbfd]";
+  const summaryRowClass = isDark
+    ? "flex items-center justify-between px-3 py-2.5 bg-[#0f1d29] rounded-xl border border-white/10"
+    : "flex items-center justify-between px-3 py-2.5 bg-white rounded-xl border border-[#dbe9ef]";
+  const summaryRowTextClass = isDark ? "text-sm text-[#d5e7f0]" : "text-sm text-slate-700";
+  const summaryBadgeClass = isDark
+    ? "text-sm font-bold text-white bg-[#132a3a] rounded-lg px-2 py-0.5 border border-white/10"
+    : "text-sm font-bold text-slate-900 bg-[#f8fbfd] rounded-lg px-2 py-0.5 border border-[#dbe9ef]";
 
   type ActionCfg = { label: string; sublabel: string; icon: React.ElementType; color: string } | null;
   const actionConfig: ActionCfg =
@@ -453,12 +457,12 @@ export default function CourierOrderDetail() {
             <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-4">Order Progress</p>
             <StatusStepper current={done ? (delivered ? "delivered" : "picked_up") : status} />
             {status === "accepted" && (
-              <div className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3 bg-amber-50 border border-amber-100">
-                <Clock className="w-5 h-5 text-amber-500 shrink-0" />
+              <div className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3 bg-sky-50 border border-sky-100">
+                <Clock className="w-5 h-5 text-sky-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-bold text-amber-700">Waiting for laundry handoff</p>
-                  <p className="text-xs text-amber-600">
-                    You can pick up this order after the laundry marks it ready for pickup.
+                  <p className="text-sm font-bold text-sky-700">Order assigned to you by laundry admin</p>
+                  <p className="text-xs text-sky-600">
+                    This order is already assigned in backend. Head to the laundry and wait until it becomes ready for pickup.
                   </p>
                 </div>
               </div>
@@ -502,28 +506,31 @@ export default function CourierOrderDetail() {
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-            <button onClick={() => setShowItems((value) => !value)} className="flex items-center justify-between w-full p-4 hover:bg-gray-50 transition-all">
+          <div className={summaryCardClass}>
+            <button
+              onClick={() => setShowItems((value) => !value)}
+              className={summaryButtonClass}
+            >
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ backgroundColor: "#f0f9ff" }}>
+                <div className={summaryIconWrapClass}>
                   <ServiceIcon className="w-4 h-4" style={{ color: "#1D5B70" }} />
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-bold text-gray-800">{order.service}</p>
-                  <p className="text-xs text-gray-400">Tap to see order summary</p>
+                  <p className={summaryTitleClass}>{order.service}</p>
+                  <p className={summaryHintClass}>Tap to see order summary</p>
                 </div>
               </div>
               <motion.div animate={{ rotate: showItems ? 180 : 0 }}>
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+                <ChevronDown className={summaryChevronClass} />
               </motion.div>
             </button>
             <AnimatePresence>
               {showItems && (
                 <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                  <div className="px-4 pb-4 space-y-2">
-                    <div className="flex items-center justify-between px-3 py-2.5 bg-gray-50 rounded-xl">
-                      <span className="text-sm text-gray-700">{order.service}</span>
-                      <span className="text-sm font-bold text-gray-900 bg-white rounded-lg px-2 py-0.5 border border-gray-100">{order.items || 0} items</span>
+                  <div className={summaryPanelClass}>
+                    <div className={summaryRowClass}>
+                      <span className={summaryRowTextClass}>{order.service}</span>
+                      <span className={summaryBadgeClass}>{order.items || 0} items</span>
                     </div>
                   </div>
                 </motion.div>
