@@ -35,6 +35,7 @@ import {
   trackOrderRequest,
   UiOrderStatus,
 } from "@/app/lib/api";
+import { BACKEND_API_BASE, BACKEND_PROXY_BASE } from "@/app/lib/backend-url";
 import { useAuth } from "../context/AuthContext";
 import { usePreferences } from "@/app/context/PreferencesContext";
 import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
@@ -401,9 +402,7 @@ export default function TrackOrder() {
       setComplaintSuccess("");
 
       const isCapacitor = typeof window !== "undefined" && (window as any).Capacitor;
-      const apiBase = isCapacitor
-        ? "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io/api"
-        : "/api/backend";
+      const apiBase = isCapacitor ? BACKEND_API_BASE : BACKEND_PROXY_BASE;
 
       const response = await fetch(`${apiBase}/chat`, {
         method: "POST",

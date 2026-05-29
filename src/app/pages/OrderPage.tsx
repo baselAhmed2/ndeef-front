@@ -43,6 +43,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/app/components/ui/dialog";
+import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
 
 const dates = ["Today", "Tomorrow", "Day After"];
 const timeSlots = [
@@ -467,13 +468,19 @@ export default function OrderPage() {
       setOrderRedirecting(true);
       router.push(`/payment?orderId=${order.id}`);
     } catch (error) {
+      const isBackendSessionMismatch =
+        error instanceof ApiError &&
+        error.message.includes("An error occurred while saving the entity changes");
+
       setOrderRedirecting(false);
       setSubmitError(
-        error instanceof ApiError
-          ? error.message
-          : error instanceof Error
+        isBackendSessionMismatch
+          ? `Your saved session may belong to a different backend environment. Please sign out and sign in again on ${BACKEND_ORIGIN} before placing the order.`
+          : error instanceof ApiError
             ? error.message
-            : "Unable to place the order right now.",
+          : error instanceof Error
+              ? error.message
+              : "Unable to place the order right now.",
       );
       window.scrollTo({ top: 0, behavior: "smooth" });
     } finally {

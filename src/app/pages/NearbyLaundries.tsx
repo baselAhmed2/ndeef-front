@@ -32,6 +32,7 @@ import {
   searchLaundriesRequest,
   subscribeLaundryRatingUpdates,
 } from "@/app/lib/api";
+import { NEARBY_CACHE_VERSION } from "@/app/lib/backend-url";
 import { useAuth } from "../context/AuthContext";
 import { getRoutePath } from "@/app/lib/platform";
 
@@ -46,8 +47,6 @@ type FlowState =
 type SortOption = "distance" | "rating";
 type FilterOption = "all" | "available";
 const NEARBY_STATE_KEY = "ndeef_nearby_state";
-const NEARBY_CACHE_VERSION =
-  "azure-backend:https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io";
 
 const sectionReveal = {
   hidden: { opacity: 0, y: 24 },

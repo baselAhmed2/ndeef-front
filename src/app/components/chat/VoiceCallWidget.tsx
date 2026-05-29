@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { X, PhoneOff, Mic, MicOff, Loader2, Sparkles, Volume2 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { Monogram } from "@/app/components/brand/Monogram";
+import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
 
 const INPUT_RATE = 16000;
 const OUTPUT_RATE = 24000;
@@ -115,10 +116,7 @@ function buildVoiceWebSocketUrl(token: string): string {
   if (fromEnv) {
     return `${fromEnv.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`;
   }
-  const httpBase =
-    process.env.NEXT_PUBLIC_NDEEF_BACKEND_URL?.trim() ??
-    process.env.NDEEF_BACKEND_URL?.trim() ??
-    "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io";
+    const httpBase = BACKEND_ORIGIN;
   const wsBase = httpBase.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
   return `${wsBase.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`;
 }

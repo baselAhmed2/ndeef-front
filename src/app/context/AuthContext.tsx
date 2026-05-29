@@ -15,8 +15,10 @@ import {
   resetPasswordRequest,
   verifyEmailRequest,
 } from "@/app/lib/api";
+import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
 
 const STORAGE_KEY = "nadeef_user";
+const LEGACY_SESSION_KEY = "nadeef_session";
 
 export type User = AuthUser;
 
@@ -55,7 +57,21 @@ function readStoredUser() {
   if (!raw) return null;
 
   try {
-    return JSON.parse(raw) as User;
+    const parsed = JSON.parse(raw) as User & { backendOrigin?: string | null };
+    if (
+      !parsed.backendOrigin ||
+      !parsed.backendOrigin.trim() ||
+      parsed.backendOrigin.trim() !== BACKEND_ORIGIN
+    ) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(LEGACY_SESSION_KEY);
+      return null;
+    }
+
+    return {
+      ...parsed,
+      backendOrigin: BACKEND_ORIGIN,
+    } as User;
   } catch {
     localStorage.removeItem(STORAGE_KEY);
     return null;
@@ -65,10 +81,17 @@ function readStoredUser() {
 function persistUser(user: User | null) {
   if (!user) {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(LEGACY_SESSION_KEY);
     return;
   }
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({
+      ...user,
+      backendOrigin: BACKEND_ORIGIN,
+    }),
+  );
 }
 
 function toAuthError(error: unknown): AuthResult {

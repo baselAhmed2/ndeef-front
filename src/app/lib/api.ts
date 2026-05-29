@@ -1,6 +1,7 @@
 import { laundries } from '../data/laundries';
 
-export const BACKEND_PROXY_BASE = "/api/backend";
+import { BACKEND_PROXY_BASE } from "@/app/lib/backend-url";
+
 const ENABLE_MOCK_LAUNDRY_FALLBACK = false;
 const LAUNDRY_RATING_UPDATED_EVENT = "nadeef:laundry-rating-updated";
 const LAUNDRY_RATING_CACHE_KEY = "nadeef:laundry-rating-cache";
@@ -49,6 +50,7 @@ export interface AuthUser {
   token: string | null;
   avatarUrl?: string | null;
   needsVerification?: boolean; // true if user needs identity verification
+  backendOrigin?: string;
 }
 
 export interface AuthResult {

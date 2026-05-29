@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Send, X, Sparkles, Loader2 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
+import { BACKEND_API_BASE, BACKEND_PROXY_BASE } from "@/app/lib/backend-url";
 
 type ChatRole = "user" | "assistant";
 
@@ -676,9 +677,7 @@ export function ChatWidget({ onClose }: { onClose: () => void }) {
 
     try {
       const isCapacitor = typeof window !== "undefined" && (window as any).Capacitor;
-      const apiBase = isCapacitor
-        ? "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io/api"
-        : "/api/backend";
+      const apiBase = isCapacitor ? BACKEND_API_BASE : BACKEND_PROXY_BASE;
 
       const res = await fetch(`${apiBase}/chat`, {
         method: "POST",

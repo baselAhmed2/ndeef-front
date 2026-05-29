@@ -1,10 +1,11 @@
 import { getStoredAuthToken } from "@/app/lib/auth-storage";
+import { BACKEND_API_BASE, BACKEND_PROXY_BASE } from "@/app/lib/backend-url";
 
 // When running on the browser, use the local Next.js rewrite proxy. When running on the server, hit the backend directly.
 export const BASE_URL =
   typeof window !== "undefined"
-    ? "/api/backend"
-    : "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io/api";
+    ? BACKEND_PROXY_BASE
+    : BACKEND_API_BASE;
 
 export interface BackendUser {
   id: string;
