@@ -354,7 +354,33 @@ export async function getVerificationStatus(): Promise<ApiResult<VerificationSta
   if (!res.ok) {
     return { isSuccess: false, error: json.message ?? "Failed to get verification status" };
   }
-  return { isSuccess: true, data: json };
+
+  const normalizedApprovalStatus = String(
+    json.adminApprovalStatus ??
+      json.verificationStatus ??
+      json.status ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  return {
+    isSuccess: true,
+    data: {
+      ...json,
+      isVerified:
+        Boolean(
+          json.isVerified ??
+            json.isIdentityVerified ??
+            json.verified ??
+            json.isApproved,
+        ) ||
+        normalizedApprovalStatus === "approved" ||
+        normalizedApprovalStatus === "verified" ||
+        normalizedApprovalStatus === "completed" ||
+        normalizedApprovalStatus === "complete",
+    },
+  };
 }
 
 /**

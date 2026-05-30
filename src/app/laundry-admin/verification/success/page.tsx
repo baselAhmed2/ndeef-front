@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { getVerificationStatus } from "@/app/services/api";
 import Link from "next/link";
+import { markLaundryVerificationComplete } from "@/app/lib/verification-state";
 
 function VerificationSuccessContent() {
   const router = useRouter();
@@ -39,6 +40,7 @@ function VerificationSuccessContent() {
     const checkVerification = async () => {
       try {
         if (isApprovedFromDidit) {
+          markLaundryVerificationComplete();
           setIsVerified(true);
           redirectTimeout = setTimeout(() => {
             logout();
@@ -55,6 +57,7 @@ function VerificationSuccessContent() {
 
           // If verified, wait a moment, then send the user to login.
           if (result.data.isVerified) {
+            markLaundryVerificationComplete();
             redirectTimeout = setTimeout(() => {
               logout();
               router.replace("/login");

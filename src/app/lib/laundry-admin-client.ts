@@ -1735,8 +1735,29 @@ export async function getVerificationStatus(): Promise<{
   commercialRegisterDocumentUrl: string | null;
 }> {
   const status = await apiRequest<any>("/verification/status");
+  const normalizedApprovalStatus = String(
+    status.adminApprovalStatus ??
+      status.verificationStatus ??
+      status.status ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+
+  const isIdentityVerified =
+    Boolean(
+      status.isIdentityVerified ??
+        status.isVerified ??
+        status.verified ??
+        status.isApproved,
+    ) ||
+    normalizedApprovalStatus === "approved" ||
+    normalizedApprovalStatus === "verified" ||
+    normalizedApprovalStatus === "completed" ||
+    normalizedApprovalStatus === "complete";
+
   return {
-    isIdentityVerified: Boolean(status.isIdentityVerified ?? status.isVerified),
+    isIdentityVerified,
     role: status.role ?? "",
     commercialRegisterDocumentUrl: null,
   };

@@ -22,6 +22,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 import { Monogram } from "../components/brand/Monogram";
+import { hasRecentLaundryVerificationMarker } from "../lib/verification-state";
 // Note: laundry-admin-client functions are dynamically imported in resolveLaundryAdminLoginPath
 type AccountType = "Customer" | "LaundryAdmin" | "Courier";
 
@@ -109,10 +110,12 @@ async function resolveLaundryAdminLoginPath(
   requiresVerification?: boolean,
   onVerificationResolved?: (needsVerification: boolean) => void,
 ) {
+  const hasFreshVerification = hasRecentLaundryVerificationMarker();
+
   try {
     const { getVerificationStatus } = await import("@/app/lib/laundry-admin-client");
     const status = await getVerificationStatus();
-    const needsVerification = !status.isIdentityVerified;
+    const needsVerification = !status.isIdentityVerified && !hasFreshVerification;
     onVerificationResolved?.(needsVerification);
     return needsVerification ? "/laundry-admin/verification" : "/laundry-admin";
   } catch (error) {
@@ -121,9 +124,31 @@ async function resolveLaundryAdminLoginPath(
         ? Number((error as { status?: number }).status)
         : null;
     const needsVerification =
-      Boolean(requiresVerification) || status === 401 || status === 403;
+      !hasFreshVerification && (Boolean(requiresVerification) || status === 401 || status === 403);
     onVerificationResolved?.(needsVerification);
     return needsVerification ? "/laundry-admin/verification" : "/laundry-admin";
+  }
+}
+
+function getAccountAccentClass(accountType: AccountType) {
+  switch (accountType) {
+    case "LaundryAdmin":
+      return "text-[#EBA050]";
+    case "Courier":
+      return "text-[#4FA3C1]";
+    default:
+      return "text-[#1D6076]";
+  }
+}
+
+function getAccountHintClass(accountType: AccountType) {
+  switch (accountType) {
+    case "LaundryAdmin":
+      return "bg-[#EBA050]/10 border border-[#EBA050]/25 text-[#7a5711] dark:bg-[#EBA050]/12 dark:border-[#EBA050]/20 dark:text-[#f4d28a]";
+    case "Courier":
+      return "bg-[#4FA3C1]/10 border border-[#4FA3C1]/25 text-[#1f6175] dark:bg-[#4FA3C1]/12 dark:border-[#4FA3C1]/20 dark:text-[#9fd7e8]";
+    default:
+      return "bg-[#1D6076]/10 border border-[#1D6076]/20 text-[#1D6076] dark:bg-[#1D6076]/12 dark:border-[#1D6076]/20 dark:text-[#9ec8d6]";
   }
 }
 
@@ -150,6 +175,8 @@ export default function Login() {
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [loginProgress, setLoginProgress] = useState("");
+  const accountAccentClass = getAccountAccentClass(accountType);
+  const accountHintClass = getAccountHintClass(accountType);
 
   useEffect(() => {
     const clearForm = () => {
@@ -227,7 +254,7 @@ export default function Login() {
       const isAdmin = isAdminRole(resolvedRole);
       const isCustomer = !isLaundryAdmin && !isCourier && !isAdmin;
 
-      if (accountType === "Customer" && !isCustomer) {
+      if (accountType === "Customer" && !isCustomer && !isAdmin) {
         rejectWrongAccountType(getNoAccountMessage("Customer"));
         return;
       }
@@ -363,20 +390,20 @@ export default function Login() {
 
           {/* Laundry admin hint */}
           {accountType === "LaundryAdmin" && (
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-3 mb-1">
+            <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
               Laundry owners sign in with email to keep the verification flow correct.
               New here?{" "}
-              <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium hover:underline">
+              <Link href="/signup?role=LaundryAdmin" className={`${accountAccentClass} font-medium hover:underline`}>
                 Register your laundry
               </Link>
             </p>
           )}
 
           {accountType === "Courier" && (
-            <p className="text-xs text-gray-500 dark:text-slate-400 mt-3 mb-1">
+            <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
               Couriers sign in here with their regular account.
               New here?{" "}
-              <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium hover:underline">
+              <Link href="/signup?role=Courier" className={`${accountAccentClass} font-medium hover:underline`}>
                 Create a courier account
               </Link>
             </p>
@@ -402,7 +429,7 @@ export default function Login() {
                       type="button"
                       onClick={() => { setAccountType("Customer"); setError(""); }}
                       whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#1D6076] font-semibold hover:underline inline-flex items-center gap-1"
+                      className={`mt-2 text-sm ${accountAccentClass} font-semibold hover:underline inline-flex items-center gap-1`}
                     >
                       Switch to Customer login
                     </motion.button>

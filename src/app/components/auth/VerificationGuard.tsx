@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { shouldBypassVerificationInDev } from "@/app/lib/verification-dev";
+import { hasRecentLaundryVerificationMarker } from "@/app/lib/verification-state";
 
 interface VerificationGuardProps {
   children: React.ReactNode;
@@ -45,12 +46,14 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
     let ignore = false;
 
     async function checkVerificationStatus() {
+      const hasFreshVerification = hasRecentLaundryVerificationMarker();
+
       try {
         const { getVerificationStatus } = await import("@/app/lib/laundry-admin-client");
         const status = await getVerificationStatus();
         if (ignore) return;
 
-        const needsVerification = !status.isIdentityVerified;
+        const needsVerification = !status.isIdentityVerified && !hasFreshVerification;
         updateUser({ needsVerification });
 
         if (needsVerification && !isVerificationPage) {
@@ -67,7 +70,7 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
             ? Number((error as { status?: number }).status)
             : null;
         const shouldForceVerification =
-          currentUser.needsVerification || status === 401 || status === 403;
+          !hasFreshVerification && (currentUser.needsVerification || status === 401 || status === 403);
 
         if (shouldForceVerification && !isVerificationPage) {
           updateUser({ needsVerification: true });
