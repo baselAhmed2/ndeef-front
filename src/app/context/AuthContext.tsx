@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useState, ReactNode } from "react";
 import {
   ApiError,
   AuthResult,
@@ -258,19 +258,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     persistUser(null);
-  };
+  }, []);
 
-  const updateUser = (patch: Partial<User>) => {
+  const updateUser = useCallback((patch: Partial<User>) => {
     setUser((current) => {
       if (!current) return current;
       const nextUser = { ...current, ...patch };
       persistUser(nextUser);
       return nextUser;
     });
-  };
+  }, []);
 
   return (
     <AuthContext.Provider

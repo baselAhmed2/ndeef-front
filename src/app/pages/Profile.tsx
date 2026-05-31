@@ -20,7 +20,6 @@ import { ChangePasswordModal } from "../components/ChangePasswordModal";
 import { useAuth } from "../context/AuthContext";
 import {
   addUserAddressRequest,
-  addUserFavoriteRequest,
   addUserPaymentMethodRequest,
   changePasswordRequest,
   deleteAccountRequest,
@@ -48,6 +47,16 @@ import {
   type BackendUserSettingsDto,
   type BackendUserStatsDto,
 } from "../lib/api";
+
+type ProfileSectionKey =
+  | "stats"
+  | "addresses"
+  | "favorites"
+  | "paymentMethods"
+  | "points"
+  | "settings";
+
+type ProfileSectionErrors = Partial<Record<ProfileSectionKey, string>>;
 
 type ProfileFormState = {
   firstName: string;
@@ -187,6 +196,7 @@ export default function Profile() {
   const [stats, setStats] = useState<BackendUserStatsDto | null>(null);
   const [settings, setSettings] = useState<BackendUserSettingsDto>(DEFAULT_SETTINGS);
   const [formData, setFormData] = useState<ProfileFormState>(EMPTY_FORM);
+  const [sectionErrors, setSectionErrors] = useState<ProfileSectionErrors>({});
 
   const isLoggedOut = isAuthReady && !user?.token;
 
@@ -214,25 +224,86 @@ export default function Profile() {
     async function loadProfile() {
       try {
         setLoading(true);
+        setSectionErrors({});
+
+        const profile = await getUserProfileRequest(authToken);
         const [
-          profile,
-          loadedAddresses,
-          loadedStats,
-          loadedFavorites,
-          loadedPaymentMethods,
-          loadedPoints,
-          loadedSettings,
-        ] = await Promise.all([
-          getUserProfileRequest(authToken),
-          getUserAddressesRequest(authToken).catch(() => []),
-          getUserStatsRequest(authToken).catch(() => null),
-          getUserFavoritesRequest(authToken).catch(() => []),
-          getUserPaymentMethodsRequest(authToken).catch(() => []),
-          getUserPointsRequest(authToken).catch(() => ({ totalPoints: 0, history: [] })),
-          getUserSettingsRequest(authToken).catch(() => DEFAULT_SETTINGS),
+          addressesResult,
+          statsResult,
+          favoritesResult,
+          paymentMethodsResult,
+          pointsResult,
+          settingsResult,
+        ] = await Promise.allSettled([
+          getUserAddressesRequest(authToken),
+          getUserStatsRequest(authToken),
+          getUserFavoritesRequest(authToken),
+          getUserPaymentMethodsRequest(authToken),
+          getUserPointsRequest(authToken),
+          getUserSettingsRequest(authToken),
         ]);
 
         if (!active) return;
+
+        const nextErrors: ProfileSectionErrors = {};
+        const loadedAddresses =
+          addressesResult.status === "fulfilled" ? addressesResult.value : [];
+        const loadedStats =
+          statsResult.status === "fulfilled" ? statsResult.value : null;
+        const loadedFavorites =
+          favoritesResult.status === "fulfilled" ? favoritesResult.value : [];
+        const loadedPaymentMethods =
+          paymentMethodsResult.status === "fulfilled" ? paymentMethodsResult.value : [];
+        const loadedPoints =
+          pointsResult.status === "fulfilled"
+            ? pointsResult.value
+            : { totalPoints: 0, history: [] };
+        const loadedSettings =
+          settingsResult.status === "fulfilled"
+            ? settingsResult.value
+            : DEFAULT_SETTINGS;
+
+        if (addressesResult.status === "rejected") {
+          nextErrors.addresses =
+            addressesResult.reason instanceof Error
+              ? addressesResult.reason.message
+              : "Could not load addresses from the backend.";
+        }
+
+        if (statsResult.status === "rejected") {
+          nextErrors.stats =
+            statsResult.reason instanceof Error
+              ? statsResult.reason.message
+              : "Could not load account stats from the backend.";
+        }
+
+        if (favoritesResult.status === "rejected") {
+          nextErrors.favorites =
+            favoritesResult.reason instanceof Error
+              ? favoritesResult.reason.message
+              : "Could not load favorites from the backend.";
+        }
+
+        if (paymentMethodsResult.status === "rejected") {
+          nextErrors.paymentMethods =
+            paymentMethodsResult.reason instanceof Error
+              ? paymentMethodsResult.reason.message
+              : "Could not load payment methods from the backend.";
+        }
+
+        if (pointsResult.status === "rejected") {
+          nextErrors.points =
+            pointsResult.reason instanceof Error
+              ? pointsResult.reason.message
+              : "Could not load points from the backend.";
+        }
+
+        if (settingsResult.status === "rejected") {
+          nextErrors.settings =
+            settingsResult.reason instanceof Error
+              ? settingsResult.reason.message
+              : "Could not load settings from the backend.";
+        }
 
         const primaryAddress =
           loadedAddresses.find((address) => address.isDefault) ?? loadedAddresses[0] ?? null;
@@ -245,6 +316,7 @@ export default function Profile() {
         setPoints(loadedPoints);
         setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
         setAvatarUrl(profile.avatarUrl ?? null);
+        setSectionErrors(nextErrors);
         updateUser({ avatarUrl: profile.avatarUrl ?? null });
         setFormData({
           firstName: profile.firstName ?? "",
@@ -273,26 +345,30 @@ export default function Profile() {
 
   const refreshAddresses = async () => {
     if (!user?.token) return;
-    const loadedAddresses = await getUserAddressesRequest(user.token).catch(() => []);
+    const loadedAddresses = await getUserAddressesRequest(user.token);
     const primaryAddress =
       loadedAddresses.find((address) => address.isDefault) ?? loadedAddresses[0] ?? null;
     setAddresses(loadedAddresses);
     setAddressId(primaryAddress?.id ?? null);
+    setSectionErrors((current) => ({ ...current, addresses: undefined }));
   };
 
   const refreshFavorites = async () => {
     if (!user?.token) return;
-    setFavorites(await getUserFavoritesRequest(user.token).catch(() => []));
+    setFavorites(await getUserFavoritesRequest(user.token));
+    setSectionErrors((current) => ({ ...current, favorites: undefined }));
   };
 
   const refreshPaymentMethods = async () => {
     if (!user?.token) return;
-    setPaymentMethods(await getUserPaymentMethodsRequest(user.token).catch(() => []));
+    setPaymentMethods(await getUserPaymentMethodsRequest(user.token));
+    setSectionErrors((current) => ({ ...current, paymentMethods: undefined }));
   };
 
   const refreshPoints = async () => {
     if (!user?.token) return;
-    setPoints(await getUserPointsRequest(user.token).catch(() => ({ totalPoints: 0, history: [] })));
+    setPoints(await getUserPointsRequest(user.token));
+    setSectionErrors((current) => ({ ...current, points: undefined }));
   };
 
   const handleSaveProfile = async () => {
@@ -400,16 +476,12 @@ export default function Profile() {
     }
   };
 
-  const handleFavoriteToggle = async (laundryId: number, isFavorite: boolean) => {
+  const handleFavoriteRemove = async (laundryId: number) => {
     if (!user?.token) return;
     try {
-      if (isFavorite) {
-        await removeUserFavoriteRequest(user.token, laundryId);
-      } else {
-        await addUserFavoriteRequest(user.token, laundryId);
-      }
+      await removeUserFavoriteRequest(user.token, laundryId);
       await refreshFavorites();
-      toast.success(isFavorite ? "Removed from favorites." : "Added to favorites.");
+      toast.success("Removed from favorites.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to update favorites.");
     }
@@ -644,6 +716,11 @@ export default function Profile() {
           <StatCard label="Total spent" value={formatMoney(Number(stats?.totalSpent ?? 0))} icon={Wallet} tone="bg-emerald-50 text-emerald-600" />
           <StatCard label="Saved cards" value={String(paymentMethods.length)} icon={CreditCard} tone="bg-slate-100 text-slate-700" />
         </div>
+        {sectionErrors.stats ? (
+          <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Stats are unavailable right now: {sectionErrors.stats}
+          </div>
+        ) : null}
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
           <div className="space-y-6">
@@ -693,7 +770,12 @@ export default function Profile() {
               </div>
 
               <div className="mt-5 space-y-3">
-                {addresses.length === 0 ? (
+                {sectionErrors.addresses ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                    Addresses are unavailable right now: {sectionErrors.addresses}
+                  </div>
+                ) : null}
+                {!sectionErrors.addresses && addresses.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     No saved addresses returned from the backend yet.
                   </div>
@@ -734,7 +816,12 @@ export default function Profile() {
                 </div>
               </div>
               <div className="mt-5 space-y-3">
-                {favorites.length === 0 ? (
+                {sectionErrors.favorites ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                    Favorites are unavailable right now: {sectionErrors.favorites}
+                  </div>
+                ) : null}
+                {!sectionErrors.favorites && favorites.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     You have no favorite laundries yet.
                   </div>
@@ -746,7 +833,7 @@ export default function Profile() {
                         <p className="mt-1 text-sm text-slate-500">{favorite.laundryAddress}</p>
                         <p className="mt-1 text-xs text-slate-400">Added {formatDate(favorite.addedAt)} • Rating {Number(favorite.averageRating ?? 0).toFixed(1)}</p>
                       </div>
-                      <button onClick={() => void handleFavoriteToggle(favorite.laundryId, true)} className="rounded-xl border border-red-200 bg-white p-2 text-red-500 transition hover:bg-red-50">
+                      <button onClick={() => void handleFavoriteRemove(favorite.laundryId)} className="rounded-xl border border-red-200 bg-white p-2 text-red-500 transition hover:bg-red-50">
                         <Heart size={16} fill="currentColor" />
                       </button>
                     </div>
@@ -769,7 +856,12 @@ export default function Profile() {
               </div>
 
               <div className="mt-5 space-y-3">
-                {paymentMethods.length === 0 ? (
+                {sectionErrors.paymentMethods ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                    Payment methods are unavailable right now: {sectionErrors.paymentMethods}
+                  </div>
+                ) : null}
+                {!sectionErrors.paymentMethods && paymentMethods.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     No saved payment methods yet.
                   </div>
@@ -823,7 +915,12 @@ export default function Profile() {
               </div>
 
               <div className="mt-4 space-y-3">
-                {points.history.length === 0 ? (
+                {sectionErrors.points ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                    Points are unavailable right now: {sectionErrors.points}
+                  </div>
+                ) : null}
+                {!sectionErrors.points && points.history.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
                     No points history returned yet.
                   </div>
@@ -854,6 +951,11 @@ export default function Profile() {
               </div>
 
               <div className="mt-5 space-y-3">
+                {sectionErrors.settings ? (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
+                    Settings are unavailable right now: {sectionErrors.settings}
+                  </div>
+                ) : null}
                 {(
                   [
                     "pushNotifications",

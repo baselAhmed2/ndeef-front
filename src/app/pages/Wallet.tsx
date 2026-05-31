@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ type WalletTransaction = {
   amount: number;
   amountLabel: string;
   time: string;
+  createdAt: string | null;
   positive: boolean;
   paymentMethod: string;
   paymentStatus: string;
@@ -32,8 +33,14 @@ type WalletTransaction = {
 };
 
 type ActivityFilter = "all" | "wallet" | "mobile" | "cash" | "refund";
+type WalletSyncState = "idle" | "waiting" | "confirmed" | "failed" | "timeout";
+type PendingWalletCharge = {
+  amount: number;
+  startedAt: string;
+};
 
 const QUICK_AMOUNTS = [100, 250, 500, 1000] as const;
+const PENDING_WALLET_CHARGE_KEY = "nazeef_pending_wallet_charge";
 
 async function openExternalUrl(url: string) {
   const capacitor = typeof window !== "undefined" ? (window as typeof window & {
@@ -141,6 +148,50 @@ function inferTransactionTitle(source: string, type: string) {
   return "Wallet Activity";
 }
 
+function readPendingWalletCharge(): PendingWalletCharge | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(PENDING_WALLET_CHARGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingWalletCharge;
+    if (!Number.isFinite(parsed.amount) || !parsed.startedAt) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingWalletCharge(payload: PendingWalletCharge) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(PENDING_WALLET_CHARGE_KEY, JSON.stringify(payload));
+}
+
+function clearPendingWalletCharge() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(PENDING_WALLET_CHARGE_KEY);
+}
+
+function hasMatchingWalletCharge(
+  items: WalletTransaction[],
+  pendingCharge: PendingWalletCharge | null,
+) {
+  if (!pendingCharge) return false;
+
+  const startedAt = new Date(pendingCharge.startedAt).getTime();
+  const earliestAcceptedTime = startedAt - 2 * 60 * 1000;
+
+  return items.some((item) => {
+    const source = item.source.toLowerCase();
+    const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : 0;
+    return (
+      source.includes("walletcharge") &&
+      item.positive &&
+      Math.abs(Math.abs(item.amount) - pendingCharge.amount) < 0.01 &&
+      createdAt >= earliestAcceptedTime
+    );
+  });
+}
+
 export default function Wallet() {
   const { user, isAuthReady } = useAuth();
   const router = useRouter();
@@ -154,7 +205,42 @@ export default function Wallet() {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [filter, setFilter] = useState<ActivityFilter>("all");
   const [chargeAmount, setChargeAmount] = useState("250");
+  const [syncState, setSyncState] = useState<WalletSyncState>("idle");
   const chargeStatus = searchParams?.get("status");
+  const [pendingCharge, setPendingCharge] = useState<PendingWalletCharge | null>(null);
+
+  const loadWalletInfo = useCallback(async (authToken: string) => {
+    const walletInfo = await getWalletInfoRequest(authToken);
+
+    const mapped = (walletInfo.transactions ?? []).map((item) => {
+      const amount = Number(item.amount ?? 0);
+      const source = String(item.source || "");
+      const type = String(item.type || "");
+      const status = String(item.status || "");
+      const method = getMethodFromSource(source);
+      const positive = type.toLowerCase() === "credit";
+
+      return {
+        id: item.id,
+        title: inferTransactionTitle(source, type),
+        amount: positive ? amount : -amount,
+        amountLabel: `${positive ? "+" : "-"}${formatMoney(amount)}`,
+        time: formatTransactionDate(item.createdAt),
+        createdAt: item.createdAt ?? null,
+        positive,
+        paymentMethod: method,
+        paymentStatus: status,
+        source,
+      };
+    });
+
+    setWalletBalance(Number(walletInfo.balance ?? 0));
+    setWalletActive(Boolean(walletInfo.isActive ?? true));
+    setTotalCharged(Number(walletInfo.totalCharged ?? 0));
+    setTransactions(mapped);
+
+    return mapped;
+  }, []);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -167,37 +253,13 @@ export default function Wallet() {
 
     let active = true;
 
-    async function loadWalletInfo() {
+    async function loadWalletPage() {
       try {
         setLoading(true);
-        const walletInfo = await getWalletInfoRequest(authToken);
+        const pending = readPendingWalletCharge();
+        setPendingCharge(pending);
+        await loadWalletInfo(authToken);
         if (!active) return;
-
-        const mapped = (walletInfo.transactions ?? []).map((item) => {
-          const amount = Number(item.amount ?? 0);
-          const source = String(item.source || "");
-          const type = String(item.type || "");
-          const status = String(item.status || "");
-          const method = getMethodFromSource(source);
-          const positive = type.toLowerCase() === "credit";
-
-          return {
-            id: item.id,
-            title: inferTransactionTitle(source, type),
-            amount: positive ? amount : -amount,
-            amountLabel: `${positive ? "+" : "-"}${formatMoney(amount)}`,
-            time: formatTransactionDate(item.createdAt),
-            positive,
-            paymentMethod: method,
-            paymentStatus: status,
-            source,
-          };
-        });
-
-        setWalletBalance(Number(walletInfo.balance ?? 0));
-        setWalletActive(Boolean(walletInfo.isActive ?? true));
-        setTotalCharged(Number(walletInfo.totalCharged ?? 0));
-        setTransactions(mapped);
       } catch (error) {
         if (!active) return;
         toast.error(error instanceof Error ? error.message : "Failed to load wallet activity.");
@@ -206,11 +268,66 @@ export default function Wallet() {
       }
     }
 
-    void loadWalletInfo();
+    void loadWalletPage();
     return () => {
       active = false;
     };
-  }, [chargeStatus, isAuthReady, user?.token]);
+  }, [chargeStatus, isAuthReady, loadWalletInfo, user?.token]);
+
+  useEffect(() => {
+    if (!user?.token || !chargeStatus) return;
+
+    if (chargeStatus === "failed") {
+      clearPendingWalletCharge();
+      setPendingCharge(null);
+      setSyncState("failed");
+      return;
+    }
+
+    if (chargeStatus !== "success") return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const activePendingCharge = readPendingWalletCharge();
+    setPendingCharge(activePendingCharge);
+    setSyncState("waiting");
+
+    const poll = async () => {
+      if (cancelled) return;
+      attempts += 1;
+
+      try {
+        const mapped = await loadWalletInfo(user.token);
+        if (cancelled) return;
+
+        if (hasMatchingWalletCharge(mapped, activePendingCharge)) {
+          clearPendingWalletCharge();
+          setPendingCharge(null);
+          setSyncState("confirmed");
+          return;
+        }
+
+        if (attempts >= 8) {
+          setSyncState("timeout");
+          return;
+        }
+
+        window.setTimeout(() => {
+          void poll();
+        }, 3000);
+      } catch {
+        if (!cancelled && attempts >= 8) {
+          setSyncState("timeout");
+        }
+      }
+    };
+
+    void poll();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [chargeStatus, loadWalletInfo, user?.token]);
 
   useEffect(() => {
     if (!chargeStatus) return;
@@ -225,7 +342,7 @@ export default function Wallet() {
     const nextQuery = params.toString();
     const timeout = window.setTimeout(() => {
       router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
-    }, 150);
+    }, 800);
 
     return () => window.clearTimeout(timeout);
   }, [chargeStatus, pathname, router, searchParams]);
@@ -256,6 +373,15 @@ export default function Wallet() {
 
     try {
       setCharging(true);
+      writePendingWalletCharge({
+        amount,
+        startedAt: new Date().toISOString(),
+      });
+      setPendingCharge({
+        amount,
+        startedAt: new Date().toISOString(),
+      });
+      setSyncState("waiting");
       const response = await chargeWalletRequest(user.token, amount);
       const checkoutUrl = response.checkoutUrl ?? response.paymentUrl;
 
@@ -265,6 +391,9 @@ export default function Wallet() {
 
       await openExternalUrl(checkoutUrl);
     } catch (error) {
+      clearPendingWalletCharge();
+      setPendingCharge(null);
+      setSyncState("idle");
       toast.error(error instanceof Error ? error.message : "Failed to start wallet charge.");
     } finally {
       setCharging(false);
@@ -311,7 +440,7 @@ export default function Wallet() {
           </div>
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={() => void (user?.token ? loadWalletInfo(user.token) : Promise.resolve())}
             className="ml-auto inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
           >
             <RefreshCw size={15} strokeWidth={2} />
@@ -337,6 +466,40 @@ export default function Wallet() {
           </div>
         ) : null}
 
+        {syncState === "waiting" ? (
+          <div className="rounded-3xl border border-amber-200 bg-gradient-to-r from-amber-50 to-white px-5 py-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-amber-100 p-2 text-amber-700">
+                <Loader2 size={18} className="animate-spin" strokeWidth={2.2} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-amber-900">Waiting for backend confirmation</p>
+                <p className="mt-1 text-sm text-amber-800/90">
+                  {pendingCharge
+                    ? `We are waiting for Kashier webhook confirmation for ${formatMoney(pendingCharge.amount)}. Your wallet balance will update automatically once backend records the charge.`
+                    : "Payment checkout finished. Your wallet balance will update automatically once backend confirms the charge."}
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {syncState === "confirmed" ? (
+          <div className="rounded-3xl border border-emerald-200 bg-gradient-to-r from-emerald-50 to-white px-5 py-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-emerald-100 p-2 text-emerald-700">
+                <CheckCircle2 size={18} strokeWidth={2.2} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-emerald-900">Wallet balance updated</p>
+                <p className="mt-1 text-sm text-emerald-800/90">
+                  Backend confirmed the wallet charge and the updated balance is shown below.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
         {chargeStatus === "failed" ? (
           <div className="rounded-3xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white px-5 py-4 shadow-sm">
             <div className="flex items-start gap-3">
@@ -347,6 +510,22 @@ export default function Wallet() {
                 <p className="text-sm font-semibold text-rose-900">Wallet charge failed</p>
                 <p className="mt-1 text-sm text-rose-800/90">
                   The payment gateway returned a failed status. You can retry the charge below.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        {syncState === "timeout" ? (
+          <div className="rounded-3xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white px-5 py-4 shadow-sm">
+            <div className="flex items-start gap-3">
+              <div className="rounded-2xl bg-rose-100 p-2 text-rose-700">
+                <Clock3 size={18} strokeWidth={2.2} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-rose-900">Backend confirmation is taking longer than expected</p>
+                <p className="mt-1 text-sm text-rose-800/90">
+                  The checkout may have succeeded, but the wallet charge has not appeared in backend records yet. Try Refresh once, and if the balance still does not change, the backend webhook still needs checking.
                 </p>
               </div>
             </div>
