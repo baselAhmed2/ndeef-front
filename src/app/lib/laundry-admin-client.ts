@@ -979,6 +979,11 @@ export async function initiateKashier(
   laundryId?: number,
 ): Promise<{ url: string }> {
   const resolvedLaundryId = laundryId ?? (await getProfile()).laundryId;
+  const callbackUrl =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/payment/admin-callback`
+      : undefined;
+
   const payload = await apiRequest<any>(
     "/laundry-admin/commission/kashier/initiate",
     {
@@ -987,6 +992,8 @@ export async function initiateKashier(
         amount,
         currency: "EGP",
         laundryId: resolvedLaundryId,
+        callbackUrl,
+        redirectUrl: callbackUrl,
       }),
       },
     );

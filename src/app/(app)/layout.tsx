@@ -4,6 +4,7 @@ import { TopNav } from "@/app/components/TopNav";
 import NdeefPageLoader from "@/app/components/NdeefPageLoader";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
+import { usePreferences } from "@/app/context/PreferencesContext";
 import { useEffect } from "react";
 import { ReactNode } from "react";
 import { Suspense } from "react";
@@ -24,10 +25,16 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { isLoggedIn, isAuthReady, user } = useAuth();
+  const { isDark } = usePreferences();
   const authPaths = ["/login", "/signup"];
   const currentPath = pathname ?? "/";
   const fromParam = searchParams?.get("from");
   const isAuthPage = authPaths.includes(currentPath);
+  const isPaymentCallbackPage =
+    currentPath.startsWith("/payment/callback") ||
+    currentPath.startsWith("/payment/admin-callback");
+  const isWalletChargeReturnPage =
+    currentPath.startsWith("/wallet") && Boolean(searchParams?.get("status"));
   
   const role = user?.role || "";
   const isLaundryAdmin = isLoggedIn && role.toLowerCase().includes("laundryadmin");
@@ -37,7 +44,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     if (!isAuthReady) return;
 
     if (isLaundryAdmin) {
-      if (!currentPath.startsWith("/laundry-admin")) {
+      if (!currentPath.startsWith("/laundry-admin") && !isPaymentCallbackPage && !isWalletChargeReturnPage) {
         // Only redirect if NOT specifically requested a different user page via 'from' (rare for admin)
         if (!fromParam || fromParam === "/" || fromParam === currentPath) {
           router.replace("/laundry-admin");
@@ -48,14 +55,14 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
     // Redirect couriers
     if (isCourier) {
-      if (!currentPath.startsWith("/courier")) {
+      if (!currentPath.startsWith("/courier") && !isPaymentCallbackPage && !isWalletChargeReturnPage) {
         if (!fromParam || fromParam === "/" || fromParam === currentPath) {
           router.replace("/courier");
         }
       }
       return;
     }
-  }, [currentPath, fromParam, isAuthReady, isCourier, isLaundryAdmin, router]);
+  }, [currentPath, fromParam, isAuthReady, isCourier, isLaundryAdmin, isPaymentCallbackPage, isWalletChargeReturnPage, router]);
 
   if (!isAuthReady) {
     return <AuthPageLoader />;
@@ -63,7 +70,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
 
   // AGGRESSIVE: If you are an admin in a user section, show NOTHING but the white loader
   // This kills the flicker of the Home page or TopNav instantly.
-  if (isLaundryAdmin && !currentPath.startsWith("/laundry-admin")) {
+  if (isLaundryAdmin && !currentPath.startsWith("/laundry-admin") && !isPaymentCallbackPage && !isWalletChargeReturnPage) {
     return (
       <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -74,7 +81,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
-  if (isCourier && !currentPath.startsWith("/courier")) {
+  if (isCourier && !currentPath.startsWith("/courier") && !isPaymentCallbackPage && !isWalletChargeReturnPage) {
     return (
       <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
@@ -85,10 +92,14 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
-  const shouldShowTopNav = (!isAuthPage || !!fromParam) && !isLaundryAdmin && !isCourier;
+  const shouldShowTopNav =
+    (!isAuthPage || !!fromParam) &&
+    !isLaundryAdmin &&
+    !isCourier &&
+    !isPaymentCallbackPage;
 
   return (
-    <div className="min-h-screen bg-[#f5f5f5]">
+    <div className={`min-h-screen ${isDark ? "bg-[#071923]" : "bg-[#f5f5f5]"}`}>
       {shouldShowTopNav && <TopNav />}
       <AppMotionShell>{children}</AppMotionShell>
     </div>

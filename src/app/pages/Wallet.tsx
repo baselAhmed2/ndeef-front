@@ -208,6 +208,8 @@ export default function Wallet() {
   const [syncState, setSyncState] = useState<WalletSyncState>("idle");
   const chargeStatus = searchParams?.get("status");
   const [pendingCharge, setPendingCharge] = useState<PendingWalletCharge | null>(null);
+  const normalizedRole = String(user?.role ?? "").trim().toLowerCase().replace(/\s+/g, "");
+  const isCustomerRole = !normalizedRole || normalizedRole === "customer" || normalizedRole === "1";
 
   const loadWalletInfo = useCallback(async (authToken: string) => {
     const walletInfo = await getWalletInfoRequest(authToken);
@@ -419,6 +421,44 @@ export default function Wallet() {
           >
             Go to Login
           </Link>
+        </div>
+      </div>
+    );
+  }
+
+  if (isAuthReady && user?.token && !isCustomerRole) {
+    return (
+      <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] px-6 py-12">
+        <div className="mx-auto max-w-2xl rounded-[32px] border border-amber-200 bg-white p-8 shadow-sm">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+            <WalletIcon size={24} strokeWidth={2.2} />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Wallet charge returned to a non-customer session</h1>
+          <p className="mt-3 text-sm leading-6 text-gray-600">
+            This browser is currently signed in as <span className="font-semibold text-gray-900">{user.role}</span>, so the customer wallet page cannot open here.
+          </p>
+          <p className="mt-3 text-sm leading-6 text-gray-600">
+            If the charge was started from a customer account on another session or device, sign in here with that same customer account to see the updated wallet balance.
+          </p>
+          {chargeStatus ? (
+            <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+              Payment gateway returned status: <span className="font-semibold">{chargeStatus}</span>
+            </div>
+          ) : null}
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/login?role=Customer&from=/wallet"
+              className="inline-flex items-center justify-center rounded-2xl bg-[#1D6076] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164d5f]"
+            >
+              Sign in as Customer
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
+            >
+              Go Home
+            </Link>
+          </div>
         </div>
       </div>
     );

@@ -19,6 +19,7 @@ import {
   getServices,
 } from "@/app/lib/laundry-admin-client";
 import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
+import { usePreferences } from "@/app/context/PreferencesContext";
 
 interface DashboardStats {
   totalRevenue: number;
@@ -61,6 +62,7 @@ function StatCard({
   subtitle,
   accent = false,
   delay = 0,
+  isDark = false,
 }: {
   icon: any;
   label: string;
@@ -68,6 +70,7 @@ function StatCard({
   subtitle: string;
   accent?: boolean;
   delay?: number;
+  isDark?: boolean;
 }) {
   return (
     <motion.div
@@ -77,21 +80,21 @@ function StatCard({
       className={`rounded-2xl p-6 shadow-sm ${
         accent
           ? "bg-gradient-to-br from-[#0f4c5c] to-[#2a9d8f] text-white"
-          : "border border-gray-100 bg-white"
+          : isDark ? "border border-white/10 bg-[#102231]" : "border border-gray-100 bg-white"
       }`}
     >
       <div
         className={`mb-4 flex h-12 w-12 items-center justify-center rounded-xl ${
-          accent ? "bg-white/20" : "bg-[#0f4c5c]/10"
+          accent ? "bg-white/20" : isDark ? "bg-white/5" : "bg-[#0f4c5c]/10"
         }`}
       >
         <Icon className={`h-6 w-6 ${accent ? "text-white" : "text-[#0f4c5c]"}`} />
       </div>
-      <p className={`text-sm ${accent ? "text-white/70" : "text-gray-500"}`}>{label}</p>
-      <p className={`mt-1 text-3xl font-black ${accent ? "text-white" : "text-gray-900"}`}>
+      <p className={`text-sm ${accent ? "text-white/70" : isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>{label}</p>
+      <p className={`mt-1 text-3xl font-black ${accent ? "text-white" : isDark ? "text-white" : "text-gray-900"}`}>
         {value}
       </p>
-      <p className={`mt-2 text-xs ${accent ? "text-white/60" : "text-gray-400"}`}>
+      <p className={`mt-2 text-xs ${accent ? "text-white/60" : isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>
         {subtitle}
       </p>
     </motion.div>
@@ -117,6 +120,7 @@ function getStatusColor(status: string) {
 
 export default function LaundryDashboardPage() {
   const router = useRouter();
+  const { isDark } = usePreferences();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [stats, setStats] = useState<DashboardStats>({
@@ -200,28 +204,40 @@ export default function LaundryDashboardPage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-[#0f4c5c]/5 to-[#2a9d8f]/5">
+      <div
+        className={`flex min-h-screen items-center justify-center ${
+          isDark ? "bg-[#071923]" : "bg-gradient-to-br from-[#0f4c5c]/5 to-[#2a9d8f]/5"
+        }`}
+      >
         <div className="text-center">
           <Loader2 className="mx-auto mb-4 h-12 w-12 animate-spin text-[#0f4c5c]" />
-          <p className="text-gray-600">Loading dashboard...</p>
+          <p className={isDark ? "text-[#8db7cb]" : "text-gray-600"}>Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#0f4c5c]/5 via-white to-[#fff7ed] p-6">
+    <div
+      className={`min-h-screen p-6 ${
+        isDark ? "bg-[#071923]" : "bg-gradient-to-br from-[#0f4c5c]/5 via-white to-[#fff7ed]"
+      }`}
+    >
       <div className="mx-auto max-w-7xl">
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-8 rounded-[2rem] border border-white/70 bg-white/90 p-6 shadow-xl shadow-[#1D5B70]/5"
+          className={`mb-8 rounded-[2rem] p-6 ${
+            isDark
+              ? "border border-white/10 bg-[#102231] shadow-none"
+              : "border border-white/70 bg-white/90 shadow-xl shadow-[#1D5B70]/5"
+          }`}
         >
           <p className="text-xs font-bold uppercase tracking-[0.28em] text-[#EBA050]">
             Laundry Admin
           </p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-gray-950">Dashboard</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <h1 className={`mt-2 text-3xl font-black tracking-tight ${isDark ? "text-white" : "text-gray-950"}`}>Dashboard</h1>
+          <p className={`mt-2 text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>
             Live operational overview from the backend.
           </p>
           {error && (
@@ -239,6 +255,7 @@ export default function LaundryDashboardPage() {
             subtitle="Delivered orders"
             accent
             delay={0}
+            isDark={isDark}
           />
           <StatCard
             icon={Package}
@@ -246,6 +263,7 @@ export default function LaundryDashboardPage() {
             value={stats.totalOrders.toLocaleString()}
             subtitle="Across your laundry"
             delay={0.1}
+            isDark={isDark}
           />
           <StatCard
             icon={CheckCircle}
@@ -253,6 +271,7 @@ export default function LaundryDashboardPage() {
             value={stats.completedOrders.toLocaleString()}
             subtitle="Successfully delivered"
             delay={0.2}
+            isDark={isDark}
           />
           <StatCard
             icon={Clock}
@@ -260,6 +279,7 @@ export default function LaundryDashboardPage() {
             value={stats.pendingOrders.toLocaleString()}
             subtitle="Needs attention"
             delay={0.3}
+            isDark={isDark}
           />
         </div>
 
@@ -268,16 +288,22 @@ export default function LaundryDashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.4 }}
-            className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm lg:col-span-2"
+            className={`rounded-2xl p-6 lg:col-span-2 ${
+              isDark
+                ? "border border-white/10 bg-[#102231] shadow-none"
+                : "border border-gray-100 bg-white shadow-sm"
+            }`}
           >
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Recent Orders</h2>
-                <p className="text-sm text-gray-500">Latest orders from the backend</p>
+                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Recent Orders</h2>
+                <p className={`text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>Latest orders from the backend</p>
               </div>
               <button
                 onClick={() => router.push("/laundry-admin/orders")}
-                className="flex items-center gap-2 text-sm font-semibold text-[#0f4c5c] transition hover:text-[#2a9d8f]"
+                className={`flex items-center gap-2 text-sm font-semibold transition ${
+                  isDark ? "text-[#8dd0e6] hover:text-white" : "text-[#0f4c5c] hover:text-[#2a9d8f]"
+                }`}
               >
                 View All <ArrowRight className="h-4 w-4" />
               </button>
@@ -291,32 +317,40 @@ export default function LaundryDashboardPage() {
                     initial={{ opacity: 0, x: -16 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: 0.5 + index * 0.08 }}
-                    className="flex items-center justify-between rounded-xl bg-gray-50 p-4 transition hover:bg-gray-100"
+                    className={`flex items-center justify-between rounded-xl p-4 transition ${
+                      isDark ? "bg-[#132a3a] hover:bg-[#193447]" : "bg-gray-50 hover:bg-gray-100"
+                    }`}
                   >
                     <div className="flex min-w-0 items-center gap-4">
                       <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#0f4c5c] to-[#2a9d8f] font-bold text-white">
                         {order.id.slice(-2)}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-semibold text-gray-900">{order.id}</p>
-                        <p className="truncate text-sm text-gray-500">
+                        <p className={`font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>{order.id}</p>
+                        <p className={`truncate text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>
                           {order.customerName} - {order.serviceName} - {order.items} items
                         </p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="font-bold text-gray-900">{currency.format(order.total)}</p>
+                      <p className={`font-bold ${isDark ? "text-white" : "text-gray-900"}`}>{currency.format(order.total)}</p>
                       <span
                         className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${getStatusColor(order.status)}`}
                       >
                         {order.status}
                       </span>
-                      <p className="mt-1 text-xs text-gray-400">{order.time}</p>
+                      <p className={`mt-1 text-xs ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>{order.time}</p>
                     </div>
                   </motion.div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 py-10 text-center text-sm text-gray-400">
+                <div
+                  className={`rounded-2xl py-10 text-center text-sm ${
+                    isDark
+                      ? "border border-dashed border-white/10 bg-[#132a3a] text-[#8db7cb]"
+                      : "border border-dashed border-gray-200 bg-gray-50 text-gray-400"
+                  }`}
+                >
                   No recent orders found
                 </div>
               )}
@@ -327,12 +361,16 @@ export default function LaundryDashboardPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+            className={`rounded-2xl p-6 ${
+              isDark
+                ? "border border-white/10 bg-[#102231] shadow-none"
+                : "border border-gray-100 bg-white shadow-sm"
+            }`}
           >
             <div className="mb-6 flex items-center justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">Service Mix</h2>
-                <p className="text-sm text-gray-500">Based on configured service prices</p>
+                <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Service Mix</h2>
+                <p className={`text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>Based on configured service prices</p>
               </div>
               <Sparkles className="h-5 w-5 text-[#EBA050]" />
             </div>
@@ -346,10 +384,10 @@ export default function LaundryDashboardPage() {
                     </div>
                     <div className="flex-1">
                       <div className="mb-1 flex items-center justify-between">
-                        <span className="font-medium text-gray-900">{service.name}</span>
-                        <span className="text-sm font-bold text-[#0f4c5c]">{service.percentage}%</span>
+                        <span className={`font-medium ${isDark ? "text-white" : "text-gray-900"}`}>{service.name}</span>
+                        <span className={`text-sm font-bold ${isDark ? "text-[#8dd0e6]" : "text-[#0f4c5c]"}`}>{service.percentage}%</span>
                       </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                      <div className={`h-2 overflow-hidden rounded-full ${isDark ? "bg-white/10" : "bg-gray-100"}`}>
                         <motion.div
                           initial={{ width: 0 }}
                           animate={{ width: `${service.percentage}%` }}
@@ -361,7 +399,13 @@ export default function LaundryDashboardPage() {
                   </div>
                 ))
               ) : (
-                <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 py-8 text-center text-sm text-gray-400">
+                <div
+                  className={`rounded-2xl py-8 text-center text-sm ${
+                    isDark
+                      ? "border border-dashed border-white/10 bg-[#132a3a] text-[#8db7cb]"
+                      : "border border-dashed border-gray-200 bg-gray-50 text-gray-400"
+                  }`}
+                >
                   No services data
                 </div>
               )}
@@ -373,18 +417,22 @@ export default function LaundryDashboardPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.6 }}
-          className="mt-6 rounded-2xl border border-gray-100 bg-white p-6 shadow-sm"
+          className={`mt-6 rounded-2xl p-6 ${
+            isDark
+              ? "border border-white/10 bg-[#102231] shadow-none"
+              : "border border-gray-100 bg-white shadow-sm"
+          }`}
         >
           <div className="mb-5">
-            <h2 className="text-xl font-bold text-gray-900">Monthly Revenue</h2>
-            <p className="text-sm text-gray-500">Current year delivered revenue</p>
+            <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Monthly Revenue</h2>
+            <p className={`text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>Current year delivered revenue</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6">
             {revenueData.map((point) => (
-              <div key={point.month} className="rounded-2xl bg-gray-50 p-4">
-                <p className="text-xs font-bold uppercase tracking-wide text-gray-400">{point.month}</p>
-                <p className="mt-2 text-lg font-black text-gray-950">{currency.format(point.revenue)}</p>
-                <p className="text-xs text-gray-400">{point.orders} orders</p>
+              <div key={point.month} className={`rounded-2xl p-4 ${isDark ? "bg-[#132a3a]" : "bg-gray-50"}`}>
+                <p className={`text-xs font-bold uppercase tracking-wide ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>{point.month}</p>
+                <p className={`mt-2 text-lg font-black ${isDark ? "text-white" : "text-gray-950"}`}>{currency.format(point.revenue)}</p>
+                <p className={`text-xs ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>{point.orders} orders</p>
               </div>
             ))}
           </div>

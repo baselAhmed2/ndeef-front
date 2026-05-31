@@ -699,6 +699,7 @@ async function request<T>(
   path: string,
   init?: RequestInit,
   token?: string | null,
+  options?: { suppressErrorLog?: boolean },
 ): Promise<T> {
   const headers = new Headers(init?.headers);
 
@@ -738,15 +739,17 @@ async function request<T>(
       `Request failed with status ${response.status}.`,
     );
 
-    console.error("[API Error]", {
-      path,
-      status: response.status,
-      statusText: response.statusText,
-      requestBody:
-        typeof init?.body === "string" ? init.body.substring(0, 800) : undefined,
-      responseBody: summarizeErrorPayload(data),
-      message,
-    });
+    if (!options?.suppressErrorLog) {
+      console.error("[API Error]", {
+        path,
+        status: response.status,
+        statusText: response.statusText,
+        requestBody:
+          typeof init?.body === "string" ? init.body.substring(0, 800) : undefined,
+        responseBody: summarizeErrorPayload(data),
+        message,
+      });
+    }
 
     throw new ApiError(
       message,
@@ -1442,6 +1445,9 @@ export async function getLaundriesRequest(params?: {
   try {
     const response = await request<PaginatedResponse<BackendLaundryDto>>(
       `/Laundries${query.toString() ? `?${query.toString()}` : ""}`,
+      undefined,
+      undefined,
+      { suppressErrorLog: true },
     );
     if (
       ENABLE_MOCK_LAUNDRY_FALLBACK &&

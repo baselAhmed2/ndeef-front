@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { Bell, Search, ChevronDown, User, Settings, LogOut, AlertTriangle, X } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/app/context/AuthContext";
+import { usePreferences } from "@/app/context/PreferencesContext";
 import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 import { getLaundryUnreadNotificationCount } from "@/app/lib/laundry-admin-client";
 
@@ -40,6 +41,7 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { isDark } = usePreferences();
   const [unreadCount, setUnreadCount] = useState(notificationCount);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
@@ -121,11 +123,11 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
 
   return (
     <>
-      <header className="h-16 flex items-center justify-between px-6 bg-white border-b border-gray-100 shrink-0">
+      <header className={`h-16 flex items-center justify-between px-6 shrink-0 ${isDark ? "bg-[#102231] border-b border-white/10" : "bg-white border-b border-gray-100"}`}>
         {/* Left: Page Title */}
         <div>
-          <h1 className="text-gray-900 font-semibold text-base leading-tight">{pageInfo.title}</h1>
-          <p className="text-gray-400 text-xs mt-0.5">{pageSubtitle}</p>
+          <h1 className={`${isDark ? "text-white" : "text-gray-900"} font-semibold text-base leading-tight`}>{pageInfo.title}</h1>
+          <p className={`${isDark ? "text-[#8db7cb]" : "text-gray-400"} text-xs mt-0.5`}>{pageSubtitle}</p>
         </div>
 
         {/* Right: Actions */}
@@ -286,7 +288,7 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
                 </div>
               </div>
               <p className="text-sm text-gray-600 mb-5">
-                You'll be logged out of your Nazeef admin account. Any unsaved changes will be lost.
+                You&apos;ll be logged out of your Nazeef admin account. Any unsaved changes will be lost.
               </p>
               <div className="flex gap-2">
                 <button

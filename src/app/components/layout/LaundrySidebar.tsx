@@ -95,16 +95,16 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 py-5 px-3 space-y-3 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => {
           const active = isActive(item.path, item.exact);
           return (
-            <Link key={item.path} href={item.path}>
+            <Link key={item.path} href={item.path} className="block">
               <motion.div
                 whileHover={{ x: collapsed ? 0 : 4 }}
                 transition={{ duration: 0.15 }}
                 className={`
-                  relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200
+                  relative flex items-center gap-3 px-3 py-3.5 rounded-2xl cursor-pointer transition-all duration-200
                   ${active
                     ? "bg-white/22 text-white shadow-sm"
                     : "text-white/80 hover:text-white hover:bg-white/12"
@@ -147,13 +147,13 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
       </nav>
 
       {/* Bottom section */}
-      <div className="py-3 px-2 space-y-1 border-t border-white/10">
+      <div className="py-4 px-3 space-y-3 border-t border-white/10">
         <Link href="/laundry-admin/settings">
           <motion.div
             whileHover={{ x: collapsed ? 0 : 4 }}
             transition={{ duration: 0.15 }}
             className={`
-              relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200
+              relative flex items-center gap-3 px-3 py-3.5 rounded-2xl cursor-pointer transition-all duration-200
               ${currentPath === "/laundry-admin/settings"
                 ? "bg-white/22 text-white shadow-sm"
                 : "text-white/80 hover:text-white hover:bg-white/12"
@@ -178,7 +178,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
         </Link>
         <button
           onClick={() => setShowLogoutModal(true)}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/80 hover:text-red-100 hover:bg-red-500/14 transition-all duration-200"
+          className="w-full flex items-center gap-3 px-3 py-3.5 rounded-2xl text-white/80 hover:text-red-100 hover:bg-red-500/14 transition-all duration-200"
         >
           <LogOut className="w-5 h-5 shrink-0" />
           <AnimatePresence>
@@ -225,7 +225,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
                 </div>
               </div>
               <p className="text-sm text-gray-600 mb-5">
-                You'll be logged out of your Nazeef admin account. Any unsaved changes will be lost.
+                You&apos;ll be logged out of your Nazeef admin account. Any unsaved changes will be lost.
               </p>
               <div className="flex gap-2">
                 <button
@@ -256,7 +256,7 @@ export function LaundrySidebar({ collapsed: rawCollapsed, onToggle }: LaundrySid
       {!isMobile && (
         <button
           onClick={onToggle}
-          className="absolute -right-3 top-20 w-6 h-6 rounded-full bg-white shadow-md flex items-center justify-center hover:shadow-lg transition-shadow z-50"
+          className="absolute -right-5 top-20 flex h-8 w-8 items-center justify-center rounded-full bg-white shadow-md ring-4 ring-[#eef5f7] transition-shadow hover:shadow-lg z-50"
           style={{ color: "#1D5B70" }}
         >
           <motion.div animate={{ rotate: collapsed ? 180 : 0 }} transition={{ duration: 0.3 }}>

@@ -42,6 +42,7 @@ import {
 import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 import { useAuth } from "@/app/context/AuthContext";
 import { DashboardAccessGuard } from "@/app/components/auth/DashboardAccessGuard";
+import { usePreferences } from "@/app/context/PreferencesContext";
 
 const NAV_ITEMS = [
   {
@@ -92,6 +93,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { isAuthReady, isLoggedIn, user, logout } = useAuth();
+  const { isDark } = usePreferences();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [available, setAvailable] = useState(false);
@@ -464,7 +466,10 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
 
   return (
     <DashboardAccessGuard allowedRoles={["courier", "2"]} loginRoleHint="Courier">
-      <div className="ndeef-courier-shell flex h-screen overflow-hidden" style={{ backgroundColor: "#f1f5f9" }}>
+      <div
+        className="ndeef-courier-shell flex h-screen overflow-hidden"
+        style={{ backgroundColor: isDark ? "#071923" : "#f1f5f9" }}
+      >
       <AnimatePresence>
         {mobileMenuOpen && <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={() => setMobileMenuOpen(false)} className="fixed inset-0 bg-black/60 z-40 lg:hidden backdrop-blur-sm" />}
       </AnimatePresence>
@@ -481,14 +486,14 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
       </motion.aside>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="ndeef-courier-surface lg:hidden flex items-center justify-between h-16 px-4 bg-white border-b border-gray-100 shrink-0 shadow-sm z-20">
+        <header className={`ndeef-courier-surface lg:hidden flex items-center justify-between h-16 px-4 shrink-0 shadow-sm z-20 ${isDark ? "bg-[#102231] border-b border-white/10" : "bg-white border-b border-gray-100"}`}>
           <div className="flex items-center gap-3">
             <button onClick={() => setMobileMenuOpen(true)} className="p-2 -ml-2 text-gray-600 hover:bg-gray-100 dark:hover:bg-white/8 rounded-lg transition-colors">
               <Menu className="w-6 h-6" />
             </button>
             <div>
-              <h1 className="text-gray-900 font-bold leading-tight">{currentNav?.label ?? "Courier App"}</h1>
-              <p className="text-gray-400 text-[10px] leading-tight">{currentNav?.description}</p>
+              <h1 className={`${isDark ? "text-white" : "text-gray-900"} font-bold leading-tight`}>{currentNav?.label ?? "Courier App"}</h1>
+              <p className={`${isDark ? "text-[#8db7cb]" : "text-gray-400"} text-[10px] leading-tight`}>{currentNav?.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -531,10 +536,10 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <header className="ndeef-courier-surface hidden lg:flex items-center justify-between h-16 px-6 bg-white border-b border-gray-100 shrink-0 shadow-sm z-10">
+        <header className={`ndeef-courier-surface hidden lg:flex items-center justify-between h-16 px-6 shrink-0 shadow-sm z-10 ${isDark ? "bg-[#102231] border-b border-white/10" : "bg-white border-b border-gray-100"}`}>
           <div>
-            <h1 className="text-gray-900 font-bold">{currentNav?.label ?? "Courier App"}</h1>
-            <p className="text-gray-400 text-xs">{currentNav?.description}</p>
+            <h1 className={`${isDark ? "text-white" : "text-gray-900"} font-bold`}>{currentNav?.label ?? "Courier App"}</h1>
+            <p className={`${isDark ? "text-[#8db7cb]" : "text-gray-400"} text-xs`}>{currentNav?.description}</p>
           </div>
           <div className="flex items-center gap-3">
             {activeRunLabel && (
@@ -585,11 +590,11 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
           </div>
         </header>
 
-        <main className="flex-1 overflow-y-auto pb-20 lg:pb-0 relative">
+        <main className={`flex-1 overflow-y-auto pb-20 lg:pb-0 relative ${isDark ? "bg-[#071923]" : ""}`}>
           <AnimatePresence mode="wait">{children}</AnimatePresence>
         </main>
 
-        <nav className="ndeef-courier-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-30 bg-white border-t border-gray-100 safe-area-pb">
+        <nav className={`ndeef-courier-bottom-nav lg:hidden fixed bottom-0 left-0 right-0 z-30 safe-area-pb ${isDark ? "bg-[#102231] border-t border-white/10" : "bg-white border-t border-gray-100"}`}>
           <div className="flex items-center h-16">
             {NAV_ITEMS.map((item) => {
               const active = isActive(item.path, item.exact);
