@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   CheckCircle2,
@@ -10,6 +10,7 @@ import {
   Filter,
   Loader2,
   Plus,
+  RefreshCw,
   ShieldCheck,
   Wallet as WalletIcon,
   XCircle,
@@ -142,6 +143,8 @@ function inferTransactionTitle(source: string, type: string) {
 
 export default function Wallet() {
   const { user, isAuthReady } = useAuth();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
   const [charging, setCharging] = useState(false);
@@ -207,7 +210,7 @@ export default function Wallet() {
     return () => {
       active = false;
     };
-  }, [isAuthReady, user?.token]);
+  }, [chargeStatus, isAuthReady, user?.token]);
 
   useEffect(() => {
     if (!chargeStatus) return;
@@ -216,7 +219,16 @@ export default function Wallet() {
     } else if (chargeStatus === "failed") {
       toast.error("Wallet charge did not complete successfully.");
     }
-  }, [chargeStatus]);
+
+    const params = new URLSearchParams(searchParams?.toString() ?? "");
+    params.delete("status");
+    const nextQuery = params.toString();
+    const timeout = window.setTimeout(() => {
+      router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, { scroll: false });
+    }, 150);
+
+    return () => window.clearTimeout(timeout);
+  }, [chargeStatus, pathname, router, searchParams]);
 
   const refundsTotal = useMemo(
     () =>
@@ -297,6 +309,14 @@ export default function Wallet() {
             <h1 className="text-2xl font-bold text-gray-900">Wallet</h1>
             <p className="text-sm text-gray-500">Charge wallet, review balance, and track refunds from backend.</p>
           </div>
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="ml-auto inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+          >
+            <RefreshCw size={15} strokeWidth={2} />
+            Refresh
+          </button>
         </div>
       </div>
 

@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Banknote,
   CreditCard,
+  Wallet,
   RefreshCw,
   Trash2,
   Navigation,
@@ -34,6 +35,7 @@ import {
   mapLaundryDtoToUiLaundry,
   placeBundleOrderRequest,
   placeOrderRequest,
+  processPaymentRequest,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -128,7 +130,7 @@ export default function OrderPage() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [sameAddress, setSameAddress] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState<"credit" | "cash">("credit");
+  const [paymentMethod, setPaymentMethod] = useState<"credit" | "cash" | "wallet">("credit");
   const [validating, setValidating] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [pricingError, setPricingError] = useState("");
@@ -327,11 +329,30 @@ export default function OrderPage() {
 
   const deliveryFee = 0;
   const finalDelivery = sameAddress ? pickupAddress : deliveryAddress;
+  const walletCanCoverRegularOrder = !selectedBundle && walletBalance >= total + deliveryFee && total + deliveryFee > 0;
   const mapPreviewSrc = useMemo(
     () =>
       `https://www.openstreetmap.org/export/embed.html?bbox=${mapLongitude - 0.01}%2C${mapLatitude - 0.01}%2C${mapLongitude + 0.01}%2C${mapLatitude + 0.01}&layer=mapnik&marker=${mapLatitude}%2C${mapLongitude}`,
     [mapLatitude, mapLongitude],
   );
+
+  useEffect(() => {
+    if (selectedBundle) {
+      if (paymentMethod === "wallet") {
+        setPaymentMethod("credit");
+      }
+      return;
+    }
+
+    if (walletCanCoverRegularOrder && paymentMethod === "credit") {
+      setPaymentMethod("wallet");
+      return;
+    }
+
+    if (!walletCanCoverRegularOrder && paymentMethod === "wallet") {
+      setPaymentMethod("credit");
+    }
+  }, [paymentMethod, selectedBundle, walletCanCoverRegularOrder]);
 
   const updateItemCount = (serviceId: string, nextValue: number) => {
     setItemCounts((current) => ({
@@ -470,6 +491,26 @@ export default function OrderPage() {
         setOrderRedirecting(true);
         router.push(`/track-order/${order.id}?notice=placed`);
         return;
+      }
+
+      if (paymentMethod === "wallet") {
+        try {
+          await processPaymentRequest(user.token, {
+            orderId: Number(order.id),
+            amount: Number(total + deliveryFee),
+            paymentMethod: "Wallet",
+          });
+          setWalletBalance((current) => Math.max(0, current - Number(total + deliveryFee)));
+          shouldKeepLockedAfterSubmit = true;
+          setOrderRedirecting(true);
+          router.push(`/track-order/${order.id}?notice=paid`);
+          return;
+        } catch (paymentError) {
+          shouldKeepLockedAfterSubmit = true;
+          setOrderRedirecting(true);
+          router.push(`/payment?orderId=${order.id}`);
+          return;
+        }
       }
 
       shouldKeepLockedAfterSubmit = true;
@@ -958,6 +999,25 @@ export default function OrderPage() {
             PAYMENT METHOD
           </p>
 
+            <div className="mb-4 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] px-4 py-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Wallet balance</p>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Your current balance updates after charging and after any wallet payment or refund.
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-semibold text-[#1D6076]">{walletBalance.toFixed(2)} EGP</p>
+                  {!selectedBundle && !walletCanCoverRegularOrder ? (
+                    <p className="mt-1 text-xs text-amber-700">
+                      Need {(total + deliveryFee - walletBalance).toFixed(2)} EGP more for full wallet payment
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
               type="button"
@@ -994,6 +1054,29 @@ export default function OrderPage() {
                   The order is created first, then the backend opens the card checkout for that order.
                 </p>
               </button>
+
+              {!selectedBundle ? (
+                <button
+                  type="button"
+                  onClick={() => walletCanCoverRegularOrder && setPaymentMethod("wallet")}
+                  disabled={!walletCanCoverRegularOrder}
+                  className={`text-left rounded-xl border px-4 py-3.5 transition-all ${
+                    paymentMethod === "wallet"
+                      ? "border-[#1D6076] bg-[#1D6076]/5"
+                      : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                  } ${walletCanCoverRegularOrder ? "" : "cursor-not-allowed opacity-60"}`}
+                >
+                  <div className="flex items-center gap-2.5 mb-1.5">
+                    <Wallet size={16} className="text-[#1D6076]" strokeWidth={2} />
+                    <p className="text-sm text-gray-900 font-medium">Wallet</p>
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    {walletCanCoverRegularOrder
+                      ? "If you place the order now, it will be paid automatically from your wallet."
+                      : `Wallet payment for normal orders needs the full amount. Short by ${(total + deliveryFee - walletBalance).toFixed(2)} EGP.`}
+                  </p>
+                </button>
+              ) : null}
             </div>
 
             {selectedBundle ? (
@@ -1017,6 +1100,12 @@ export default function OrderPage() {
                     {useWalletBalance ? "Enabled" : "Enable"}
                   </button>
                 </div>
+              </div>
+            ) : null}
+
+            {!selectedBundle && paymentMethod === "wallet" ? (
+              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+                This order will be created first, then paid automatically from your wallet balance.
               </div>
             ) : null}
           </div>
@@ -1055,6 +1144,8 @@ export default function OrderPage() {
               <>
                 {paymentMethod === "cash"
                   ? "Create Order (Cash)"
+                  : paymentMethod === "wallet"
+                    ? "Create Order and Pay from Wallet"
                   : "Create Order and Pay"}
                 <ChevronDown size={16} className="-rotate-90" strokeWidth={2} />
               </>
