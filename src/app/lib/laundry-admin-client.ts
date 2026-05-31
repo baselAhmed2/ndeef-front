@@ -429,10 +429,20 @@ export async function getOrderById(id: string): Promise<any> {
 export async function updateOrderStatus(
   id: string,
   status: string,
+  cancellationReason?: string,
 ): Promise<void> {
+  const backendStatus = toBackendOrderStatus(status);
   await apiRequest(`/laundry-admin/orders/${id}/status`, {
     method: "PUT",
-    body: JSON.stringify({ newStatus: toBackendOrderStatus(status) }),
+    body: JSON.stringify({
+      newStatus: backendStatus,
+      ...(backendStatus === "Cancelled"
+        ? {
+            cancellationReason:
+              cancellationReason?.trim() || "Cancelled by laundry admin",
+          }
+        : {}),
+    }),
   });
 }
 

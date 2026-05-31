@@ -1799,7 +1799,7 @@ export async function upsertPayoutProfile(token: string, payload: UpsertPayoutPr
   return request<UpsertPayoutProfileRequest>(
     "/laundry-admin/payout-profile",
     {
-      method: "PUT",
+      method: "POST",
       body: JSON.stringify(payload),
     },
     token,

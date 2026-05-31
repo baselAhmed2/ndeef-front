@@ -280,7 +280,11 @@ export function OrderDetailsNew() {
     try {
       setUpdating(true);
       setError("");
-      await updateOrderStatus(order.id, status);
+      await updateOrderStatus(
+        order.id,
+        status,
+        status === "Cancelled" ? "Cancelled by laundry admin" : undefined,
+      );
       setOrder({ ...order, status });
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to update order.";

@@ -17,12 +17,10 @@ export default function PayoutProfilePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [isBackendSupported, setIsBackendSupported] = useState(true);
-  const [supportMessage, setSupportMessage] = useState("");
 
   const [formData, setFormData] = useState<UpsertPayoutProfileRequest>({
     transferMethod: PayoutTransferMethod.BankAccount,
-    transferType: PayoutTransferType.Standard,
+    transferType: null,
     recipientFullName: "",
     recipientMobileNumber: "",
     bankName: "",
@@ -36,27 +34,21 @@ export default function PayoutProfilePage() {
       if (!user?.token) return;
       try {
         const data = await getPayoutProfile(user.token);
-        if (data) {
-          setFormData({
-            transferMethod: data.transferMethod || PayoutTransferMethod.BankAccount,
-            transferType: data.transferType || PayoutTransferType.Standard,
-            recipientFullName: data.recipientFullName || "",
-            recipientMobileNumber: data.recipientMobileNumber || "",
-            bankName: data.bankName || "",
-            bankAccountNumber: data.bankAccountNumber || "",
-            cardNumber: data.cardNumber || "",
-            nationalId: data.nationalId || "",
-          });
-        }
+        setFormData({
+          transferMethod: data.transferMethod || PayoutTransferMethod.BankAccount,
+          transferType:
+            (data.transferMethod || PayoutTransferMethod.BankAccount) === PayoutTransferMethod.MobileWallet
+              ? data.transferType || PayoutTransferType.Standard
+              : null,
+          recipientFullName: data.recipientFullName || "",
+          recipientMobileNumber: data.recipientMobileNumber || "",
+          bankName: data.bankName || "",
+          bankAccountNumber: data.bankAccountNumber || "",
+          cardNumber: data.cardNumber || "",
+          nationalId: data.nationalId || "",
+        });
       } catch (err: any) {
-        if (err.status === 404 || err.status === 405 || err.status === 501) {
-          setIsBackendSupported(false);
-          setSupportMessage(
-            "The current backend does not expose payout profile endpoints yet. This screen is ready on the frontend and will activate automatically once the API is available.",
-          );
-        } else if (err.status !== 400) {
-          toast.error(err.message || "Failed to load payout profile");
-        }
+        toast.error(err.message || "Failed to load payout profile");
       } finally {
         setLoading(false);
       }
@@ -66,10 +58,36 @@ export default function PayoutProfilePage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: name === "transferMethod" || name === "transferType" ? Number(value) : value,
-    }));
+    setFormData((prev) => {
+      if (name === "transferMethod") {
+        const nextMethod = Number(value) as PayoutTransferMethod;
+        return {
+          ...prev,
+          transferMethod: nextMethod,
+          transferType:
+            nextMethod === PayoutTransferMethod.MobileWallet
+              ? prev.transferType || PayoutTransferType.Standard
+              : null,
+          recipientMobileNumber:
+            nextMethod === PayoutTransferMethod.MobileWallet ? prev.recipientMobileNumber : "",
+          bankName:
+            nextMethod === PayoutTransferMethod.BankAccount || nextMethod === PayoutTransferMethod.Card
+              ? prev.bankName
+              : "",
+          bankAccountNumber:
+            nextMethod === PayoutTransferMethod.BankAccount ? prev.bankAccountNumber : "",
+          cardNumber:
+            nextMethod === PayoutTransferMethod.Card || nextMethod === PayoutTransferMethod.OctoCard
+              ? prev.cardNumber
+              : "",
+        };
+      }
+
+      return {
+        ...prev,
+        [name]: name === "transferType" ? Number(value) : value,
+      };
+    });
   };
 
   const validateForm = () => {
@@ -97,10 +115,20 @@ export default function PayoutProfilePage() {
         toast.error("Please enter the Mobile Wallet Number.");
         return false;
       }
-    } else if (
-      formData.transferMethod === PayoutTransferMethod.Card ||
-      formData.transferMethod === PayoutTransferMethod.OctoCard
-    ) {
+      if (!formData.transferType) {
+        toast.error("Please select the wallet transfer type.");
+        return false;
+      }
+    } else if (formData.transferMethod === PayoutTransferMethod.Card) {
+      if (!formData.bankName?.trim()) {
+        toast.error("Please enter the Bank Name.");
+        return false;
+      }
+      if (!formData.cardNumber?.trim()) {
+        toast.error("Please enter the Card Number.");
+        return false;
+      }
+    } else if (formData.transferMethod === PayoutTransferMethod.OctoCard) {
       if (!formData.cardNumber?.trim()) {
         toast.error("Please enter the Card Number.");
         return false;
@@ -113,10 +141,6 @@ export default function PayoutProfilePage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.token) return;
-    if (!isBackendSupported) {
-      toast.error("Payout profile is not available in the current backend yet.");
-      return;
-    }
     if (!validateForm()) return;
 
     setSaving(true);
@@ -147,12 +171,6 @@ export default function PayoutProfilePage() {
         </p>
       </div>
 
-      {!isBackendSupported && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          {supportMessage}
-        </div>
-      )}
-
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
@@ -168,7 +186,6 @@ export default function PayoutProfilePage() {
                   name="transferMethod"
                   value={formData.transferMethod}
                   onChange={handleChange}
-                  disabled={!isBackendSupported}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all appearance-none text-sm"
                 >
                   <option value={PayoutTransferMethod.BankAccount}>Bank Account</option>
@@ -184,22 +201,23 @@ export default function PayoutProfilePage() {
               </div>
             </div>
 
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Transfer Type</label>
-              <div className="relative">
-                <select
-                  name="transferType"
-                  value={formData.transferType || PayoutTransferMethod.BankAccount}
-                  onChange={handleChange}
-                  disabled={!isBackendSupported}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all appearance-none text-sm"
-                >
-                  <option value={PayoutTransferType.Standard}>Standard Transfer</option>
-                  <option value={PayoutTransferType.Instant}>Instant Transfer</option>
-                </select>
-                <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            {formData.transferMethod === PayoutTransferMethod.MobileWallet && (
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-gray-700">Transfer Type</label>
+                <div className="relative">
+                  <select
+                    name="transferType"
+                    value={formData.transferType || PayoutTransferType.Standard}
+                    onChange={handleChange}
+                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all appearance-none text-sm"
+                  >
+                    <option value={PayoutTransferType.Standard}>Standard Transfer</option>
+                    <option value={PayoutTransferType.Instant}>Instant Transfer</option>
+                  </select>
+                  <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           <div className="border-t border-gray-100 pt-6">
@@ -215,7 +233,6 @@ export default function PayoutProfilePage() {
                   name="recipientFullName"
                   value={formData.recipientFullName}
                   onChange={handleChange}
-                  disabled={!isBackendSupported}
                   placeholder="John Doe"
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
                 />
@@ -229,7 +246,6 @@ export default function PayoutProfilePage() {
                   name="nationalId"
                   value={formData.nationalId || ""}
                   onChange={handleChange}
-                  disabled={!isBackendSupported}
                   maxLength={14}
                   placeholder="29001010101010"
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
@@ -253,7 +269,6 @@ export default function PayoutProfilePage() {
                       name="bankName"
                       value={formData.bankName || ""}
                       onChange={handleChange}
-                      disabled={!isBackendSupported}
                       placeholder="e.g. CIB, NBE"
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
                     />
@@ -267,7 +282,6 @@ export default function PayoutProfilePage() {
                       name="bankAccountNumber"
                       value={formData.bankAccountNumber || ""}
                       onChange={handleChange}
-                      disabled={!isBackendSupported}
                       placeholder="EG12000..."
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
                     />
@@ -281,13 +295,12 @@ export default function PayoutProfilePage() {
                     Mobile Wallet Number <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="text"
-                    name="recipientMobileNumber"
-                    value={formData.recipientMobileNumber || ""}
-                    onChange={handleChange}
-                    disabled={!isBackendSupported}
-                    placeholder="010..."
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
+                  type="text"
+                  name="recipientMobileNumber"
+                  value={formData.recipientMobileNumber || ""}
+                  onChange={handleChange}
+                  placeholder="010..."
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
                   />
                 </div>
               )}
@@ -298,12 +311,27 @@ export default function PayoutProfilePage() {
                     Card Number <span className="text-red-500">*</span>
                   </label>
                   <input
+                  type="text"
+                  name="cardNumber"
+                  value={formData.cardNumber || ""}
+                  onChange={handleChange}
+                  placeholder="xxxx-xxxx-xxxx-xxxx"
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
+                />
+              </div>
+            )}
+
+              {formData.transferMethod === PayoutTransferMethod.Card && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Bank Name <span className="text-red-500">*</span>
+                  </label>
+                  <input
                     type="text"
-                    name="cardNumber"
-                    value={formData.cardNumber || ""}
+                    name="bankName"
+                    value={formData.bankName || ""}
                     onChange={handleChange}
-                    disabled={!isBackendSupported}
-                    placeholder="xxxx-xxxx-xxxx-xxxx"
+                    placeholder="e.g. CIB, NBE"
                     className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
                   />
                 </div>
@@ -315,7 +343,7 @@ export default function PayoutProfilePage() {
           <div className="pt-6 flex justify-end">
             <button
               type="submit"
-              disabled={saving || !isBackendSupported}
+              disabled={saving}
               className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#1D6076] text-white text-sm font-medium rounded-xl hover:bg-[#2a7a94] transition-all shadow-sm disabled:opacity-50"
             >
               {saving ? (
