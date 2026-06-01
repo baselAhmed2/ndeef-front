@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   CheckCircle2,
   Clock3,
+  Eye,
+  EyeOff,
   Filter,
   Loader2,
   Plus,
@@ -215,6 +217,7 @@ function InteractiveVisaCard({
   phone: string;
 }) {
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
+  const [balanceVisible, setBalanceVisible] = useState(true);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const card = e.currentTarget;
@@ -225,7 +228,6 @@ function InteractiveVisaCard({
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
-    // Max 6 degrees tilt for optimal readability and natural metallic response
     const rotateX = ((centerY - y) / centerY) * 6;
     const rotateY = ((x - centerX) / centerX) * -6;
 
@@ -242,7 +244,6 @@ function InteractiveVisaCard({
     });
   };
 
-  // Dynamic card number using phone digits if available
   const lastFour = phone ? phone.trim().slice(-4) : "2026";
   const cardNumber = `4310 9982 5712 ${lastFour}`;
 
@@ -254,44 +255,61 @@ function InteractiveVisaCard({
       style={tiltStyle}
     >
       {/* Visa Card Background Image */}
-      <div 
+      <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700 ease-out group-hover:scale-[1.04]"
         style={{ backgroundImage: "url('/visa-card.png')" }}
       />
-      
-      {/* Subtle Metallic Reflex Glow overlay */}
+
+      {/* Metallic Reflex Glow */}
       <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
 
-      {/* Dynamic 3D lighting sheen */}
-      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[1200ms] cubic-bezier(0.25, 1, 0.5, 1) pointer-events-none" />
+      {/* 3D Sheen */}
+      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[1200ms] pointer-events-none" />
 
-      {/* CARD CONTENT - ONLY DYNAMIC LAYERS WITH PERFECT PERCENTAGE POSITIONING */}
-      <div className="absolute inset-0 pointer-events-none">
-        
-        {/* 1. Dynamic Available Balance Glassmorphic Capsule (Sits perfectly next to EMV chip) */}
-        <div className="absolute left-[31%] top-[45%] w-[38%] h-[23%] bg-white/10 dark:bg-[#165267]/20 backdrop-blur-md border border-white/20 rounded-[14px] px-2.5 py-1.5 shadow-[0_8px_32px_0_rgba(0,0,0,0.18)] flex flex-col justify-center transition-all duration-300 group-hover:bg-white/15">
-          <span className="text-[7px] tracking-[0.15em] text-white/80 uppercase font-semibold font-sans">
-            Balance
-          </span>
-          <span className="text-[12px] sm:text-[14px] md:text-[15px] font-extrabold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] mt-0.5 truncate">
-            {balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-            <span className="text-[8px] font-medium text-white/90">EGP</span>
-          </span>
+      {/* CARD CONTENT */}
+      <div className="absolute inset-0">
+
+        {/* 1. Balance — above cardholder name (bottom-left empty area) */}
+        <div className="absolute left-[8%] bottom-[21%] flex items-end gap-1.5">
+          <div className="flex flex-col">
+            <span className="text-[6px] sm:text-[7px] tracking-[0.18em] text-white/70 uppercase font-semibold font-sans mb-0.5">
+              Available Balance
+            </span>
+            <span className="text-[13px] sm:text-[15px] font-extrabold tracking-tight text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.35)] leading-none">
+              {balanceVisible
+                ? balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                : "••••••"}
+              {" "}<span className="text-[8px] font-semibold text-white/80">EGP</span>
+            </span>
+          </div>
+
+          {/* Eye toggle — clickable, outside pointer-events-none */}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setBalanceVisible((v) => !v); }}
+            className="mb-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white/15 hover:bg-white/30 text-white/80 hover:text-white transition-all duration-200"
+            aria-label={balanceVisible ? "Hide balance" : "Show balance"}
+          >
+            {balanceVisible
+              ? <Eye className="h-2.5 w-2.5" />
+              : <EyeOff className="h-2.5 w-2.5" />}
+          </button>
         </div>
 
-        {/* 2. Cardholder Name Mask & Dynamic Text Overlay (Bottom Left) */}
-        <div className="absolute left-[8%] bottom-[8%] w-[42%] h-[11%] bg-[#165267] flex items-center px-1 rounded-sm">
+        {/* 2. Cardholder Name (Bottom Left) */}
+        <div className="absolute left-[8%] bottom-[8%] w-[42%] h-[11%] bg-[#165267] flex items-center px-1 rounded-sm pointer-events-none">
           <span className="text-[9px] sm:text-[11px] md:text-[12px] font-mono font-bold tracking-[0.1em] text-white uppercase truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
             {cardholderName || "NAZEEF CUSTOMER"}
           </span>
         </div>
 
-        {/* 3. Card Number Mask & Dynamic Text Overlay (Bottom Right) */}
-        <div className="absolute right-[8%] bottom-[8%] w-[38%] h-[11%] bg-gradient-to-r from-[#e0803c] to-[#e8994a] flex items-center justify-end px-1 rounded-sm">
+        {/* 3. Card Number (Bottom Right) */}
+        <div className="absolute right-[8%] bottom-[8%] w-[38%] h-[11%] bg-gradient-to-r from-[#e0803c] to-[#e8994a] flex items-center justify-end px-1 rounded-sm pointer-events-none">
           <span className="text-[9px] sm:text-[11px] md:text-[12px] font-mono font-bold tracking-wider text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
-            {cardNumber.split(" ").slice(-2).join(" ")} {/* Keep tail masked cleanly or full number */}
+            {cardNumber.split(" ").slice(-2).join(" ")}
           </span>
         </div>
+
       </div>
     </div>
   );
@@ -795,7 +813,6 @@ export default function Wallet() {
                   </button>
                 ))}
               </div>
->>>>>>> b5263f2943b2d494a31d8faed3f2d0b550c358c4
             </div>
           </div>
         </div>
