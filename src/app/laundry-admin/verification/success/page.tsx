@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { getVerificationStatus, syncVerificationStatus } from "@/app/services/api";
@@ -20,10 +20,26 @@ function VerificationSuccessContent() {
   const [error, setError] = useState<string | null>(null);
 
   // Didit may return either verificationSessionId, sessionId, or session_id depending on the callback path.
-  const sessionId =
+  const sessionIdFromQuery =
     searchParams?.get("verificationSessionId") ||
     searchParams?.get("sessionId") ||
-    searchParams?.get("session_id");
+    searchParams?.get("session_id") ||
+    searchParams?.get("session") ||
+    searchParams?.get("id");
+  const sessionIdFromHash = useMemo(() => {
+    if (typeof window === "undefined") return null;
+    const hash = window.location.hash?.replace(/^#/, "") ?? "";
+    if (!hash) return null;
+    const hashParams = new URLSearchParams(hash);
+    return (
+      hashParams.get("verificationSessionId") ||
+      hashParams.get("sessionId") ||
+      hashParams.get("session_id") ||
+      hashParams.get("session") ||
+      hashParams.get("id")
+    );
+  }, []);
+  const sessionId = sessionIdFromQuery || sessionIdFromHash;
   const status = searchParams?.get("status");
   const urlStatus = status?.trim().toLowerCase() ?? "";
   
@@ -39,11 +55,6 @@ function VerificationSuccessContent() {
 
     const checkVerification = async () => {
       try {
-        if (!sessionId) {
-          setError("Verification session could not be found. Please return to the verification page and try again.");
-          return;
-        }
-
         if (sessionId) {
           await syncVerificationStatus(sessionId);
         }
@@ -55,7 +66,7 @@ function VerificationSuccessContent() {
 
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
           if (cancelled) return;
-          const result = await getVerificationStatus(sessionId);
+          const result = await getVerificationStatus(sessionId ?? undefined);
 
           if (result.isSuccess && result.data?.isVerified) {
             markLaundryVerificationComplete();
@@ -92,7 +103,9 @@ function VerificationSuccessContent() {
           }
         }
 
-        setError("Verification is still being processed. Please try again in a moment.");
+        setError(
+          "Verification is still being processed. Please try again in a moment.",
+        );
       } catch (err) {
         console.error("Error checking verification:", err);
         setError(err instanceof Error ? err.message : "Unable to complete verification right now.");
