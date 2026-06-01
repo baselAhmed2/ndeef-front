@@ -98,6 +98,7 @@ export interface BackendAddressDto {
 export interface WalletPaymentResponse {
   paymentUrl?: string;
   checkoutUrl?: string;
+  orderId?: string | number | null;
   [key: string]: unknown;
 }
 
@@ -105,6 +106,7 @@ export interface BackendWalletInfoTransactionDto {
   id: number;
   orderId?: number | null;
   amount: number;
+  paymentReference?: string | null;
   type: string;
   source: string;
   status: string;
