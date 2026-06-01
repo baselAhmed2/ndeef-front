@@ -1,7 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -29,6 +28,7 @@ function VerificationSuccessContent() {
   const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(null);
   const [hasResolvedSessionLookup, setHasResolvedSessionLookup] = useState(false);
 
+  // Didit may return verificationSessionId, sessionId, session_id, session, or id
   const sessionIdFromQuery =
     searchParams?.get("verificationSessionId") ||
     searchParams?.get("sessionId") ||
@@ -54,19 +54,28 @@ function VerificationSuccessContent() {
   const status = searchParams?.get("status");
   const urlStatus = status?.trim().toLowerCase() ?? "";
 
-  useEffect(() => {
-    const fallbackSessionId = getPendingLaundryVerificationSession();
-    const nextSessionId = callbackSessionId || fallbackSessionId;
-    setResolvedSessionId(nextSessionId);
-    setHasResolvedSessionLookup(true);
+  // Capture mutable values in refs so the effect doesn't re-run when they change reference
+  const isLoggedInRef = useRef(isLoggedIn);
+  const userRef = useRef(user);
+  const logoutRef = useRef(logout);
+  const updateUserRef = useRef(updateUser);
+  const routerRef = useRef(router);
+  isLoggedInRef.current = isLoggedIn;
+  userRef.current = user;
+  logoutRef.current = logout;
+  updateUserRef.current = updateUser;
+  routerRef.current = router;
 
-    if (callbackSessionId) {
-      clearPendingLaundryVerificationSession();
-    }
-  }, [callbackSessionId]);
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
-    if (!isAuthReady || !hasResolvedSessionLookup) return;
+    // Guard: only run once, and only after auth is ready
+    if (!isAuthReady) return;
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+
+    // Debug log — inside effect so it prints exactly once
+    console.log("[Didit] Verification callback - Session:", sessionId, "Status:", status, "URL:", window.location.href);
 
     let cancelled = false;
     let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -84,8 +93,12 @@ function VerificationSuccessContent() {
 
     const checkVerification = async () => {
       try {
-        if (!isLoggedIn || !user) {
-          router.push("/login");
+        if (sessionId) {
+          await syncVerificationStatus(sessionId);
+        }
+
+        if (!isLoggedInRef.current || !userRef.current) {
+          routerRef.current.push("/login");
           return;
         }
 
@@ -107,7 +120,13 @@ function VerificationSuccessContent() {
 
           const result = await getVerificationStatus(resolvedSessionId);
           if (result.isSuccess && result.data?.isVerified) {
-            markCompleted();
+            markLaundryVerificationComplete();
+            updateUserRef.current({ needsVerification: false });
+            setIsVerified(true);
+            redirectTimeout = setTimeout(() => {
+              logoutRef.current();
+              routerRef.current.replace("/login");
+            }, 1500);
             return;
           }
 
@@ -117,7 +136,6 @@ function VerificationSuccessContent() {
               normalizedError.includes("429") ||
               normalizedError.includes("too many") ||
               normalizedError.includes("rate limit");
-
             if (isRateLimited) {
               setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
               return;
@@ -141,26 +159,12 @@ function VerificationSuccessContent() {
           }
         }
 
-        const completion = await completeVerification();
-        if (completion.isSuccess && completion.data?.verified) {
-          markCompleted();
-          return;
-        }
-
-        setError("لم يكتمل تأكيد التحقق بعد. حاول مرة أخرى بعد لحظات.");
+        setError("Verification is still being processed. Please try again in a moment.");
       } catch (err) {
-        console.error("Error checking verification:", err);
-        const completion = await completeVerification();
-        if (completion.isSuccess && completion.data?.verified) {
-          markCompleted();
-          return;
-        }
-
-        setError(err instanceof Error ? err.message : "تعذر إكمال التحقق الآن.");
+        console.error("[Didit] Error checking verification:", err);
+        setError(err instanceof Error ? err.message : "Unable to complete verification right now.");
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
@@ -170,16 +174,8 @@ function VerificationSuccessContent() {
       cancelled = true;
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  }, [
-    hasResolvedSessionLookup,
-    isAuthReady,
-    isLoggedIn,
-    logout,
-    resolvedSessionId,
-    router,
-    updateUser,
-    user,
-  ]);
+  // Only re-run if auth readiness or sessionId changes — everything else is via refs
+  }, [isAuthReady, sessionId]);
 
   if (isLoading) {
     return (
