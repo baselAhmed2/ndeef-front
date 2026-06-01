@@ -357,10 +357,20 @@ export async function createVerificationSession(
 export async function getVerificationStatus(
   sessionId?: string | null,
 ): Promise<ApiResult<VerificationStatusResponse>> {
-  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : "";
-  const res = await fetch(`${BASE_URL}/verification/status${query}`, {
-    headers: getAuthHeaders(),
-  });
+  const query = sessionId ? `?verificationSessionId=${encodeURIComponent(sessionId)}` : "";
+  let res: Response;
+
+  try {
+    res = await fetch(`${BASE_URL}/verification/status${query}`, {
+      headers: getAuthHeaders(),
+    });
+  } catch {
+    return {
+      isSuccess: false,
+      error: "Unable to check verification status right now. Please check your connection and try again.",
+    };
+  }
+
   const raw = await res.text();
   const json = safeParseApiPayload(raw);
   if (!res.ok) {

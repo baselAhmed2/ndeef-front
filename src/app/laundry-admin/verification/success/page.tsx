@@ -18,8 +18,11 @@ function VerificationSuccessContent() {
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Get params from URL (Didit returns: ?sessionId=xxx&status=Approved)
-  const sessionId = searchParams?.get("sessionId") || searchParams?.get("session_id");
+  // Didit may return either verificationSessionId, sessionId, or session_id depending on the callback path.
+  const sessionId =
+    searchParams?.get("verificationSessionId") ||
+    searchParams?.get("sessionId") ||
+    searchParams?.get("session_id");
   const status = searchParams?.get("status");
   const urlStatus = status?.trim().toLowerCase() ?? "";
   const isApprovedFromDidit = SUCCESS_CALLBACK_STATUSES.has(urlStatus);
