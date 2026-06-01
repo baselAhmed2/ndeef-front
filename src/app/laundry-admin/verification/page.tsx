@@ -4,8 +4,11 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import { completeVerification, getVerificationStatus } from "@/app/lib/laundry-admin-client";
-import { clearPendingLaundryVerificationSession } from "@/app/lib/verification-state";
+import { getVerificationStatus, startVerificationSession } from "@/app/lib/laundry-admin-client";
+import {
+  clearPendingLaundryVerificationSession,
+  storePendingLaundryVerificationSession,
+} from "@/app/lib/verification-state";
 
 const RATE_LIMIT_COOLDOWN_SECONDS = 60;
 
@@ -46,8 +49,8 @@ export default function VerificationPage() {
     setError("");
 
     try {
+      // 1. Check if already verified — skip Didit entirely
       const status = await getVerificationStatus();
-      console.log("[Verification] Status response", status);
       const needsVerification = !status.isIdentityVerified;
       updateUser({ needsVerification });
 
@@ -56,17 +59,25 @@ export default function VerificationPage() {
         return;
       }
 
+      // 2. Start a new Didit verification session
       clearPendingLaundryVerificationSession();
-      const completion = await completeVerification();
-      console.log("[Verification] Verification completed", completion);
-      updateUser({ needsVerification: false });
-      router.replace("/laundry-admin");
+      const session = await startVerificationSession();
+
+      // 3. Persist the session ID so the success page can find it
+      //    even if Didit doesn't append it to the callback URL
+      if (session.sessionId) {
+        storePendingLaundryVerificationSession(session.sessionId);
+      }
+
+      // 4. Redirect the user to the Didit verification UI
+      window.location.href = session.url;
     } catch (err) {
-      console.error("[Verification] Could not continue verification flow", {
+      console.error("[Verification] Could not start verification flow", {
         error: err instanceof Error ? err.message : err,
         userRole: currentUser.role,
         needsVerification: currentUser.needsVerification,
       });
+
       if (currentUser.needsVerification === false) {
         router.replace("/laundry-admin");
         return;
@@ -74,7 +85,6 @@ export default function VerificationPage() {
 
       const message = err instanceof Error ? err.message : "Could not start verification.";
 
-      // Detect rate limiting (429) — Didit enforces per-user session limits
       const isRateLimit =
         message.includes("429") ||
         message.toLowerCase().includes("too many") ||

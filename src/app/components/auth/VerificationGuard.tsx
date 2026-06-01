@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { shouldBypassVerificationInDev } from "@/app/lib/verification-dev";
@@ -16,8 +16,26 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
   const { user, isLoggedIn, isAuthReady, updateUser } = useAuth();
   const [isChecking, setIsChecking] = useState(true);
 
+  // Keep mutable values in refs so the effect doesn't re-trigger when they change
+  const userRef = useRef(user);
+  const updateUserRef = useRef(updateUser);
+  const routerRef = useRef(router);
+  userRef.current = user;
+  updateUserRef.current = updateUser;
+  routerRef.current = router;
+
+  // Guard: run exactly once per (isAuthReady, isLoggedIn, pathname) change
+  const hasCheckedRef = useRef(false);
+
+  useEffect(() => {
+    // Reset guard when key stable deps change so a navigation re-checks
+    hasCheckedRef.current = false;
+  }, [isAuthReady, isLoggedIn, pathname]);
+
   useEffect(() => {
     if (!isAuthReady) return;
+    if (hasCheckedRef.current) return;
+    hasCheckedRef.current = true;
 
     if (shouldBypassVerificationInDev()) {
       setIsChecking(false);
@@ -25,12 +43,12 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
     }
 
     // Not logged in - let the auth context handle redirect to login
-    if (!isLoggedIn || !user) {
+    if (!isLoggedIn || !userRef.current) {
       setIsChecking(false);
       return;
     }
 
-    const currentUser = user;
+    const currentUser = userRef.current;
 
     // Check if user is LaundryAdmin and needs verification
     const normalizedRole = (currentUser.role ?? "").trim().toLowerCase().replace(/\s+/g, "");
@@ -54,10 +72,11 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
         if (ignore) return;
 
         const needsVerification = !status.isIdentityVerified && !hasFreshVerification;
-        updateUser({ needsVerification });
+        // Use ref to avoid adding updateUser to deps (would cause infinite loop)
+        updateUserRef.current({ needsVerification });
 
         if (needsVerification && !isVerificationPage) {
-          router.push("/laundry-admin/verification");
+          routerRef.current.push("/laundry-admin/verification");
           return;
         }
 
@@ -65,16 +84,25 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
       } catch (error) {
         if (ignore) return;
 
-        const status =
+        const httpStatus =
           typeof error === "object" && error !== null && "status" in error
             ? Number((error as { status?: number }).status)
             : null;
+
+        // On 429 - don't redirect, just allow access and stop checking
+        if (httpStatus === 429) {
+          setIsChecking(false);
+          return;
+        }
+
         const shouldForceVerification =
-          !hasFreshVerification && Boolean(currentUser.needsVerification) && (status === 401 || status === 403);
+          !hasFreshVerification &&
+          Boolean(currentUser.needsVerification) &&
+          (httpStatus === 401 || httpStatus === 403);
 
         if (shouldForceVerification && !isVerificationPage) {
-          updateUser({ needsVerification: true });
-          router.push("/laundry-admin/verification");
+          updateUserRef.current({ needsVerification: true });
+          routerRef.current.push("/laundry-admin/verification");
           return;
         }
 
@@ -87,7 +115,8 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
     return () => {
       ignore = true;
     };
-  }, [isAuthReady, isLoggedIn, pathname, router, updateUser, user]);
+  // Only stable primitives — unstable values (user, updateUser, router) read via refs
+  }, [isAuthReady, isLoggedIn, pathname]);
 
   if (!isAuthReady || isChecking) {
     return (

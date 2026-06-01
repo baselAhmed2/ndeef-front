@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { MapPin, Search } from 'lucide-react';
 import { NotificationBadge } from './NotificationBadge';
 import { apiRequest } from '../lib/admin-api';
@@ -11,37 +11,55 @@ interface TopBarProps {
   title?: string;
 }
 
+// Exponential back-off when the server returns 429
+const MIN_INTERVAL_MS = 30_000;  // 30 s normal polling
+const MAX_BACKOFF_MS  = 300_000; // 5 min max back-off
+
 export function TopBar({ showSearch = true, title }: TopBarProps) {
   const [unreadCount, setUnreadCount] = useState(0);
+  const [pollingEnabled, setPollingEnabled] = useState(true);
+  const backoffMsRef = useRef(MIN_INTERVAL_MS);
+  const backoffTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  useEffect(() => {
-    let active = true;
-
-    async function loadUnreadCount() {
-      try {
-        const response = await apiRequest<{ unreadCount?: number; UnreadCount?: number }>('/notifications/count');
-        if (active) setUnreadCount(Number(response.unreadCount ?? response.UnreadCount ?? 0));
-      } catch (error) {
-        console.error('Failed to load notification count', error);
-        if (active) setUnreadCount(0);
-      }
-    }
-
-    void loadUnreadCount();
-
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  useAutoRefresh(async () => {
+  // Stable callback — no new identity on every render
+  const fetchCount = useCallback(async () => {
+    if (!pollingEnabled) return;
     try {
       const response = await apiRequest<{ unreadCount?: number; UnreadCount?: number }>('/notifications/count');
       setUnreadCount(Number(response.unreadCount ?? response.UnreadCount ?? 0));
-    } catch {
-      setUnreadCount(0);
+      // Reset backoff on success
+      backoffMsRef.current = MIN_INTERVAL_MS;
+    } catch (error: unknown) {
+      const status =
+        typeof error === 'object' && error !== null && 'status' in error
+          ? Number((error as { status?: number }).status)
+          : null;
+
+      if (status === 429) {
+        // Pause polling and schedule resume with exponential back-off
+        setPollingEnabled(false);
+        backoffMsRef.current = Math.min(backoffMsRef.current * 2, MAX_BACKOFF_MS);
+        backoffTimerRef.current = setTimeout(() => {
+          setPollingEnabled(true);
+        }, backoffMsRef.current);
+      }
+      // For other errors just keep the last known count
     }
-  }, { intervalMs: 10000 });
+  }, [pollingEnabled]);
+
+  // Initial load
+  useEffect(() => {
+    void fetchCount();
+    return () => {
+      if (backoffTimerRef.current) clearTimeout(backoffTimerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useAutoRefresh(fetchCount, {
+    enabled: pollingEnabled,
+    intervalMs: MIN_INTERVAL_MS,
+  });
 
   return (
     <div className="relative">

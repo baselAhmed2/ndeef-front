@@ -16,8 +16,6 @@ import {
 } from "@/app/lib/verification-state";
 
 const REVIEW_CALLBACK_STATUSES = new Set(["in review", "pending", "review", "processing"]);
-const MAX_ATTEMPTS = 10;
-const BASE_DELAY_MS = 5000;
 
 function VerificationSuccessContent() {
   const router = useRouter();
@@ -66,6 +64,9 @@ function VerificationSuccessContent() {
   updateUserRef.current = updateUser;
   routerRef.current = router;
 
+  // Freeze the session ID on first render so it never changes the effect dependency
+  const frozenSessionIdRef = useRef(callbackSessionId);
+
   // Guard: run the check exactly once after auth is ready
   const hasStartedRef = useRef(false);
 
@@ -74,12 +75,15 @@ function VerificationSuccessContent() {
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
 
+    // Use the frozen session ID — never read callbackSessionId inside the effect
+    const resolvedFromUrl = frozenSessionIdRef.current;
+
     // Resolve the final session ID: prefer URL param, fall back to locally stored pending session
     const fallbackSessionId = getPendingLaundryVerificationSession();
-    const resolvedSessionId = callbackSessionId || fallbackSessionId;
+    const resolvedSessionId = resolvedFromUrl || fallbackSessionId;
 
     // If Didit provided the session ID in the URL, clear the stored one (it's consumed)
-    if (callbackSessionId) {
+    if (resolvedFromUrl) {
       clearPendingLaundryVerificationSession();
     }
 
@@ -111,8 +115,25 @@ function VerificationSuccessContent() {
           return;
         }
 
-        // No session ID from Didit or stored — try completeVerification as last resort
+        // No session ID from Didit or stored — check if webhook already updated the DB
         if (!resolvedSessionId) {
+          // Try a direct status check first (webhook may have already fired)
+          const directStatus = await getVerificationStatus(null);
+          if (directStatus.isSuccess && directStatus.data?.isVerified) {
+            markCompleted();
+            return;
+          }
+
+          // If rate limited on the status check, stop immediately
+          if (!directStatus.isSuccess) {
+            const errText = String(directStatus.error ?? "").toLowerCase();
+            if (errText.includes("429") || errText.includes("too many")) {
+              setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
+              return;
+            }
+          }
+
+          // Fallback: ask the backend to re-fetch from Didit and sync
           const completion = await completeVerification();
           if (completion.isSuccess && completion.data?.verified) {
             markCompleted();
@@ -123,10 +144,28 @@ function VerificationSuccessContent() {
         }
 
         // Sync the session with the backend first (single call, no polling)
-        await syncVerificationStatus(resolvedSessionId);
+        try {
+          await syncVerificationStatus(resolvedSessionId);
+        } catch (syncErr: unknown) {
+          const syncStatus =
+            typeof syncErr === "object" && syncErr !== null && "status" in syncErr
+              ? Number((syncErr as { status?: number }).status)
+              : null;
+          // On 429 during sync — stop immediately, don't poll
+          if (syncStatus === 429) {
+            setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
+            return;
+          }
+          // Other sync errors are non-fatal — continue to poll
+          console.warn("[Didit] syncVerificationStatus failed, continuing to poll", syncErr);
+        }
 
-        // Poll with backoff until verified or max attempts reached
-        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+        // Poll with increasing backoff until verified or max attempts reached
+        // Kept intentionally small (5 tries × ~10 s avg) to stay under rate limits
+        const MAX_POLL = 5;
+        const POLL_BASE_MS = 8000;
+
+        for (let attempt = 0; attempt < MAX_POLL; attempt += 1) {
           if (cancelled) return;
 
           const result = await getVerificationStatus(resolvedSessionId);
@@ -148,7 +187,7 @@ function VerificationSuccessContent() {
             }
           }
 
-          if (!result.isSuccess && attempt === MAX_ATTEMPTS - 1) {
+          if (!result.isSuccess && attempt === MAX_POLL - 1) {
             // Final fallback: try completeVerification before giving up
             const completion = await completeVerification();
             if (completion.isSuccess && completion.data?.verified) {
@@ -159,8 +198,9 @@ function VerificationSuccessContent() {
             return;
           }
 
-          if (attempt < MAX_ATTEMPTS - 1) {
-            const delayMs = BASE_DELAY_MS + attempt * 1000;
+          if (attempt < MAX_POLL - 1) {
+            // Exponential-ish backoff: 8s, 9s, 10s, 11s …
+            const delayMs = POLL_BASE_MS + attempt * 1000;
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         }
@@ -172,9 +212,18 @@ function VerificationSuccessContent() {
           return;
         }
         setError("لم يكتمل تأكيد التحقق بعد. حاول مرة أخرى بعد لحظات.");
-      } catch (err) {
-        console.error("[Didit] Error checking verification:", err);
-        setError(err instanceof Error ? err.message : "تعذر إكمال التحقق الآن.");
+      } catch (err: unknown) {
+        if (cancelled) return;
+        const httpStatus =
+          typeof err === "object" && err !== null && "status" in err
+            ? Number((err as { status?: number }).status)
+            : null;
+        if (httpStatus === 429) {
+          setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
+        } else {
+          console.error("[Didit] Error checking verification:", err);
+          setError(err instanceof Error ? err.message : "تعذر إكمال التحقق الآن.");
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -186,8 +235,8 @@ function VerificationSuccessContent() {
       cancelled = true;
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  // Only depends on stable primitives — everything else read via refs
-  }, [isAuthReady, callbackSessionId]);
+  // isAuthReady is the only real trigger — session ID is frozen in a ref above
+  }, [isAuthReady]);
 
   if (isLoading) {
     return (
