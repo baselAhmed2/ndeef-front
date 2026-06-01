@@ -58,8 +58,7 @@ export default function CommercialRegisterUploadPage() {
           Laundry Admin Verification
         </h1>
         <p className="mt-3 text-center text-sm leading-7 text-gray-500">
-          The current backend does not expose a separate commercial-register upload endpoint.
-          This screen now follows the real verification flow that already exists in the project.
+          Complete your identity verification to continue setting up your laundry account.
         </p>
 
         {state === "loading" && (
@@ -74,8 +73,7 @@ export default function CommercialRegisterUploadPage() {
               Your identity is already verified.
             </p>
             <p className="mt-2 text-sm leading-6 text-emerald-700">
-              You can continue to the laundry dashboard. If commercial-register approval is needed later,
-              it has to be supported by a backend endpoint first.
+              You can continue to the laundry dashboard and complete the rest of your setup.
             </p>
             <button
               onClick={() => router.replace("/laundry-admin")}
@@ -92,8 +90,7 @@ export default function CommercialRegisterUploadPage() {
               Identity verification is still required.
             </p>
             <p className="mt-2 text-sm leading-6 text-amber-700">
-              Continue with the official verification flow first. After the backend exposes a commercial-register endpoint,
-              this page can be expanded again without changing the backend contract.
+              Continue with the verification flow first, then return here to complete the next steps.
             </p>
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
               <Link

@@ -189,7 +189,7 @@ export default function CourierEarningsPage() {
           <div className="flex items-center justify-between mb-4">
             <div>
               <p className="font-bold text-gray-800">Daily Earnings</p>
-              <p className="text-xs text-gray-400">Backend summary · EGP per day</p>
+              <p className="text-xs text-gray-400">Weekly summary · EGP per day</p>
             </div>
             <div className="flex items-center gap-1.5 text-xs text-gray-400">
               <Calendar className="w-3.5 h-3.5" />
@@ -282,7 +282,7 @@ export default function CourierEarningsPage() {
           <div className="ndeef-courier-soft flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
             <Info className="mt-0.5 w-4 h-4 shrink-0 text-amber-600" />
             <p className="text-xs text-amber-800">
-              Backend does not currently provide tracked courier ratings, ranking, or hours worked. This page only shows earnings and completion metrics calculated directly by backend.
+              Detailed courier ratings, ranking, and working hours are not available yet. This page currently shows earnings and completion metrics.
             </p>
           </div>
         </div>
@@ -324,7 +324,7 @@ export default function CourierEarningsPage() {
           <p className="text-xs text-amber-600 mt-0.5">{earnings.nextPayoutDate}</p>
         </div>
         <div className="flex items-center gap-1.5 text-sm font-semibold px-4 py-2 rounded-xl border bg-amber-50" style={{ borderColor: "#fcd34d", color: "#b45309" }}>
-          Backend summary <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+          Payout summary <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
         </div>
       </div>
     </motion.div>

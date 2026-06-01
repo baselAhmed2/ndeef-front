@@ -324,7 +324,7 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
             <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100">
               <div>
                 <p className="text-sm font-bold text-gray-900">Notifications</p>
-                <p className="text-[11px] text-gray-400">Unread updates from backend</p>
+                <p className="text-[11px] text-gray-400">Unread updates</p>
               </div>
               <button
                 onClick={handleMarkAllNotificationsRead}

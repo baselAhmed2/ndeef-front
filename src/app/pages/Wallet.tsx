@@ -608,7 +608,7 @@ export default function Wallet() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Wallet</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Charge wallet, review balance, and track refunds from backend.</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400">Charge your wallet, review your balance, and track refunds.</p>
           </div>
           <button
             type="button"
@@ -631,7 +631,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Wallet charge completed</p>
                 <p className="mt-1 text-sm text-emerald-800/90 dark:text-emerald-400/80">
-                  Your balance and wallet activity below are now read from backend wallet info.
+                  Your balance and wallet activity have been updated successfully.
                 </p>
               </div>
             </div>
@@ -645,11 +645,11 @@ export default function Wallet() {
                 <Loader2 size={18} className="animate-spin" strokeWidth={2.2} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">Waiting for backend confirmation</p>
+                <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">Waiting for payment confirmation</p>
                 <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-400/80">
                   {pendingCharge
-                    ? `We are waiting for Kashier webhook confirmation for ${formatMoney(pendingCharge.amount)}. Your wallet balance will update automatically once backend records the charge.`
-                    : "Payment checkout finished. Your wallet balance will update automatically once backend confirms the charge."}
+                    ? `We are finalizing your ${formatMoney(pendingCharge.amount)} wallet charge. Your balance will update automatically once it is confirmed.`
+                    : "Payment checkout finished. Your wallet balance will update automatically once the payment is confirmed."}
                 </p>
               </div>
             </div>
@@ -665,7 +665,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Wallet balance updated</p>
                 <p className="mt-1 text-sm text-emerald-800/90 dark:text-emerald-400/80">
-                  Backend confirmed the wallet charge and the updated balance is shown below.
+                  Your wallet charge has been confirmed and the updated balance is shown below.
                 </p>
               </div>
             </div>
@@ -695,9 +695,9 @@ export default function Wallet() {
                 <Clock3 size={18} strokeWidth={2.2} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-rose-900 dark:text-rose-300">Backend confirmation is taking longer than expected</p>
+                <p className="text-sm font-semibold text-rose-900 dark:text-rose-300">Confirmation is taking longer than expected</p>
                 <p className="mt-1 text-sm text-rose-800/90 dark:text-rose-400/80">
-                  The checkout may have succeeded, but the wallet charge has not appeared in backend records yet. Try Refresh once, and if the balance still does not change, the backend webhook still needs checking.
+                  The checkout may have succeeded, but the wallet charge has not appeared yet. Try Refresh once, and if the balance still does not change, please contact support.
                 </p>
               </div>
             </div>
@@ -808,7 +808,7 @@ export default function Wallet() {
             </div>
             <p className="text-sm text-gray-500 dark:text-slate-400">Current wallet balance</p>
             <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatMoney(walletBalance)}</p>
-            <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">Real available balance from backend.</p>
+            <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">Your current available balance.</p>
           </div>
 
           <div className="rounded-3xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#111e29] p-5 shadow-sm transition-colors duration-300">
@@ -836,7 +836,7 @@ export default function Wallet() {
             <div>
               <h2 className="text-lg font-bold text-gray-900 dark:text-white">Wallet activity</h2>
               <p className="text-sm text-gray-500 dark:text-slate-400">
-                Live records from <code className="rounded bg-slate-100 dark:bg-white/8 px-1 py-0.5 text-xs text-slate-700 dark:text-slate-300">GET /api/wallet/info</code>.
+                Your latest wallet activity and payment updates.
               </p>
             </div>
 

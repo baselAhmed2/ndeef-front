@@ -271,7 +271,7 @@ export async function recordCommissionPayment(_laundryId: string, _payment: {
   notes?: string;
 }): Promise<{ success: boolean; message: string; paymentId: string }> {
   throw new ApiError(
-    "Manual commission payments are not exposed by the current backend endpoints yet.",
+    "Manual commission payments are not available yet.",
     501,
   );
 }
@@ -279,7 +279,7 @@ export async function recordCommissionPayment(_laundryId: string, _payment: {
 // Super Admin: Send payment reminder to laundry admin
 export async function sendPaymentReminder(laundryId: string): Promise<{ success: boolean; message: string }> {
   throw new ApiError(
-    `Payment reminders are not exposed by the current backend for laundry ${laundryId}.`,
+    `Payment reminders are not available yet for laundry ${laundryId}.`,
     501,
   );
 }

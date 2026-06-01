@@ -308,7 +308,7 @@ export default function VerificationsPage() {
                         <p className="mt-1 text-sm font-bold text-slate-800">{formatDate(laundry.createdAt)}</p>
                       </div>
                       <div className="rounded-xl bg-white px-3 py-3 border border-slate-100 col-span-2 sm:col-span-1">
-                        <p className="text-[11px] font-medium text-slate-400">Backend ID</p>
+                        <p className="text-[11px] font-medium text-slate-400">Record ID</p>
                         <p className="mt-1 text-sm font-bold text-slate-800">#{laundry.id}</p>
                       </div>
                     </div>

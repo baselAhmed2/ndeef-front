@@ -297,7 +297,7 @@ export default function CourierProfilePage() {
               </div>
             </div>
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs text-slate-500">
-              Laundry assignment is managed by backend admin workflows.
+              Laundry assignment is managed through the main admin dashboard.
             </div>
           </div>
         </div>
@@ -307,10 +307,7 @@ export default function CourierProfilePage() {
             <div className="flex items-center justify-between gap-3 mb-4">
               <div>
                 <p className="font-bold text-gray-800">Account Details</p>
-                <p className="text-xs text-gray-400">Update the courier profile fields supported by backend.</p>
-              </div>
-              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                backend
+                <p className="text-xs text-gray-400">Update your courier account details.</p>
               </div>
             </div>
 
@@ -358,10 +355,7 @@ export default function CourierProfilePage() {
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
                 <p className="font-bold text-gray-800">Performance Overview</p>
-                <p className="text-xs text-gray-400">Only backend-backed courier metrics are shown here.</p>
-              </div>
-              <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                backend
+                <p className="text-xs text-gray-400">Live courier performance metrics are shown here.</p>
               </div>
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
@@ -410,7 +404,7 @@ export default function CourierProfilePage() {
               <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
                 <Info className="mt-0.5 w-4 h-4 shrink-0 text-amber-600" />
                 <p className="text-xs text-amber-800">
-                  Backend is not tracking courier working hours yet, so this section shows `0h` until that data becomes available.
+                  Working hours are not available yet, so this section may show `0h` until more data appears.
                 </p>
               </div>
             )}
@@ -426,7 +420,7 @@ export default function CourierProfilePage() {
                 label: "Notifications",
                 desc:
                   notificationCount > 0
-                    ? `${notificationCount} unread updates from backend`
+                    ? `${notificationCount} unread updates`
                     : "No unread courier notifications right now",
                 color: "#3b82f6",
                 bg: "#eff6ff",
@@ -447,14 +441,11 @@ export default function CourierProfilePage() {
                   <p className="text-sm font-semibold text-gray-800">{item.label}</p>
                   <p className="text-xs text-gray-400">{item.desc}</p>
                 </div>
-                <div className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-slate-500">
-                  backend
-                </div>
               </div>
             ))}
             {[
               { icon: Package, label: "Order History", desc: "Open delivered courier orders", color: "#1D5B70", bg: "#f0f9ff", onClick: () => router.push("/courier?tab=done") },
-              { icon: TrendingUp, label: "Earnings Summary", desc: "See your backend earnings breakdown", color: "#EBA050", bg: "#fff7ed", onClick: () => router.push("/courier/earnings") },
+              { icon: TrendingUp, label: "Earnings Summary", desc: "See your earnings breakdown", color: "#EBA050", bg: "#fff7ed", onClick: () => router.push("/courier/earnings") },
               { icon: Truck, label: "Active Run", desc: "Jump to your current delivery route", color: "#0891b2", bg: "#ecfeff", onClick: () => router.push("/courier/active") },
             ].map((item) => (
               <button key={item.label} onClick={item.onClick} className="w-full flex items-center gap-3 px-5 py-3.5 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-all text-left">

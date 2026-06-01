@@ -160,7 +160,7 @@ export default function LaundryDriversPage() {
               </h1>
               <p className={`mt-2 max-w-2xl text-sm leading-6 ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>
                 Assign existing courier accounts to this laundry by phone number and keep the
-                active delivery team synced with the backend.
+                active delivery team up to date.
               </p>
             </div>
             <button
@@ -189,7 +189,7 @@ export default function LaundryDriversPage() {
               </div>
               <div>
                 <h2 className={`font-bold ${isDark ? "text-white" : "text-gray-950"}`}>Assign Courier</h2>
-                <p className={`text-xs ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>Uses backend phone lookup</p>
+                <p className={`text-xs ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>Search by courier phone number</p>
               </div>
             </div>
 

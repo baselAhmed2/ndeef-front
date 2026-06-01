@@ -354,8 +354,11 @@ export async function createVerificationSession(
  * GET /api/verification/status
  * Gets the current user's verification status.
  */
-export async function getVerificationStatus(): Promise<ApiResult<VerificationStatusResponse>> {
-  const res = await fetch(`${BASE_URL}/verification/status`, {
+export async function getVerificationStatus(
+  sessionId?: string | null,
+): Promise<ApiResult<VerificationStatusResponse>> {
+  const query = sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : "";
+  const res = await fetch(`${BASE_URL}/verification/status${query}`, {
     headers: getAuthHeaders(),
   });
   const raw = await res.text();

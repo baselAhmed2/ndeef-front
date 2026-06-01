@@ -1742,7 +1742,7 @@ export async function uploadCommercialRegister(
   _formData: FormData,
 ): Promise<any> {
   throw new Error(
-    "Commercial register upload is not exposed by the current backend. Use the identity verification flow instead.",
+    "Commercial register upload is not available here yet. Use the identity verification flow instead.",
   );
 }
 

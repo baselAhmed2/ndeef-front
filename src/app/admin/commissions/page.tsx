@@ -80,7 +80,7 @@ export default function CommissionsPage() {
       setIsRefreshing(true);
       const [overview, laundries] = await Promise.all([
         apiRequest<SystemCommissionsRecord>("/admin/commissions"),
-        getAllLaundryCommissions().catch(() => null), // Gracefully handle if endpoint doesn't exist yet
+        getAllLaundryCommissions().catch(() => null),
       ]);
       setData(overview);
       if (laundries) setLaundryCommissions(laundries);
@@ -105,7 +105,7 @@ export default function CommissionsPage() {
       <div className="space-y-6">
         <div className="flex items-center gap-3 rounded-2xl bg-red-50 p-4 font-medium text-red-600">
           <AlertTriangle />
-          {error || "No commissions data returned from the backend."}
+          {error || "No commissions data is available right now."}
         </div>
         <button
           onClick={() => void fetchCommissions()}

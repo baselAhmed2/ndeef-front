@@ -130,7 +130,7 @@ export default function FraudPage() {
             AI Fraud Monitor
           </h1>
           <p className="mt-2 text-slate-500">
-            Connected to the backend fraud alerts queue and super admin review actions.
+            Review fraud alerts and take action when needed.
           </p>
         </div>
 
@@ -233,7 +233,7 @@ export default function FraudPage() {
                     </div>
 
                     <p className="rounded-xl border border-red-100/50 bg-red-50/50 p-3 text-sm italic text-slate-600">
-                      &ldquo;{alert.reason || "No detailed reason was provided by the backend."}&rdquo;
+                      &ldquo;{alert.reason || "No detailed reason was provided."}&rdquo;
                     </p>
                   </div>
 

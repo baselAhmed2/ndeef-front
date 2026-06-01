@@ -42,20 +42,9 @@ function VerificationSuccessContent() {
 
     const checkVerification = async () => {
       try {
-        if (isApprovedFromDidit) {
-          markLaundryVerificationComplete();
-          updateUser({ needsVerification: false });
-          setIsVerified(true);
-          redirectTimeout = setTimeout(() => {
-            logout();
-            router.replace("/login");
-          }, 1500);
-          return;
-        }
-
         const maxAttempts = 8;
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
-          const result = await getVerificationStatus();
+          const result = await getVerificationStatus(sessionId);
 
           if (result.isSuccess && result.data?.isVerified) {
             markLaundryVerificationComplete();
@@ -90,7 +79,7 @@ function VerificationSuccessContent() {
     return () => {
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  }, [isLoggedIn, isAuthReady, user, router, logout, isApprovedFromDidit, updateUser]);
+  }, [isLoggedIn, isAuthReady, user, router, logout, isApprovedFromDidit, sessionId, updateUser]);
 
   if (isLoading) {
     return (
@@ -197,7 +186,7 @@ function VerificationSuccessContent() {
     );
   }
 
-  if (isVerified || SUCCESS_CALLBACK_STATUSES.has(urlStatus)) {
+  if (isVerified) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">

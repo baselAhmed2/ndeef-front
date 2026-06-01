@@ -461,7 +461,7 @@ export default function CourierOrderDetail() {
                 <div>
                   <p className="text-sm font-bold text-sky-700">Order assigned to you by laundry admin</p>
                   <p className="text-xs text-sky-600">
-                    This order is already assigned in backend. Head to the laundry and wait until it becomes ready for pickup.
+                    This order is already assigned to you. Head to the laundry and wait until it becomes ready for pickup.
                   </p>
                 </div>
               </div>

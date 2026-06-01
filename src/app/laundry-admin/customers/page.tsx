@@ -158,8 +158,8 @@ export default function LaundryCustomersPage() {
                 Laundry Customers
               </h1>
               <p className={`mt-2 max-w-2xl text-sm leading-6 ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>
-                Built from real backend order history. Each customer is grouped by phone number
-                because there is no separate laundry-customer endpoint in the backend.
+                Built from your real order history. Each customer is grouped by phone number
+                so returning customers are easy to spot.
               </p>
             </div>
             <div className="relative w-full max-w-sm">
@@ -196,7 +196,7 @@ export default function LaundryCustomersPage() {
           <div className="mb-5 flex items-center justify-between gap-3">
             <div>
               <h2 className={`font-bold ${isDark ? "text-white" : "text-gray-950"}`}>Customer List</h2>
-              <p className={`text-xs ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>Derived from /laundry-admin/orders/incoming</p>
+              <p className={`text-xs ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>Based on recent incoming orders</p>
             </div>
             <UserRound className="h-5 w-5 text-[#1D5B70]" />
           </div>
@@ -221,7 +221,7 @@ export default function LaundryCustomersPage() {
               <Users className={`h-10 w-10 ${isDark ? "text-[#8db7cb]" : "text-gray-300"}`} />
               <p className={`mt-3 text-sm font-semibold ${isDark ? "text-white" : "text-gray-600"}`}>No customers found</p>
               <p className={`mt-1 text-xs ${isDark ? "text-[#8db7cb]" : "text-gray-400"}`}>
-                Customers will appear when backend orders are available.
+                Customers will appear as new orders come in.
               </p>
             </div>
           ) : (

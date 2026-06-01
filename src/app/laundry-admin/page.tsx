@@ -238,7 +238,7 @@ export default function LaundryDashboardPage() {
           </p>
           <h1 className={`mt-2 text-3xl font-black tracking-tight ${isDark ? "text-white" : "text-gray-950"}`}>Dashboard</h1>
           <p className={`mt-2 text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>
-            Live operational overview from the backend.
+            Live operational overview for your laundry.
           </p>
           {error && (
             <div className="mt-4 rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 text-sm font-medium text-yellow-800">
@@ -297,7 +297,7 @@ export default function LaundryDashboardPage() {
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
                 <h2 className={`text-xl font-bold ${isDark ? "text-white" : "text-gray-900"}`}>Recent Orders</h2>
-                <p className={`text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>Latest orders from the backend</p>
+                <p className={`text-sm ${isDark ? "text-[#8db7cb]" : "text-gray-500"}`}>Latest incoming orders</p>
               </div>
               <button
                 onClick={() => router.push("/laundry-admin/orders")}
