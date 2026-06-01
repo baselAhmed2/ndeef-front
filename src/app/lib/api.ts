@@ -1156,10 +1156,10 @@ export async function loginRequest(email: string, password: string) {
   });
 }
 
-export async function googleLoginRequest(idToken: string) {
+export async function googleLoginRequest(idToken: string, role?: "Customer" | "LaundryAdmin" | "Courier") {
   return request<BackendUserDto>("/Auth/google-login", {
     method: "POST",
-    body: JSON.stringify({ idToken }),
+    body: JSON.stringify({ idToken, role }),
   });
 }
 

@@ -344,16 +344,9 @@ export default function Login() {
   };
 
   const handleSocial = async (provider: string, credential: string) => {
-    if (accountType === "LaundryAdmin") {
-      setError(
-        "Laundry owners should sign in with email so the Laundry Admin setup and verification flow stays correct.",
-      );
-      return;
-    }
-
     setError("");
     setSocialLoad(provider);
-    const result = await socialLogin(provider, credential);
+    const result = await socialLogin(provider, credential, accountType);
     setSocialLoad("");
 
     if (result.ok) {
@@ -508,9 +501,9 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          {/* Social (Customer only) */}
+          {/* Social (Customer, Courier, LaundryAdmin) */}
           <AnimatePresence mode="wait">
-            {accountType === "Customer" && (
+            {(accountType === "Customer" || accountType === "Courier" || accountType === "LaundryAdmin") && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
