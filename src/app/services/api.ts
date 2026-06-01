@@ -297,6 +297,10 @@ export interface VerificationStatusResponse {
   role: string;
 }
 
+export interface VerificationSyncResponse {
+  synced: boolean;
+}
+
 function safeParseApiPayload(raw: string) {
   if (!raw) return null;
   try {
@@ -416,6 +420,52 @@ export async function getVerificationStatus(
         normalizedApprovalStatus === "complete",
     },
   };
+}
+
+/**
+ * POST /api/verification/sync
+ * Refreshes a Didit session result on the server before the UI reads user status.
+ */
+export async function syncVerificationStatus(
+  sessionId?: string | null,
+): Promise<ApiResult<VerificationSyncResponse>> {
+  if (!sessionId) {
+    return { isSuccess: false, error: "Verification session is missing." };
+  }
+
+  try {
+    const res = await fetch(
+      `${BASE_URL}/verification/sync?verificationSessionId=${encodeURIComponent(sessionId)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      },
+    );
+    const raw = await res.text();
+    const json = safeParseApiPayload(raw);
+
+    if (!res.ok) {
+      return {
+        isSuccess: false,
+        error:
+          (json && typeof json === "object" && "message" in json && typeof json.message === "string"
+            ? json.message
+            : null) ?? "Unable to refresh verification status right now.",
+      };
+    }
+
+    return {
+      isSuccess: true,
+      data: {
+        synced: Boolean(json && typeof json === "object" && "synced" in json ? json.synced : false),
+      },
+    };
+  } catch {
+    return {
+      isSuccess: false,
+      error: "Unable to refresh verification status right now. Please check your connection and try again.",
+    };
+  }
 }
 
 /**

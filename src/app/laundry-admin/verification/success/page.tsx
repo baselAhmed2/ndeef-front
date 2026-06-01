@@ -3,11 +3,10 @@
 import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
-import { getVerificationStatus } from "@/app/services/api";
+import { getVerificationStatus, syncVerificationStatus } from "@/app/services/api";
 import Link from "next/link";
 import { markLaundryVerificationComplete } from "@/app/lib/verification-state";
 
-const SUCCESS_CALLBACK_STATUSES = new Set(["approved", "verified", "completed", "complete", "success"]);
 const REVIEW_CALLBACK_STATUSES = new Set(["in review", "pending", "review", "processing"]);
 
 function VerificationSuccessContent() {
@@ -25,7 +24,6 @@ function VerificationSuccessContent() {
     searchParams?.get("session_id");
   const status = searchParams?.get("status");
   const urlStatus = status?.trim().toLowerCase() ?? "";
-  const isApprovedFromDidit = SUCCESS_CALLBACK_STATUSES.has(urlStatus);
   
   // Log for debugging
   console.log("Verification callback - Session:", sessionId, "Status:", status);
@@ -36,15 +34,17 @@ function VerificationSuccessContent() {
 
     let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    if (!isLoggedIn || !user) {
-      router.push("/login");
-      return () => {
-        if (redirectTimeout) clearTimeout(redirectTimeout);
-      };
-    }
-
     const checkVerification = async () => {
       try {
+        if (sessionId) {
+          await syncVerificationStatus(sessionId);
+        }
+
+        if (!isLoggedIn || !user) {
+          router.push("/login");
+          return;
+        }
+
         const maxAttempts = 8;
         for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
           const result = await getVerificationStatus(sessionId);
@@ -82,7 +82,7 @@ function VerificationSuccessContent() {
     return () => {
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  }, [isLoggedIn, isAuthReady, user, router, logout, isApprovedFromDidit, sessionId, updateUser]);
+  }, [isLoggedIn, isAuthReady, user, router, logout, sessionId, updateUser]);
 
   if (isLoading) {
     return (
