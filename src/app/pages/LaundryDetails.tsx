@@ -114,7 +114,7 @@ function ErrorScreen({
     not_found: {
       icon: WifiOff,
       title: "Laundry Not Found",
-      body: "This laundry does not exist on the deployed backend, or the link may be outdated.",
+      body: "This laundry could not be found, or the link may be outdated.",
       action: "Try Again",
     },
     unavailable: {
@@ -126,7 +126,7 @@ function ErrorScreen({
     no_services: {
       icon: Package,
       title: "No Services Available",
-      body: "This laundry has no active services in the current backend response.",
+      body: "This laundry has no active services right now.",
       action: "Refresh",
     },
   };
@@ -543,8 +543,8 @@ export default function LaundryDetails() {
   };
 
   const features = [
-    { icon: Zap, text: "Live API Data", color: "#EBA050" },
-    { icon: Shield, text: "Backend Auth", color: "#1D6076" },
+    { icon: Zap, text: "Live Updates", color: "#EBA050" },
+    { icon: Shield, text: "Secure Access", color: "#1D6076" },
     { icon: Package, text: "Tracked Orders", color: "#5a6c7d" },
     { icon: CreditCard, text: "Real Payments", color: "#2a7a94" },
   ];
@@ -865,7 +865,7 @@ export default function LaundryDetails() {
 
               {visibleReviews.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
-                  No reviews were returned by the backend for this laundry yet.
+                  No reviews for this laundry yet.
                 </div>
               ) : (
                 <motion.div variants={staggerChildren} initial="hidden" whileInView="show" viewport={{ once: true }} className="space-y-3">

@@ -157,9 +157,7 @@ export default function CommissionsPage() {
             <Wallet size={32} className="text-[#2A5C66]" />
             Commissions & Debts
           </h1>
-          <p className="text-slate-500 mt-2">
-            Connected to <code className="rounded bg-slate-100 px-1">GET /api/admin/commissions</code>.
-          </p>
+          <p className="text-slate-500 mt-2">Track commission balances, pending dues, and recent collection activity.</p>
         </div>
         <button
           onClick={() => void fetchCommissions()}
@@ -330,8 +328,7 @@ export default function CommissionsPage() {
               </div>
 
               <div className="mb-5 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-                This section uses the real backend route <code className="rounded bg-white px-1">GET /api/admin/laundries/commission-status</code>.
-                Manual reminders and payment actions are hidden because the current backend does not expose them yet.
+                Payment reminders and manual settlement actions are currently hidden until they are fully supported.
               </div>
 
               {/* Laundries Table */}

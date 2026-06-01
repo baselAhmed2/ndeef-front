@@ -262,7 +262,7 @@ export function Services() {
       setBundleApprovals(loadedApprovals);
     } catch (loadError) {
       console.error(loadError);
-      setError("Could not load services from backend.");
+      setError("Could not load services right now.");
       setServices([]);
       setBundles([]);
       setBundleApprovals([]);
@@ -501,7 +501,7 @@ export function Services() {
           <div>
             <h3 className="font-semibold text-gray-900">Laundry Bundles</h3>
             <p className="mt-0.5 text-xs text-gray-400">
-              These cards come directly from the bundle backend endpoints.
+              These cards show your current bundle options and requests.
             </p>
           </div>
           <div className="flex gap-2 text-xs text-gray-500">
@@ -513,7 +513,7 @@ export function Services() {
 
         {bundles.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-            No bundles returned from backend for this laundry yet.
+            No bundles available for this laundry yet.
           </div>
         ) : (
           <div className="space-y-3">
@@ -575,7 +575,7 @@ export function Services() {
           <div className="mt-3 space-y-2">
             {bundleApprovals.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
-                No bundle proposal history returned from backend.
+                No bundle proposal history yet.
               </div>
             ) : (
               bundleApprovals.map((approval) => (

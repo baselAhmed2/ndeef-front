@@ -98,6 +98,7 @@ export interface BackendAddressDto {
 export interface WalletPaymentResponse {
   paymentUrl?: string;
   checkoutUrl?: string;
+  orderId?: string | number | null;
   [key: string]: unknown;
 }
 
@@ -105,6 +106,7 @@ export interface BackendWalletInfoTransactionDto {
   id: number;
   orderId?: number | null;
   amount: number;
+  paymentReference?: string | null;
   type: string;
   source: string;
   status: string;
@@ -663,14 +665,14 @@ const PLACEHOLDER_IMAGES = [
 function getErrorMessage(data: unknown, fallback = "Request failed.") {
   if (!data) return fallback;
 
-  if (typeof data === "string") return data;
+  if (typeof data === "string") return sanitizeUserMessage(data);
 
   if (typeof data === "object") {
     const record = data as Record<string, unknown>;
 
-    if (typeof record.message === "string") return record.message;
-    if (typeof record.Message === "string") return record.Message;
-    if (typeof record.title === "string") return record.title;
+    if (typeof record.message === "string") return sanitizeUserMessage(record.message);
+    if (typeof record.Message === "string") return sanitizeUserMessage(record.Message);
+    if (typeof record.title === "string") return sanitizeUserMessage(record.title);
 
     const errors = record.errors;
     if (errors && typeof errors === "object") {
@@ -693,6 +695,54 @@ function summarizeErrorPayload(data: unknown) {
   } catch {
     return null;
   }
+}
+
+function getSafeErrorMessage(status?: number) {
+  switch (status) {
+    case 0:
+      return "Unable to connect right now. Please check your connection and try again.";
+    case 400:
+      return "The request could not be completed. Please review the entered data and try again.";
+    case 401:
+      return "Your session has expired. Please sign in again.";
+    case 403:
+      return "You do not have permission to perform this action.";
+    case 404:
+      return "The requested data could not be found.";
+    case 409:
+      return "This action could not be completed because the data has changed. Please refresh and try again.";
+    case 422:
+      return "Some of the submitted data is invalid. Please review it and try again.";
+    case 429:
+      return "Too many requests were sent. Please wait a moment and try again.";
+    default:
+      if (typeof status === "number" && status >= 500) {
+        return "A server error occurred. Please try again in a moment.";
+      }
+      return "Something went wrong. Please try again.";
+  }
+}
+
+function looksSensitiveMessage(value: string) {
+  const normalized = value.toLowerCase();
+  return [
+    "/api/",
+    "stack trace",
+    "stacktrace",
+    "exception",
+    " at ",
+    "select ",
+    "insert ",
+    "update ",
+    "delete ",
+    "bearer ",
+    "token",
+  ].some((token) => normalized.includes(token));
+}
+
+function sanitizeUserMessage(value: string | undefined, status?: number) {
+  if (!value) return getSafeErrorMessage(status);
+  return looksSensitiveMessage(value) ? getSafeErrorMessage(status) : value;
 }
 
 async function request<T>(
@@ -723,11 +773,15 @@ async function request<T>(
       cache: "no-store",
     });
   } catch (error) {
-    const message =
-      error instanceof Error
-        ? `Network error while calling ${path}: ${error.message}`
-        : `Network error while calling ${path}.`;
-    throw new ApiError(message, 0, null);
+    if (!options?.suppressErrorLog) {
+      console.error("[API Network Error]", {
+        path,
+        method: init?.method ?? "GET",
+        error: error instanceof Error ? error.message : "Unknown network error",
+      });
+    }
+
+    throw new ApiError(getSafeErrorMessage(0), 0, null);
   }
 
   const text = await response.text();
@@ -736,7 +790,7 @@ async function request<T>(
   if (!response.ok) {
     const message = getErrorMessage(
       data,
-      `Request failed with status ${response.status}.`,
+      getSafeErrorMessage(response.status),
     );
 
     if (!options?.suppressErrorLog) {

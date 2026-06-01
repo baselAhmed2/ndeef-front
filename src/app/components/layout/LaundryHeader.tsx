@@ -24,7 +24,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/laundry-admin/orders": { title: "Orders", subtitle: "Manage and track all laundry orders" },
   "/laundry-admin/services": { title: "Services", subtitle: "Manage your laundry service offerings" },
   "/laundry-admin/availability": { title: "Availability", subtitle: "Set your working hours and schedule" },
-  "/laundry-admin/customers": { title: "Customers", subtitle: "Customer history from backend orders" },
+  "/laundry-admin/customers": { title: "Customers", subtitle: "Customer history and recent activity" },
   "/laundry-admin/drivers": { title: "Drivers", subtitle: "Assign and manage laundry couriers" },
   "/laundry-admin/notifications": { title: "Notifications", subtitle: "Stay updated with latest alerts" },
   "/laundry-admin/payments": { title: "Payments", subtitle: "Track revenue and payment history" },

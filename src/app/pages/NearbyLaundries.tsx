@@ -116,7 +116,7 @@ function PermissionScreen({
           </h2>
           <p className="mt-4 max-w-lg text-sm leading-7 text-white/78 md:text-base">
             Share your location once and we&apos;ll surface nearby laundries,
-            delivery timing, ratings, and live availability from the backend.
+            delivery timing, ratings, and live availability.
           </p>
 
           <div className="mt-8 grid gap-3 sm:grid-cols-3">
@@ -216,10 +216,10 @@ function FetchingScreen() {
         <Search size={38} className="text-[#EBA050]" strokeWidth={1.5} />
       </div>
       <h2 className="text-2xl font-semibold tracking-tight text-gray-900">
-        Checking the backend...
+        Checking available laundries...
       </h2>
       <p className="mt-2 text-sm text-gray-400">
-        Fetching laundries from the live API
+        Loading nearby laundries
       </p>
       <div className="mt-6 flex gap-1.5">
         {[0, 1, 2].map((i) => (
@@ -261,7 +261,7 @@ function ErrorScreen({
     no_laundries: {
       icon: AlertCircle,
       title: "No Laundries Available",
-      body: "The deployed backend did not return any laundries for your area right now.",
+      body: "No laundries are available in your area right now.",
       action: "Refresh",
     },
     permission_denied: {

@@ -5,11 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Camera,
-  CreditCard,
   Heart,
   Loader2,
   MapPin,
-  Settings2,
   Shield,
   Star,
   Trash2,
@@ -20,31 +18,23 @@ import { ChangePasswordModal } from "../components/ChangePasswordModal";
 import { useAuth } from "../context/AuthContext";
 import {
   addUserAddressRequest,
-  addUserPaymentMethodRequest,
   changePasswordRequest,
   deleteAccountRequest,
   deleteUserAddressRequest,
-  deleteUserPaymentMethodRequest,
   getUserAddressesRequest,
   getUserFavoritesRequest,
-  getUserPaymentMethodsRequest,
   getUserPointsRequest,
   getUserProfileRequest,
-  getUserSettingsRequest,
   getUserStatsRequest,
   redeemUserPointsRequest,
   removeUserFavoriteRequest,
   setDefaultUserAddressRequest,
-  setDefaultUserPaymentMethodRequest,
   updateUserAddressRequest,
   updateUserProfileRequest,
-  updateUserSettingsRequest,
   uploadUserAvatarRequest,
   type BackendAddressDto,
   type BackendFavoriteLaundryDto,
-  type BackendUserPaymentMethodDto,
   type BackendUserPointsDto,
-  type BackendUserSettingsDto,
   type BackendUserStatsDto,
 } from "../lib/api";
 
@@ -52,9 +42,7 @@ type ProfileSectionKey =
   | "stats"
   | "addresses"
   | "favorites"
-  | "paymentMethods"
-  | "points"
-  | "settings";
+  | "points";
 
 type ProfileSectionErrors = Partial<Record<ProfileSectionKey, string>>;
 
@@ -76,17 +64,6 @@ const EMPTY_FORM: ProfileFormState = {
   address: "",
   apt: "",
   instructions: "",
-};
-
-const DEFAULT_SETTINGS: BackendUserSettingsDto = {
-  language: "Arabic",
-  currency: "EGP",
-  pushNotifications: true,
-  emailNotifications: true,
-  smsNotifications: true,
-  whatsappNotifications: true,
-  showProfile: true,
-  shareData: false,
 };
 
 function splitAddress(value: string) {
@@ -118,40 +95,6 @@ function formatDate(value: string) {
     month: "short",
     year: "numeric",
   }).format(new Date(value));
-}
-
-function paymentTypeLabel(value: string | number) {
-  const normalized = String(value).toLowerCase();
-  if (normalized.includes("credit")) return "Credit Card";
-  if (normalized.includes("wallet")) return "Wallet";
-  return String(value);
-}
-
-function paymentBrandLabel(value: string | number) {
-  const normalized = String(value).toLowerCase();
-  if (normalized.includes("master")) return "Mastercard";
-  if (normalized.includes("visa")) return "Visa";
-  if (normalized.includes("amex")) return "American Express";
-  return String(value);
-}
-
-function settingLabel(key: keyof BackendUserSettingsDto) {
-  switch (key) {
-    case "pushNotifications":
-      return "Push notifications";
-    case "emailNotifications":
-      return "Email notifications";
-    case "smsNotifications":
-      return "SMS notifications";
-    case "whatsappNotifications":
-      return "WhatsApp notifications";
-    case "showProfile":
-      return "Show my profile";
-    case "shareData":
-      return "Share anonymous usage data";
-    default:
-      return key;
-  }
 }
 
 function StatCard({
@@ -186,15 +129,12 @@ export default function Profile() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [avatarUploading, setAvatarUploading] = useState(false);
-  const [settingsSaving, setSettingsSaving] = useState(false);
   const [addressId, setAddressId] = useState<number | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [addresses, setAddresses] = useState<BackendAddressDto[]>([]);
   const [favorites, setFavorites] = useState<BackendFavoriteLaundryDto[]>([]);
-  const [paymentMethods, setPaymentMethods] = useState<BackendUserPaymentMethodDto[]>([]);
   const [points, setPoints] = useState<BackendUserPointsDto>({ totalPoints: 0, history: [] });
   const [stats, setStats] = useState<BackendUserStatsDto | null>(null);
-  const [settings, setSettings] = useState<BackendUserSettingsDto>(DEFAULT_SETTINGS);
   const [formData, setFormData] = useState<ProfileFormState>(EMPTY_FORM);
   const [sectionErrors, setSectionErrors] = useState<ProfileSectionErrors>({});
 
@@ -231,16 +171,12 @@ export default function Profile() {
           addressesResult,
           statsResult,
           favoritesResult,
-          paymentMethodsResult,
           pointsResult,
-          settingsResult,
         ] = await Promise.allSettled([
           getUserAddressesRequest(authToken),
           getUserStatsRequest(authToken),
           getUserFavoritesRequest(authToken),
-          getUserPaymentMethodsRequest(authToken),
           getUserPointsRequest(authToken),
-          getUserSettingsRequest(authToken),
         ]);
 
         if (!active) return;
@@ -252,57 +188,37 @@ export default function Profile() {
           statsResult.status === "fulfilled" ? statsResult.value : null;
         const loadedFavorites =
           favoritesResult.status === "fulfilled" ? favoritesResult.value : [];
-        const loadedPaymentMethods =
-          paymentMethodsResult.status === "fulfilled" ? paymentMethodsResult.value : [];
         const loadedPoints =
           pointsResult.status === "fulfilled"
             ? pointsResult.value
             : { totalPoints: 0, history: [] };
-        const loadedSettings =
-          settingsResult.status === "fulfilled"
-            ? settingsResult.value
-            : DEFAULT_SETTINGS;
 
         if (addressesResult.status === "rejected") {
           nextErrors.addresses =
             addressesResult.reason instanceof Error
               ? addressesResult.reason.message
-              : "Could not load addresses from the backend.";
+              : "Could not load your addresses right now.";
         }
 
         if (statsResult.status === "rejected") {
           nextErrors.stats =
             statsResult.reason instanceof Error
               ? statsResult.reason.message
-              : "Could not load account stats from the backend.";
+              : "Could not load your account stats right now.";
         }
 
         if (favoritesResult.status === "rejected") {
           nextErrors.favorites =
             favoritesResult.reason instanceof Error
               ? favoritesResult.reason.message
-              : "Could not load favorites from the backend.";
-        }
-
-        if (paymentMethodsResult.status === "rejected") {
-          nextErrors.paymentMethods =
-            paymentMethodsResult.reason instanceof Error
-              ? paymentMethodsResult.reason.message
-              : "Could not load payment methods from the backend.";
+              : "Could not load your favorites right now.";
         }
 
         if (pointsResult.status === "rejected") {
           nextErrors.points =
             pointsResult.reason instanceof Error
               ? pointsResult.reason.message
-              : "Could not load points from the backend.";
-        }
-
-        if (settingsResult.status === "rejected") {
-          nextErrors.settings =
-            settingsResult.reason instanceof Error
-              ? settingsResult.reason.message
-              : "Could not load settings from the backend.";
+              : "Could not load your points right now.";
         }
 
         const primaryAddress =
@@ -312,9 +228,7 @@ export default function Profile() {
         setAddressId(primaryAddress?.id ?? null);
         setStats(loadedStats);
         setFavorites(loadedFavorites);
-        setPaymentMethods(loadedPaymentMethods);
         setPoints(loadedPoints);
-        setSettings({ ...DEFAULT_SETTINGS, ...loadedSettings });
         setAvatarUrl(profile.avatarUrl ?? null);
         setSectionErrors(nextErrors);
         updateUser({ avatarUrl: profile.avatarUrl ?? null });
@@ -357,12 +271,6 @@ export default function Profile() {
     if (!user?.token) return;
     setFavorites(await getUserFavoritesRequest(user.token));
     setSectionErrors((current) => ({ ...current, favorites: undefined }));
-  };
-
-  const refreshPaymentMethods = async () => {
-    if (!user?.token) return;
-    setPaymentMethods(await getUserPaymentMethodsRequest(user.token));
-    setSectionErrors((current) => ({ ...current, paymentMethods: undefined }));
   };
 
   const refreshPoints = async () => {
@@ -487,59 +395,6 @@ export default function Profile() {
     }
   };
 
-  const handleAddPaymentMethod = async () => {
-    if (!user?.token) return;
-
-    const cardholderName = window.prompt("Cardholder name");
-    if (!cardholderName) return;
-    const cardNumber = window.prompt("Card number");
-    if (!cardNumber) return;
-    const expiryMonth = window.prompt("Expiry month (MM)");
-    if (!expiryMonth) return;
-    const expiryYear = window.prompt("Expiry year (YYYY)");
-    if (!expiryYear) return;
-    const cvv = window.prompt("CVV");
-    if (!cvv) return;
-
-    try {
-      await addUserPaymentMethodRequest(user.token, {
-        type: "CreditCard",
-        cardholderName: cardholderName.trim(),
-        cardNumber: cardNumber.trim(),
-        expiryMonth: expiryMonth.trim(),
-        expiryYear: expiryYear.trim(),
-        cvv: cvv.trim(),
-        isDefault: paymentMethods.length === 0,
-      });
-      await refreshPaymentMethods();
-      toast.success("Payment method added.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to add payment method.");
-    }
-  };
-
-  const handleDeletePaymentMethod = async (paymentMethodId: number) => {
-    if (!user?.token) return;
-    try {
-      await deleteUserPaymentMethodRequest(user.token, paymentMethodId);
-      await refreshPaymentMethods();
-      toast.success("Payment method deleted.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to delete payment method.");
-    }
-  };
-
-  const handlePaymentMethodDefault = async (paymentMethodId: number) => {
-    if (!user?.token) return;
-    try {
-      await setDefaultUserPaymentMethodRequest(user.token, paymentMethodId);
-      await refreshPaymentMethods();
-      toast.success("Default payment method updated.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to update default payment method.");
-    }
-  };
-
   const handleRedeemPoints = async () => {
     if (!user?.token) return;
 
@@ -562,20 +417,6 @@ export default function Profile() {
       toast.success("Points redeemed successfully.");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to redeem points.");
-    }
-  };
-
-  const handleSaveSettings = async () => {
-    if (!user?.token) return;
-    try {
-      setSettingsSaving(true);
-      const nextSettings = await updateUserSettingsRequest(user.token, settings);
-      setSettings({ ...DEFAULT_SETTINGS, ...nextSettings });
-      toast.success("Settings updated successfully.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Failed to save settings.");
-    } finally {
-      setSettingsSaving(false);
     }
   };
 
@@ -714,7 +555,7 @@ export default function Profile() {
           <StatCard label="Completed orders" value={String(stats?.completedOrders ?? 0)} icon={Shield} tone="bg-[#1D6076]/10 text-[#1D6076]" />
           <StatCard label="Active orders" value={String(stats?.activeOrders ?? 0)} icon={Star} tone="bg-[#EBA050]/10 text-[#EBA050]" />
           <StatCard label="Total spent" value={formatMoney(Number(stats?.totalSpent ?? 0))} icon={Wallet} tone="bg-emerald-50 text-emerald-600" />
-          <StatCard label="Saved cards" value={String(paymentMethods.length)} icon={CreditCard} tone="bg-slate-100 text-slate-700" />
+          <StatCard label="Reward points" value={String(points.totalPoints ?? 0)} icon={Star} tone="bg-amber-50 text-amber-600" />
         </div>
         {sectionErrors.stats ? (
           <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -750,7 +591,7 @@ export default function Profile() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-slate-950">Addresses</h3>
-                  <p className="text-sm text-slate-500">Connected to your real saved addresses from the backend.</p>
+                  <p className="text-sm text-slate-500">Your saved addresses appear here.</p>
                 </div>
               </div>
 
@@ -777,7 +618,7 @@ export default function Profile() {
                 ) : null}
                 {!sectionErrors.addresses && addresses.length === 0 ? (
                   <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                    No saved addresses returned from the backend yet.
+                    No saved addresses yet.
                   </div>
                 ) : (
                   addresses.map((address) => (
@@ -812,7 +653,7 @@ export default function Profile() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <h3 className="text-lg font-bold text-slate-950">Favorites</h3>
-                  <p className="text-sm text-slate-500">Real favorite laundries connected to your backend account.</p>
+                  <p className="text-sm text-slate-500">Your favorite laundries appear here.</p>
                 </div>
               </div>
               <div className="mt-5 space-y-3">
@@ -847,61 +688,8 @@ export default function Profile() {
             <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-bold text-slate-950">Payment methods</h3>
-                  <p className="text-sm text-slate-500">Saved cards from your user payment-methods endpoints.</p>
-                </div>
-                <button onClick={() => void handleAddPaymentMethod()} className="rounded-xl bg-[#1D6076] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#174d5f]">
-                  Add card
-                </button>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {sectionErrors.paymentMethods ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                    Payment methods are unavailable right now: {sectionErrors.paymentMethods}
-                  </div>
-                ) : null}
-                {!sectionErrors.paymentMethods && paymentMethods.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500">
-                    No saved payment methods yet.
-                  </div>
-                ) : (
-                  paymentMethods.map((method) => (
-                    <div key={method.id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div>
-                          <p className="font-semibold text-slate-900">
-                            {paymentBrandLabel(method.cardBrand)} •••• {method.cardLast4}
-                          </p>
-                          <p className="mt-1 text-sm text-slate-500">
-                            {paymentTypeLabel(method.type)} • {method.cardholderName} • Expires {method.expiryMonth}/{method.expiryYear}
-                          </p>
-                        </div>
-                        {method.isDefault ? (
-                          <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-700">Default</span>
-                        ) : null}
-                      </div>
-                      <div className="mt-3 flex items-center gap-2">
-                        {!method.isDefault ? (
-                          <button onClick={() => void handlePaymentMethodDefault(method.id)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100">
-                            Set default
-                          </button>
-                        ) : null}
-                        <button onClick={() => void handleDeletePaymentMethod(method.id)} className="rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50">
-                          Remove
-                        </button>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </section>
-
-            <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
                   <h3 className="text-lg font-bold text-slate-950">Points & rewards</h3>
-                  <p className="text-sm text-slate-500">Live points balance and history from the backend.</p>
+                  <p className="text-sm text-slate-500">Your points balance and recent activity.</p>
                 </div>
                 <button onClick={() => void handleRedeemPoints()} className="rounded-xl bg-[#EBA050] px-3 py-2 text-xs font-semibold text-white transition hover:opacity-90">
                   Redeem
@@ -939,48 +727,6 @@ export default function Profile() {
                   ))
                 )}
               </div>
-            </section>
-
-            <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <h3 className="text-lg font-bold text-slate-950">Settings</h3>
-                  <p className="text-sm text-slate-500">Connected to your real user settings endpoint.</p>
-                </div>
-                <Settings2 className="text-slate-400" size={18} />
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {sectionErrors.settings ? (
-                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-800">
-                    Settings are unavailable right now: {sectionErrors.settings}
-                  </div>
-                ) : null}
-                {(
-                  [
-                    "pushNotifications",
-                    "emailNotifications",
-                    "smsNotifications",
-                    "whatsappNotifications",
-                    "showProfile",
-                    "shareData",
-                  ] as Array<keyof BackendUserSettingsDto>
-                ).map((key) => (
-                  <label key={key} className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <span className="text-sm font-medium text-slate-800">{settingLabel(key)}</span>
-                    <input
-                      type="checkbox"
-                      checked={Boolean(settings[key])}
-                      onChange={(e) => setSettings((current) => ({ ...current, [key]: e.target.checked }))}
-                      className="h-4 w-4 accent-[#1D6076]"
-                    />
-                  </label>
-                ))}
-              </div>
-
-              <button onClick={() => void handleSaveSettings()} disabled={settingsSaving} className="mt-5 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50 disabled:opacity-60">
-                {settingsSaving ? "Saving settings..." : "Save settings"}
-              </button>
             </section>
 
             <section className="rounded-[30px] border border-slate-200 bg-white p-6 shadow-sm">

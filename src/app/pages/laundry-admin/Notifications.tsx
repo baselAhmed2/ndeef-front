@@ -61,7 +61,7 @@ export function Notifications() {
     } catch (error) {
       console.error("Failed to load notifications", error);
       setNotifications([]);
-      setError("Failed to load notifications from backend.");
+      setError("Failed to load notifications right now.");
     } finally {
       if (!silent) {
         setLoading(false);

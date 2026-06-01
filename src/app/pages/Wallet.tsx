@@ -26,17 +26,20 @@ type WalletTransaction = {
   amountLabel: string;
   time: string;
   createdAt: string | null;
+  paymentReference: string | null;
   positive: boolean;
   paymentMethod: string;
   paymentStatus: string;
   source: string;
 };
 
+
 type ActivityFilter = "all" | "wallet" | "mobile" | "cash" | "refund";
 type WalletSyncState = "idle" | "waiting" | "confirmed" | "failed" | "timeout";
 type PendingWalletCharge = {
   amount: number;
   startedAt: string;
+  merchantOrderId: string | null;
 };
 
 const QUICK_AMOUNTS = [100, 250, 500, 1000] as const;
@@ -171,11 +174,21 @@ function clearPendingWalletCharge() {
   window.localStorage.removeItem(PENDING_WALLET_CHARGE_KEY);
 }
 
+function normalizeMerchantOrderId(value: unknown) {
+  if (typeof value !== "string" && typeof value !== "number") return null;
+  const trimmed = String(value).trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
 function hasMatchingWalletCharge(
   items: WalletTransaction[],
   pendingCharge: PendingWalletCharge | null,
 ) {
   if (!pendingCharge) return false;
+
+  if (pendingCharge.merchantOrderId) {
+    return items.some((item) => item.paymentReference === pendingCharge.merchantOrderId);
+  }
 
   const startedAt = new Date(pendingCharge.startedAt).getTime();
   const earliestAcceptedTime = startedAt - 2 * 60 * 1000;
@@ -299,6 +312,7 @@ export default function Wallet() {
   const [chargeAmount, setChargeAmount] = useState("250");
   const [syncState, setSyncState] = useState<WalletSyncState>("idle");
   const chargeStatus = searchParams?.get("status");
+  const callbackMerchantOrderId = searchParams?.get("merchantOrderId");
   const [pendingCharge, setPendingCharge] = useState<PendingWalletCharge | null>(null);
   const normalizedRole = String(user?.role ?? "").trim().toLowerCase().replace(/\s+/g, "");
   const isCustomerRole = !normalizedRole || normalizedRole === "customer" || normalizedRole === "1";
@@ -321,6 +335,7 @@ export default function Wallet() {
         amountLabel: `${positive ? "+" : "-"}${formatMoney(amount)}`,
         time: formatTransactionDate(item.createdAt),
         createdAt: item.createdAt ?? null,
+        paymentReference: item.paymentReference ?? null,
         positive,
         paymentMethod: method,
         paymentStatus: status,
@@ -382,8 +397,29 @@ export default function Wallet() {
 
     let cancelled = false;
     let attempts = 0;
-    const activePendingCharge = readPendingWalletCharge();
+    const activePendingCharge = (() => {
+      const stored = readPendingWalletCharge();
+      const queryMerchantOrderId = normalizeMerchantOrderId(callbackMerchantOrderId);
+
+      if (!queryMerchantOrderId) {
+        return stored;
+      }
+
+      if (stored?.merchantOrderId === queryMerchantOrderId) {
+        return stored;
+      }
+
+      return {
+        amount: stored?.amount ?? 0,
+        startedAt: stored?.startedAt ?? new Date().toISOString(),
+        merchantOrderId: queryMerchantOrderId,
+      };
+    })();
+
     setPendingCharge(activePendingCharge);
+    if (activePendingCharge) {
+      writePendingWalletCharge(activePendingCharge);
+    }
     setSyncState("waiting");
 
     const poll = async () => {
@@ -421,7 +457,7 @@ export default function Wallet() {
     return () => {
       cancelled = true;
     };
-  }, [chargeStatus, loadWalletInfo, user?.token]);
+  }, [callbackMerchantOrderId, chargeStatus, loadWalletInfo, user?.token]);
 
   useEffect(() => {
     if (!chargeStatus) return;
@@ -433,6 +469,7 @@ export default function Wallet() {
 
     const params = new URLSearchParams(searchParams?.toString() ?? "");
     params.delete("status");
+    params.delete("merchantOrderId");
     const nextQuery = params.toString();
     const timeout = window.setTimeout(() => {
       const safePath = pathname ?? "/wallet";
@@ -468,21 +505,23 @@ export default function Wallet() {
 
     try {
       setCharging(true);
-      writePendingWalletCharge({
-        amount,
-        startedAt: new Date().toISOString(),
-      });
-      setPendingCharge({
-        amount,
-        startedAt: new Date().toISOString(),
-      });
-      setSyncState("waiting");
       const response = await chargeWalletRequest(user.token, amount);
       const checkoutUrl = response.checkoutUrl ?? response.paymentUrl;
+      const merchantOrderId = normalizeMerchantOrderId(response.orderId);
 
       if (!checkoutUrl) {
-        throw new Error("Backend did not return a checkout URL.");
+        throw new Error("Unable to start checkout right now.");
       }
+
+      const nextPendingCharge = {
+        amount,
+        startedAt: new Date().toISOString(),
+        merchantOrderId,
+      };
+
+      writePendingWalletCharge(nextPendingCharge);
+      setPendingCharge(nextPendingCharge);
+      setSyncState("waiting");
 
       await openExternalUrl(checkoutUrl);
     } catch (error) {
@@ -756,6 +795,7 @@ export default function Wallet() {
                   </button>
                 ))}
               </div>
+>>>>>>> b5263f2943b2d494a31d8faed3f2d0b550c358c4
             </div>
           </div>
         </div>

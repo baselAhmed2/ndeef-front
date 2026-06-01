@@ -20,7 +20,7 @@ const preferenceBootstrapScript = `
     var language = localStorage.getItem("nadeef_language");
 
     if (theme !== "dark" && theme !== "light") {
-      theme = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      theme = "light";
     }
 
     if (language !== "ar" && language !== "en") {

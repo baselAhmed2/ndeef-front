@@ -10,7 +10,7 @@ const tabs = [
   { id: "general", label: "General", icon: SettingsIcon },
   { id: "security", label: "Security", icon: Shield },
   { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "api", label: "API Keys", icon: Key },
+  { id: "api", label: "Access Keys", icon: Key },
 ];
 
 export function AdminSettings() {

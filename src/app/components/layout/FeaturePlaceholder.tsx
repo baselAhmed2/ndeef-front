@@ -57,7 +57,7 @@ export function FeaturePlaceholder({
             <Clock3 size={15} />
             <span className="text-sm font-semibold">Ready for implementation</span>
           </div>
-          <p className="text-xs leading-5 text-slate-500">Use this screen as the starting point for real workflows, filters, tables, and API integration later on.</p>
+          <p className="text-xs leading-5 text-slate-500">Use this screen as the starting point for real workflows, filters, and tables.</p>
         </div>
         <div className="rounded-2xl border border-slate-200/70 bg-white/90 p-5">
           <p className="text-sm font-semibold text-slate-800">Dev-safe placeholder</p>

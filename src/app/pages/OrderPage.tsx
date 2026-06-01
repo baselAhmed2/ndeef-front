@@ -95,6 +95,31 @@ function formatMapAddress(latitude: number, longitude: number) {
   return `Location selected from map (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`;
 }
 
+async function resolveMapAddress(latitude: number, longitude: number) {
+  try {
+    const resp = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!resp.ok) throw new Error("Reverse lookup failed");
+    const data = await resp.json();
+    const addr = data?.address ?? {};
+    const primary =
+      addr.road ||
+      addr.neighbourhood ||
+      addr.suburb ||
+      addr.town ||
+      addr.village ||
+      addr.county;
+    const secondary = addr.city || addr.town || addr.county || addr.state;
+    const short = [primary, secondary].filter(Boolean).join(", ");
+    return short || data.display_name || formatMapAddress(latitude, longitude);
+  } catch (err) {
+    console.error("resolveMapAddress error", err);
+    return formatMapAddress(latitude, longitude);
+  }
+}
+
 export default function OrderPage() {
   const params = useParams<{ laundryId: string }>();
   const laundryId = params?.laundryId ?? "";
@@ -120,7 +145,9 @@ export default function OrderPage() {
   const [selectedBundle, setSelectedBundle] = useState<UiBundle | null>(null);
   const [selectedServices, setSelectedServices] = useState<UiServiceItem[]>([]);
   const [savedAddresses, setSavedAddresses] = useState<BackendAddressDto[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
+    null,
+  );
   const [walletBalance, setWalletBalance] = useState(0);
   const [useWalletBalance, setUseWalletBalance] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -130,14 +157,18 @@ export default function OrderPage() {
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [sameAddress, setSameAddress] = useState(true);
-  const [paymentMethod, setPaymentMethod] = useState<"credit" | "cash" | "wallet">("credit");
+  const [paymentMethod, setPaymentMethod] = useState<
+    "credit" | "cash" | "wallet"
+  >("credit");
   const [validating, setValidating] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [pricingError, setPricingError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [calculatedTotal, setCalculatedTotal] = useState<number | null>(null);
-  const [mapTarget, setMapTarget] = useState<"pickup" | "delivery" | null>(null);
-  const [mapLatitude, setMapLatitude] = useState(30.044420);
+  const [mapTarget, setMapTarget] = useState<"pickup" | "delivery" | null>(
+    null,
+  );
+  const [mapLatitude, setMapLatitude] = useState(30.04442);
   const [mapLongitude, setMapLongitude] = useState(31.235712);
   const [mapError, setMapError] = useState("");
   const [mapLoadingLocation, setMapLoadingLocation] = useState(false);
@@ -181,7 +212,14 @@ export default function OrderPage() {
       );
       router.replace(`/login?from=${from}`);
     }
-  }, [bundleId, isAuthReady, isLoggedIn, laundryId, router, selectedServiceIds]);
+  }, [
+    bundleId,
+    isAuthReady,
+    isLoggedIn,
+    laundryId,
+    router,
+    selectedServiceIds,
+  ]);
 
   useEffect(() => {
     const loadLaundry = async () => {
@@ -191,8 +229,12 @@ export default function OrderPage() {
         setLoading(true);
         const [response, bundleResponse, addressResponse] = await Promise.all([
           getLaundryRequest(laundryId),
-          bundleId ? getBundleByIdRequest(bundleId).catch(() => null) : Promise.resolve(null),
-          user?.token ? getUserAddressesRequest(user.token).catch(() => []) : Promise.resolve([]),
+          bundleId
+            ? getBundleByIdRequest(bundleId).catch(() => null)
+            : Promise.resolve(null),
+          user?.token
+            ? getUserAddressesRequest(user.token).catch(() => [])
+            : Promise.resolve([]),
         ]);
         const walletInfo = user?.token
           ? await getWalletInfoRequest(user.token).catch(() => null)
@@ -205,7 +247,9 @@ export default function OrderPage() {
                 service.available && selectedServiceIds.includes(service.id),
             );
         const primaryAddress =
-          addressResponse.find((address) => address.isDefault) ?? addressResponse[0] ?? null;
+          addressResponse.find((address) => address.isDefault) ??
+          addressResponse[0] ??
+          null;
 
         setLaundry(mappedLaundry);
         setSelectedBundle(bundleResponse);
@@ -214,7 +258,11 @@ export default function OrderPage() {
         setSelectedAddressId(primaryAddress?.id ?? null);
         setWalletBalance(Number(walletInfo?.balance ?? 0));
         if (primaryAddress) {
-          const formattedAddress = [primaryAddress.street, primaryAddress.area, primaryAddress.city]
+          const formattedAddress = [
+            primaryAddress.street,
+            primaryAddress.area,
+            primaryAddress.city,
+          ]
             .filter(Boolean)
             .join(", ");
           setPickupAddress(formattedAddress);
@@ -314,22 +362,25 @@ export default function OrderPage() {
     );
   }, [calculatedTotal, itemCounts, selectedBundle, selectedServices]);
 
-  const totalItems = useMemo(
-    () => {
-      if (selectedBundle) {
-        return selectedBundle.items.reduce((sum, item) => sum + Number(item.quantity ?? 0), 0);
-      }
-      return selectedServices.reduce(
-        (sum, service) => sum + (itemCounts[service.id] ?? 1),
+  const totalItems = useMemo(() => {
+    if (selectedBundle) {
+      return selectedBundle.items.reduce(
+        (sum, item) => sum + Number(item.quantity ?? 0),
         0,
       );
-    },
-    [itemCounts, selectedBundle, selectedServices],
-  );
+    }
+    return selectedServices.reduce(
+      (sum, service) => sum + (itemCounts[service.id] ?? 1),
+      0,
+    );
+  }, [itemCounts, selectedBundle, selectedServices]);
 
   const deliveryFee = 0;
   const finalDelivery = sameAddress ? pickupAddress : deliveryAddress;
-  const walletCanCoverRegularOrder = !selectedBundle && walletBalance >= total + deliveryFee && total + deliveryFee > 0;
+  const walletCanCoverRegularOrder =
+    !selectedBundle &&
+    walletBalance >= total + deliveryFee &&
+    total + deliveryFee > 0;
   const mapPreviewSrc = useMemo(
     () =>
       `https://www.openstreetmap.org/export/embed.html?bbox=${mapLongitude - 0.01}%2C${mapLatitude - 0.01}%2C${mapLongitude + 0.01}%2C${mapLatitude + 0.01}&layer=mapnik&marker=${mapLatitude}%2C${mapLongitude}`,
@@ -407,7 +458,9 @@ export default function OrderPage() {
         setMapLoadingLocation(false);
       },
       () => {
-        setMapError("We couldn't access your location. Please allow location permission and try again.");
+        setMapError(
+          "We couldn't access your location. Please allow location permission and try again.",
+        );
         setMapLoadingLocation(false);
       },
       {
@@ -417,8 +470,10 @@ export default function OrderPage() {
     );
   };
 
-  const applyMapLocation = () => {
-    const nextAddress = formatMapAddress(mapLatitude, mapLongitude);
+  const applyMapLocation = async () => {
+    const resolved = await resolveMapAddress(mapLatitude, mapLongitude);
+
+    const nextAddress = resolved || formatMapAddress(mapLatitude, mapLongitude);
 
     if (mapTarget === "pickup") {
       setPickupAddress(nextAddress);
@@ -437,8 +492,10 @@ export default function OrderPage() {
   };
 
   const handlePlaceOrder = async () => {
-    if (orderSubmissionLockRef.current || validating || orderRedirecting) return;
-    if ((!selectedBundle && selectedServices.length === 0) || !user?.token) return;
+    if (orderSubmissionLockRef.current || validating || orderRedirecting)
+      return;
+    if ((!selectedBundle && selectedServices.length === 0) || !user?.token)
+      return;
 
     orderSubmissionLockRef.current = true;
     let shouldKeepLockedAfterSubmit = false;
@@ -500,7 +557,9 @@ export default function OrderPage() {
             amount: Number(total + deliveryFee),
             paymentMethod: "Wallet",
           });
-          setWalletBalance((current) => Math.max(0, current - Number(total + deliveryFee)));
+          setWalletBalance((current) =>
+            Math.max(0, current - Number(total + deliveryFee)),
+          );
           shouldKeepLockedAfterSubmit = true;
           setOrderRedirecting(true);
           router.push(`/track-order/${order.id}?notice=paid`);
@@ -519,15 +578,17 @@ export default function OrderPage() {
     } catch (error) {
       const isBackendSessionMismatch =
         error instanceof ApiError &&
-        error.message.includes("An error occurred while saving the entity changes");
+        error.message.includes(
+          "An error occurred while saving the entity changes",
+        );
 
       setOrderRedirecting(false);
       setSubmitError(
         isBackendSessionMismatch
-          ? `Your saved session may belong to a different backend environment. Please sign out and sign in again on ${BACKEND_ORIGIN} before placing the order.`
+          ? `Your saved session is no longer valid here. Please sign out and sign in again on ${BACKEND_ORIGIN} before placing the order.`
           : error instanceof ApiError
             ? error.message
-          : error instanceof Error
+            : error instanceof Error
               ? error.message
               : "Unable to place the order right now.",
       );
@@ -544,7 +605,11 @@ export default function OrderPage() {
     return (
       <div className="min-h-screen bg-[#f5f5f5] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <Loader2 size={30} className="text-[#1D6076] animate-spin" strokeWidth={1.5} />
+          <Loader2
+            size={30}
+            className="text-[#1D6076] animate-spin"
+            strokeWidth={1.5}
+          />
           <p className="text-gray-400 text-sm">Loading order details...</p>
         </div>
       </div>
@@ -607,7 +672,9 @@ export default function OrderPage() {
                 strokeWidth={2}
               />
               <div className="flex-1">
-                <p className="text-red-700 text-sm font-medium">Unable to place order</p>
+                <p className="text-red-700 text-sm font-medium">
+                  Unable to place order
+                </p>
                 <p className="text-red-600 text-xs mt-0.5">{submitError}</p>
               </div>
             </div>
@@ -672,13 +739,18 @@ export default function OrderPage() {
               <div className="rounded-2xl border border-[#1D6076]/15 bg-[linear-gradient(135deg,rgba(29,96,118,0.06),rgba(235,160,80,0.10))] p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-lg font-semibold text-gray-900">{selectedBundle.name}</p>
+                    <p className="text-lg font-semibold text-gray-900">
+                      {selectedBundle.name}
+                    </p>
                     <p className="mt-1 text-sm text-gray-600">
-                      {selectedBundle.description?.trim() || "This bundle includes fixed items from the selected laundry."}
+                      {selectedBundle.description?.trim() ||
+                        "This bundle includes fixed items from the selected laundry."}
                     </p>
                   </div>
                   <div className="text-right">
-                    <p className="text-xl font-semibold text-[#1D6076]">{selectedBundle.price} EGP</p>
+                    <p className="text-xl font-semibold text-[#1D6076]">
+                      {selectedBundle.price} EGP
+                    </p>
                     <p className="text-xs text-emerald-600">
                       Save {selectedBundle.savingsAmount.toFixed(2)} EGP
                     </p>
@@ -692,7 +764,9 @@ export default function OrderPage() {
                       className="flex items-center justify-between rounded-xl border border-white/80 bg-white/80 px-4 py-3"
                     >
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{item.serviceName}</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {item.serviceName}
+                        </p>
                         <p className="text-xs text-gray-400">{item.category}</p>
                       </div>
                       <span className="rounded-full bg-[#1D6076]/10 px-3 py-1 text-xs font-semibold text-[#1D6076]">
@@ -712,10 +786,16 @@ export default function OrderPage() {
                 <div className="flex items-start justify-between gap-3 mb-4">
                   <div className="flex items-center gap-3">
                     <div className="w-11 h-11 rounded-xl bg-[#1D6076]/10 flex items-center justify-center shrink-0">
-                      <Package size={20} className="text-[#1D6076]" strokeWidth={1.8} />
+                      <Package
+                        size={20}
+                        className="text-[#1D6076]"
+                        strokeWidth={1.8}
+                      />
                     </div>
                     <div>
-                      <p className="text-gray-900 text-sm font-medium">{service.name}</p>
+                      <p className="text-gray-900 text-sm font-medium">
+                        {service.name}
+                      </p>
                       <p className="text-xs text-gray-400">{service.unit}</p>
                     </div>
                   </div>
@@ -736,21 +816,34 @@ export default function OrderPage() {
                 <div className="flex items-center justify-between bg-white rounded-2xl px-4 py-3">
                   <button
                     onClick={() =>
-                      updateItemCount(service.id, (itemCounts[service.id] ?? 1) - 1)
+                      updateItemCount(
+                        service.id,
+                        (itemCounts[service.id] ?? 1) - 1,
+                      )
                     }
                     className="w-11 h-11 rounded-xl bg-white border border-gray-200 flex items-center justify-center hover:bg-gray-100 active:scale-95 transition-all shadow-sm"
                   >
-                    <Minus size={18} strokeWidth={2.5} className="text-gray-600" />
+                    <Minus
+                      size={18}
+                      strokeWidth={2.5}
+                      className="text-gray-600"
+                    />
                   </button>
                   <div className="text-center">
-                    <p className="text-3xl text-[#1D6076]" style={{ fontWeight: 300 }}>
+                    <p
+                      className="text-3xl text-[#1D6076]"
+                      style={{ fontWeight: 300 }}
+                    >
                       {itemCounts[service.id] ?? 1}
                     </p>
                     <p className="text-xs text-gray-400 mt-1">quantity</p>
                   </div>
                   <button
                     onClick={() =>
-                      updateItemCount(service.id, (itemCounts[service.id] ?? 1) + 1)
+                      updateItemCount(
+                        service.id,
+                        (itemCounts[service.id] ?? 1) + 1,
+                      )
                     }
                     className="w-11 h-11 rounded-xl bg-[#1D6076] flex items-center justify-center hover:bg-[#2a7a94] active:scale-95 transition-all shadow-sm"
                   >
@@ -793,45 +886,46 @@ export default function OrderPage() {
               PICKUP TIME
             </p>
           </div>
-          {selectedDate === "Today" && availableTimeSlots.length !== timeSlots.length && (
-            <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Past pickup windows for today are unavailable.
-            </div>
-          )}
+          {selectedDate === "Today" &&
+            availableTimeSlots.length !== timeSlots.length && (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Past pickup windows for today are unavailable.
+              </div>
+            )}
           <div className="grid grid-cols-2 gap-2.5">
-            {timeSlots.map((slot) => (
+            {timeSlots.map((slot) =>
               (() => {
                 const isDisabled = !availableTimeSlots.includes(slot);
                 const isSelected = selectedTime === slot;
                 return (
-              <button
-                key={slot}
-                type="button"
-                onClick={() => !isDisabled && setSelectedTime(slot)}
-                disabled={isDisabled}
-                className={`relative rounded-xl border py-3 text-sm font-medium transition-all ${
-                  isDisabled
-                    ? "cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60"
-                    : isSelected
-                      ? "bg-[#1D6076] text-white shadow-sm border-[#1D6076]"
-                      : "border-gray-100 bg-gray-50 text-gray-700 hover:bg-gray-100 active:scale-[0.98]"
-                }`}
-              >
-                {slot}
-                {isSelected && !isDisabled && (
-                  <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white/25 flex items-center justify-center">
-                    <Check size={10} strokeWidth={3} />
-                  </span>
-                )}
-                {isDisabled && (
-                  <span className="absolute right-2 top-2 text-[10px] font-semibold text-gray-300">
-                    Passed
-                  </span>
-                )}
-              </button>
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => !isDisabled && setSelectedTime(slot)}
+                    disabled={isDisabled}
+                    className={`relative rounded-xl border py-3 text-sm font-medium transition-all ${
+                      isDisabled
+                        ? "cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60"
+                        : isSelected
+                          ? "bg-[#1D6076] text-white shadow-sm border-[#1D6076]"
+                          : "border-gray-100 bg-gray-50 text-gray-700 hover:bg-gray-100 active:scale-[0.98]"
+                    }`}
+                  >
+                    {slot}
+                    {isSelected && !isDisabled && (
+                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white/25 flex items-center justify-center">
+                        <Check size={10} strokeWidth={3} />
+                      </span>
+                    )}
+                    {isDisabled && (
+                      <span className="absolute right-2 top-2 text-[10px] font-semibold text-gray-300">
+                        Passed
+                      </span>
+                    )}
+                  </button>
                 );
-              })()
-            ))}
+              })(),
+            )}
           </div>
           {errors.time && (
             <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
@@ -857,14 +951,23 @@ export default function OrderPage() {
                 value={selectedAddressId ?? ""}
                 onChange={(event) => {
                   const nextId = Number(event.target.value);
-                  const nextAddress = savedAddresses.find((address) => address.id === nextId) ?? null;
+                  const nextAddress =
+                    savedAddresses.find((address) => address.id === nextId) ??
+                    null;
                   setSelectedAddressId(nextAddress?.id ?? null);
                   const formattedAddress = nextAddress
-                    ? [nextAddress.street, nextAddress.area, nextAddress.city].filter(Boolean).join(", ")
+                    ? [nextAddress.street, nextAddress.area, nextAddress.city]
+                        .filter(Boolean)
+                        .join(", ")
                     : "";
                   setPickupAddress(formattedAddress);
                   if (sameAddress) setDeliveryAddress(formattedAddress);
-                  setErrors((current) => ({ ...current, address: "", pickup: "", delivery: "" }));
+                  setErrors((current) => ({
+                    ...current,
+                    address: "",
+                    pickup: "",
+                    delivery: "",
+                  }));
                 }}
                 className={`w-full rounded-xl border bg-gray-50 px-4 py-3.5 text-sm focus:outline-none focus:ring-1 ${
                   errors.address
@@ -875,13 +978,16 @@ export default function OrderPage() {
                 <option value="">Select a saved address</option>
                 {savedAddresses.map((address) => (
                   <option key={address.id} value={address.id}>
-                    {[address.label, address.street, address.area, address.city].filter(Boolean).join(" - ")}
+                    {[address.label, address.street, address.area, address.city]
+                      .filter(Boolean)
+                      .join(" - ")}
                   </option>
                 ))}
               </select>
               {savedAddresses.length === 0 && (
                 <p className="text-xs text-amber-600">
-                  No saved addresses were returned from backend. Add one in your profile before ordering a bundle.
+                  No saved addresses found. Add one in your profile before
+                  ordering a bundle.
                 </p>
               )}
               {errors.address && (
@@ -894,8 +1000,12 @@ export default function OrderPage() {
           )}
           <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04]p-3">
             <div>
-              <p className="text-sm font-medium text-gray-800">Choose your location from the map</p>
-              <p className="text-xs text-gray-500">Use current location or fine-tune the pin coordinates.</p>
+              <p className="text-sm font-medium text-gray-800">
+                Choose your location from the map
+              </p>
+              <p className="text-xs text-gray-500">
+                Use current location or fine-tune the pin coordinates.
+              </p>
             </div>
             <button
               type="button"
@@ -959,8 +1069,12 @@ export default function OrderPage() {
             </div>
             <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] p-3">
               <div>
-                <p className="text-sm font-medium text-gray-800">Pick a different delivery point</p>
-                <p className="text-xs text-gray-500">Open the map if delivery should go to another place.</p>
+                <p className="text-sm font-medium text-gray-800">
+                  Pick a different delivery point
+                </p>
+                <p className="text-xs text-gray-500">
+                  Open the map if delivery should go to another place.
+                </p>
               </div>
               <button
                 type="button"
@@ -999,27 +1113,33 @@ export default function OrderPage() {
             PAYMENT METHOD
           </p>
 
-            <div className="mb-4 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] px-4 py-3.5">
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">Wallet balance</p>
-                  <p className="mt-1 text-xs text-gray-500">
-                    Your current balance updates after charging and after any wallet payment or refund.
+          <div className="mb-4 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] px-4 py-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-gray-900">
+                  Wallet balance
+                </p>
+                <p className="mt-1 text-xs text-gray-500">
+                  Your balance updates automatically after charging, paying from
+                  wallet, or receiving a refund.
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-lg font-semibold text-[#1D6076]">
+                  {walletBalance.toFixed(2)} EGP
+                </p>
+                {!selectedBundle && !walletCanCoverRegularOrder ? (
+                  <p className="mt-1 text-xs text-amber-700">
+                    Need {(total + deliveryFee - walletBalance).toFixed(2)} EGP
+                    more for full wallet payment
                   </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-lg font-semibold text-[#1D6076]">{walletBalance.toFixed(2)} EGP</p>
-                  {!selectedBundle && !walletCanCoverRegularOrder ? (
-                    <p className="mt-1 text-xs text-amber-700">
-                      Need {(total + deliveryFee - walletBalance).toFixed(2)} EGP more for full wallet payment
-                    </p>
-                  ) : null}
-                </div>
+                ) : null}
               </div>
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
               type="button"
               onClick={() => setPaymentMethod("cash")}
               className={`text-left rounded-xl border px-4 py-3.5 transition-all ${
@@ -1029,11 +1149,18 @@ export default function OrderPage() {
               }`}
             >
               <div className="flex items-center gap-2.5 mb-1.5">
-                <Banknote size={16} className="text-[#1D6076]" strokeWidth={2} />
-                <p className="text-sm text-gray-900 font-medium">Cash on Delivery</p>
+                <Banknote
+                  size={16}
+                  className="text-[#1D6076]"
+                  strokeWidth={2}
+                />
+                <p className="text-sm text-gray-900 font-medium">
+                  Cash on Delivery
+                </p>
               </div>
               <p className="text-xs text-gray-500">
-                The order is created first, then stays pending until cash payment is processed.
+                The order is created first, then stays pending until cash
+                payment is processed.
               </p>
             </button>
 
@@ -1047,75 +1174,93 @@ export default function OrderPage() {
               }`}
             >
               <div className="flex items-center gap-2.5 mb-1.5">
-                <CreditCard size={16} className="text-[#1D6076]" strokeWidth={2} />
+                <CreditCard
+                  size={16}
+                  className="text-[#1D6076]"
+                  strokeWidth={2}
+                />
                 <p className="text-sm text-gray-900 font-medium">Credit Card</p>
               </div>
+              <p className="text-xs text-gray-500">
+                Your order will be created first, then card checkout will open
+                automatically.
+              </p>
+            </button>
+
+            {!selectedBundle ? (
+              <button
+                type="button"
+                onClick={() =>
+                  walletCanCoverRegularOrder && setPaymentMethod("wallet")
+                }
+                disabled={!walletCanCoverRegularOrder}
+                className={`text-left rounded-xl border px-4 py-3.5 transition-all ${
+                  paymentMethod === "wallet"
+                    ? "border-[#1D6076] bg-[#1D6076]/5"
+                    : "border-gray-200 bg-gray-50 hover:bg-gray-100"
+                } ${walletCanCoverRegularOrder ? "" : "cursor-not-allowed opacity-60"}`}
+              >
+                <div className="flex items-center gap-2.5 mb-1.5">
+                  <Wallet
+                    size={16}
+                    className="text-[#1D6076]"
+                    strokeWidth={2}
+                  />
+                  <p className="text-sm text-gray-900 font-medium">Wallet</p>
+                </div>
                 <p className="text-xs text-gray-500">
-                  The order is created first, then the backend opens the card checkout for that order.
+                  {walletCanCoverRegularOrder
+                    ? "If you place the order now, it will be paid automatically from your wallet."
+                    : `Wallet payment for normal orders needs the full amount. Short by ${(total + deliveryFee - walletBalance).toFixed(2)} EGP.`}
                 </p>
               </button>
-
-              {!selectedBundle ? (
-                <button
-                  type="button"
-                  onClick={() => walletCanCoverRegularOrder && setPaymentMethod("wallet")}
-                  disabled={!walletCanCoverRegularOrder}
-                  className={`text-left rounded-xl border px-4 py-3.5 transition-all ${
-                    paymentMethod === "wallet"
-                      ? "border-[#1D6076] bg-[#1D6076]/5"
-                      : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-                  } ${walletCanCoverRegularOrder ? "" : "cursor-not-allowed opacity-60"}`}
-                >
-                  <div className="flex items-center gap-2.5 mb-1.5">
-                    <Wallet size={16} className="text-[#1D6076]" strokeWidth={2} />
-                    <p className="text-sm text-gray-900 font-medium">Wallet</p>
-                  </div>
-                  <p className="text-xs text-gray-500">
-                    {walletCanCoverRegularOrder
-                      ? "If you place the order now, it will be paid automatically from your wallet."
-                      : `Wallet payment for normal orders needs the full amount. Short by ${(total + deliveryFee - walletBalance).toFixed(2)} EGP.`}
-                  </p>
-                </button>
-              ) : null}
-            </div>
-
-            {selectedBundle ? (
-              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium text-emerald-900">Use wallet balance first</p>
-                    <p className="mt-1 text-xs leading-5 text-emerald-800/90">
-                      Available wallet balance: {walletBalance.toFixed(2)} EGP. For bundle orders, backend can deduct from wallet first and leave only the remaining amount for the selected payment flow.
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setUseWalletBalance((current) => !current)}
-                    className={`min-w-[88px] rounded-full px-3 py-2 text-xs font-semibold transition ${
-                      useWalletBalance
-                        ? "bg-emerald-600 text-white"
-                        : "bg-white text-emerald-800 border border-emerald-200"
-                    }`}
-                  >
-                    {useWalletBalance ? "Enabled" : "Enable"}
-                  </button>
-                </div>
-              </div>
-            ) : null}
-
-            {!selectedBundle && paymentMethod === "wallet" ? (
-              <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-                This order will be created first, then paid automatically from your wallet balance.
-              </div>
             ) : null}
           </div>
+
+          {selectedBundle ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-emerald-900">
+                    Use wallet balance first
+                  </p>
+                  <p className="mt-1 text-xs leading-5 text-emerald-800/90">
+                    Available wallet balance: {walletBalance.toFixed(2)} EGP.
+                    For bundle orders, your wallet balance can be used first and
+                    any remaining amount will continue with the selected payment
+                    method.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setUseWalletBalance((current) => !current)}
+                  className={`min-w-[88px] rounded-full px-3 py-2 text-xs font-semibold transition ${
+                    useWalletBalance
+                      ? "bg-emerald-600 text-white"
+                      : "bg-white text-emerald-800 border border-emerald-200"
+                  }`}
+                >
+                  {useWalletBalance ? "Enabled" : "Enable"}
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          {!selectedBundle && paymentMethod === "wallet" ? (
+            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+              This order will be created first, then paid automatically from
+              your wallet balance.
+            </div>
+          ) : null}
         </div>
+      </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-20 bg-white border-t border-gray-100 shadow-lg px-4 md:px-8 py-4">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between text-sm mb-1.5">
             <span className="text-gray-500">
-              {totalItems} item{totalItems !== 1 ? "s" : ""} across {selectedServices.length} service
+              {totalItems} item{totalItems !== 1 ? "s" : ""} across{" "}
+              {selectedServices.length} service
               {selectedServices.length !== 1 ? "s" : ""}
             </span>
             <span className="text-gray-700 font-medium">{total} EGP</span>
@@ -1138,7 +1283,9 @@ export default function OrderPage() {
             {validating || orderRedirecting ? (
               <>
                 <Loader2 size={18} className="animate-spin" strokeWidth={2} />
-                {orderRedirecting ? "Redirecting to your order..." : "Placing order..."}
+                {orderRedirecting
+                  ? "Redirecting to your order..."
+                  : "Placing order..."}
               </>
             ) : (
               <>
@@ -1146,7 +1293,7 @@ export default function OrderPage() {
                   ? "Create Order (Cash)"
                   : paymentMethod === "wallet"
                     ? "Create Order and Pay from Wallet"
-                  : "Create Order and Pay"}
+                    : "Create Order and Pay"}
                 <ChevronDown size={16} className="-rotate-90" strokeWidth={2} />
               </>
             )}
@@ -1161,16 +1308,21 @@ export default function OrderPage() {
         </div>
       </div>
 
-      <Dialog open={Boolean(mapTarget)} onOpenChange={(open) => !open && closeMapPicker()}>
+      <Dialog
+        open={Boolean(mapTarget)}
+        onOpenChange={(open) => !open && closeMapPicker()}
+      >
         <DialogContent className="max-w-3xl rounded-[28px] border border-slate-200 bg-white p-0 shadow-2xl">
           <div className="overflow-hidden rounded-[28px]">
             <div className="bg-gradient-to-r from-[#1D6076] via-[#2b7d93] to-[#EBA050] px-6 py-5 text-white">
               <DialogHeader className="text-left">
                 <DialogTitle className="text-xl font-semibold">
-                  Choose {mapTarget === "delivery" ? "delivery" : "pickup"} location from map
+                  Choose {mapTarget === "delivery" ? "delivery" : "pickup"}{" "}
+                  location from map
                 </DialogTitle>
                 <DialogDescription className="text-sm text-white/80">
-                  Use your current location, adjust the coordinates if needed, then save it to the order form.
+                  Use your current location, adjust the coordinates if needed,
+                  then save it to the order form.
                 </DialogDescription>
               </DialogHeader>
             </div>
@@ -1201,51 +1353,71 @@ export default function OrderPage() {
 
               <div className="space-y-4">
                 <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
-                  <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">QUICK ACTIONS</p>
+                  <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">
+                    QUICK ACTIONS
+                  </p>
                   <button
                     type="button"
                     onClick={useCurrentLocation}
                     disabled={mapLoadingLocation}
                     className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1D6076] px-4 py-3 text-sm font-medium text-white transition hover:bg-[#174e60] disabled:opacity-70"
                   >
-                    {mapLoadingLocation ? <Loader2 size={16} className="animate-spin" /> : <Crosshair size={16} />}
-                    {mapLoadingLocation ? "Detecting location..." : "Use my current location"}
+                    {mapLoadingLocation ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Crosshair size={16} />
+                    )}
+                    {mapLoadingLocation
+                      ? "Detecting location..."
+                      : "Use my current location"}
                   </button>
                   {mapError ? (
                     <p className="mt-3 text-xs text-red-500">{mapError}</p>
                   ) : (
                     <p className="mt-3 text-xs text-slate-500">
-                      Allow browser location access for the fastest address selection.
+                      Allow browser location access for the fastest address
+                      selection.
                     </p>
                   )}
                 </div>
 
                 <div className="rounded-3xl border border-slate-200 bg-white p-4">
-                  <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">PIN COORDINATES</p>
+                  <p className="text-xs font-semibold tracking-[0.18em] text-slate-400">
+                    PIN COORDINATES
+                  </p>
                   <div className="mt-3 grid gap-3 sm:grid-cols-2">
                     <label className="block">
-                      <span className="mb-2 block text-xs font-medium text-slate-500">Latitude</span>
+                      <span className="mb-2 block text-xs font-medium text-slate-500">
+                        Latitude
+                      </span>
                       <input
                         type="number"
                         step="0.000001"
                         value={mapLatitude}
-                        onChange={(event) => setMapLatitude(Number(event.target.value))}
+                        onChange={(event) =>
+                          setMapLatitude(Number(event.target.value))
+                        }
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#1D6076] focus:ring-2 focus:ring-[#1D6076]/15"
                       />
                     </label>
                     <label className="block">
-                      <span className="mb-2 block text-xs font-medium text-slate-500">Longitude</span>
+                      <span className="mb-2 block text-xs font-medium text-slate-500">
+                        Longitude
+                      </span>
                       <input
                         type="number"
                         step="0.000001"
                         value={mapLongitude}
-                        onChange={(event) => setMapLongitude(Number(event.target.value))}
+                        onChange={(event) =>
+                          setMapLongitude(Number(event.target.value))
+                        }
                         className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-[#1D6076] focus:ring-2 focus:ring-[#1D6076]/15"
                       />
                     </label>
                   </div>
                   <p className="mt-3 text-xs text-slate-500">
-                    The saved address will include the selected map coordinates so the laundry can find you accurately.
+                    The saved address will include the selected map coordinates
+                    so the laundry can find you accurately.
                   </p>
                 </div>
               </div>

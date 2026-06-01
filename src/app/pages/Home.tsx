@@ -555,7 +555,7 @@ export default function Home() {
               >
                 <p className="text-white text-lg font-semibold mb-2">No live laundries yet</p>
                 <p className="text-white/65 text-sm max-w-md mx-auto">
-                  The deployed backend is connected, but it is currently returning an empty laundries list.
+                  No laundries are available right now.
                 </p>
               </motion.div>
             )}

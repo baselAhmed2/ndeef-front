@@ -26,7 +26,7 @@ import {
 } from "../services/api";
 
 export interface ApiTestResult {
-  endpoint: string;
+  label: string;
   status: "success" | "error" | "warning";
   message: string;
   responseTime?: number;
@@ -42,7 +42,7 @@ export async function testAuthApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     await googleLogin("invalid_token_test");
     results.push({
-      endpoint: "POST /api/auth/google-login",
+      label: "Google sign-in",
       status: "warning",
       message: "Endpoint reached but invalid token",
       responseTime: performance.now() - start,
@@ -50,9 +50,9 @@ export async function testAuthApis(): Promise<ApiTestResult[]> {
   } catch (error: any) {
     const start = performance.now();
     results.push({
-      endpoint: "POST /api/auth/google-login",
+      label: "Google sign-in",
       status: error.message?.includes("Network") ? "error" : "success",
-      message: error.message || "Endpoint reachable",
+      message: error.message || "Service is reachable",
       responseTime: performance.now() - start,
     });
   }
@@ -62,14 +62,14 @@ export async function testAuthApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     await forgotPasswordApi("test@example.com");
     results.push({
-      endpoint: "POST /api/auth/forgot-password",
+      label: "Forgot password",
       status: "success",
-      message: "Endpoint reachable",
+      message: "Service is reachable",
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "POST /api/auth/forgot-password",
+      label: "Forgot password",
       status: error.message?.includes("Network") ? "error" : "warning",
       message: error.message || "Unknown error",
     });
@@ -87,7 +87,7 @@ export async function testDashboardApis(_token: string): Promise<ApiTestResult[]
     const start = performance.now();
     const summary = await getDashboardSummary();
     results.push({
-      endpoint: "GET /api/laundry-admin/dashboard",
+      label: "Dashboard summary",
       status: "success",
       message: "Dashboard data retrieved",
       responseTime: performance.now() - start,
@@ -95,7 +95,7 @@ export async function testDashboardApis(_token: string): Promise<ApiTestResult[]
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/dashboard",
+      label: "Dashboard summary",
       status: "error",
       message: error.message || "Failed to fetch dashboard",
     });
@@ -106,14 +106,14 @@ export async function testDashboardApis(_token: string): Promise<ApiTestResult[]
     const start = performance.now();
     const weekly = await getRevenueWeekly();
     results.push({
-      endpoint: "GET /api/laundry-admin/revenue/weekly",
+      label: "Weekly revenue",
       status: "success",
       message: `Retrieved ${weekly.length} data points`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/revenue/weekly",
+      label: "Weekly revenue",
       status: "error",
       message: error.message || "Failed to fetch revenue",
     });
@@ -124,14 +124,14 @@ export async function testDashboardApis(_token: string): Promise<ApiTestResult[]
     const start = performance.now();
     const orders = await getIncomingOrders();
     results.push({
-      endpoint: "GET /api/laundry-admin/orders/incoming",
+      label: "Incoming orders",
       status: "success",
       message: `Retrieved ${orders.length} incoming orders`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/orders/incoming",
+      label: "Incoming orders",
       status: "error",
       message: error.message || "Failed to fetch orders",
     });
@@ -149,14 +149,14 @@ export async function testServicesApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const services = await getServices();
     results.push({
-      endpoint: "GET /api/laundry-admin/services",
+      label: "Services",
       status: "success",
       message: `Retrieved ${services.length} services`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/services",
+      label: "Services",
       status: "error",
       message: error.message || "Failed to fetch services",
     });
@@ -174,14 +174,14 @@ export async function testScheduleApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const schedule = await getSchedule();
     results.push({
-      endpoint: "GET /api/laundry-admin/availability/schedule",
+      label: "Availability schedule",
       status: "success",
       message: `Schedule retrieved successfully (${Object.keys(schedule).length} days)`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/availability/schedule",
+      label: "Availability schedule",
       status: "error",
       message: error.message || "Failed to fetch schedule",
     });
@@ -192,7 +192,7 @@ export async function testScheduleApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const capacity = await getCapacity();
     results.push({
-      endpoint: "GET /api/laundry-admin/availability/capacity",
+      label: "Capacity settings",
       status: "success",
       message: `Capacity: ${capacity.maxOrdersPerDay} orders/day`,
       responseTime: performance.now() - start,
@@ -200,7 +200,7 @@ export async function testScheduleApis(): Promise<ApiTestResult[]> {
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/availability/capacity",
+      label: "Capacity settings",
       status: "error",
       message: error.message || "Failed to fetch capacity",
     });
@@ -218,7 +218,7 @@ export async function testPaymentApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const commission = await getCommissionSummary();
     results.push({
-      endpoint: "GET /api/laundry-admin/commission/summary",
+      label: "Commission summary",
       status: "success",
       message: `Revenue: ${commission.totalRevenue}, Commission: ${commission.commissionDue}`,
       responseTime: performance.now() - start,
@@ -226,7 +226,7 @@ export async function testPaymentApis(): Promise<ApiTestResult[]> {
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/commission/summary",
+      label: "Commission summary",
       status: "error",
       message: error.message || "Failed to fetch commission",
     });
@@ -237,14 +237,14 @@ export async function testPaymentApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const payments = await getPayments();
     results.push({
-      endpoint: "GET /api/laundry-admin/payments",
+      label: "Payments list",
       status: "success",
       message: `Retrieved ${payments.length} payments`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/payments",
+      label: "Payments list",
       status: "error",
       message: error.message || "Failed to fetch payments",
     });
@@ -262,7 +262,7 @@ export async function testProfileApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const profile = await getProfile();
     results.push({
-      endpoint: "GET /api/laundry-admin/profile",
+      label: "Laundry profile",
       status: "success",
       message: `Profile: ${profile.name}`,
       responseTime: performance.now() - start,
@@ -270,7 +270,7 @@ export async function testProfileApis(): Promise<ApiTestResult[]> {
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/profile",
+      label: "Laundry profile",
       status: "error",
       message: error.message || "Failed to fetch profile",
     });
@@ -281,7 +281,7 @@ export async function testProfileApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const status = await getVerificationStatus();
     results.push({
-      endpoint: "GET /api/verification/status",
+      label: "Verification status",
       status: "success",
       message: `Verified: ${status.isIdentityVerified}, Role: ${status.role}`,
       responseTime: performance.now() - start,
@@ -289,7 +289,7 @@ export async function testProfileApis(): Promise<ApiTestResult[]> {
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/verification/status",
+      label: "Verification status",
       status: "error",
       message: error.message || "Failed to fetch verification status",
     });
@@ -307,7 +307,7 @@ export async function testAnalyticsApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const analytics = await getExternalAnalytics();
     results.push({
-      endpoint: "GET /api/laundry-admin/analytics/external",
+      label: "External analytics",
       status: "success",
       message: "Analytics retrieved",
       responseTime: performance.now() - start,
@@ -315,7 +315,7 @@ export async function testAnalyticsApis(): Promise<ApiTestResult[]> {
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/analytics/external",
+      label: "External analytics",
       status: "error",
       message: error.message || "Failed to fetch analytics",
     });
@@ -326,14 +326,14 @@ export async function testAnalyticsApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const forecast = await getForecast();
     results.push({
-      endpoint: "GET /api/laundry-admin/forecast",
+      label: "Demand forecast",
       status: "success",
       message: `Next week: ${forecast.expectedOrdersNextWeek} orders`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/forecast",
+      label: "Demand forecast",
       status: "error",
       message: error.message || "Failed to fetch forecast",
     });
@@ -351,14 +351,14 @@ export async function testNotificationApis(): Promise<ApiTestResult[]> {
     const start = performance.now();
     const notifications = await getLaundryNotifications();
     results.push({
-      endpoint: "GET /api/laundry-admin/notifications",
+      label: "Notifications",
       status: "success",
       message: `Retrieved ${notifications.length} notifications`,
       responseTime: performance.now() - start,
     });
   } catch (error: any) {
     results.push({
-      endpoint: "GET /api/laundry-admin/notifications",
+      label: "Notifications",
       status: "error",
       message: error.message || "Failed to fetch notifications",
     });

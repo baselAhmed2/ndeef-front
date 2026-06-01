@@ -16,7 +16,6 @@ import {
   Wind,
   Droplets,
   Loader2,
-  MessageCircle,
   Navigation,
   AlertTriangle,
   ChevronDown,
@@ -361,7 +360,7 @@ export default function CourierOrderDetail() {
     status === "pending"
       ? { label: "Accept Order", sublabel: "Confirm you will take this order", icon: CheckCircle2, color: "#1D5B70" }
       : status === "ready_for_pickup"
-        ? { label: "I've Picked It Up", sublabel: "Items collected from laundry", icon: Truck, color: "#7c3aed" }
+        ? { label: "Confirm Pickup", sublabel: "Items collected from laundry", icon: Truck, color: "#7c3aed" }
         : status === "picked_up"
           ? { label: "Mark as Delivered", sublabel: "Confirm delivery to customer", icon: CheckCircle2, color: "#16a34a" }
           : null;
@@ -492,14 +491,6 @@ export default function CourierOrderDetail() {
                 {order.phone ? (
                   <a href={`tel:${order.phone}`} className="w-10 h-10 rounded-xl flex items-center justify-center bg-green-50 border border-green-100 hover:bg-green-100 transition-all">
                     <Phone className="w-4 h-4 text-green-600" />
-                  </a>
-                ) : null}
-                {order.phone ? (
-                  <a
-                    href={`sms:${order.phone}`}
-                    className="w-10 h-10 rounded-xl flex items-center justify-center bg-blue-50 border border-blue-100 hover:bg-blue-100 transition-all"
-                  >
-                    <MessageCircle className="w-4 h-4 text-blue-500" />
                   </a>
                 ) : null}
               </div>

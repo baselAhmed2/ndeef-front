@@ -282,7 +282,7 @@ export default function TrackOrder() {
   }, [order?.status, track?.status]);
 
   const cfg = statusConfig[currentStatus];
-  const canCancelOrder = order?.status === "pending_confirmation";
+  const canCancelOrder = order?.status === "pending_confirmation" || order?.status === "accepted";
   const canReportDeliveredIssue = currentStatus === "delivered";
   const courierLat =
     typeof track?.courierLatitude === "number" ? track.courierLatitude : null;
@@ -392,7 +392,7 @@ export default function TrackOrder() {
 
     const details = complaintText.trim();
     if (details.length < 8) {
-      setComplaintError("Please enter a bit more detail so the backend can accept the complaint.");
+      setComplaintError("Please add a bit more detail so we can submit your complaint.");
       return;
     }
 
@@ -453,7 +453,7 @@ export default function TrackOrder() {
       }
 
       if (!aggregated.toLowerCase().includes("complaint") && !aggregated.includes("Ø´ÙƒÙˆÙ‰")) {
-        throw new Error("The backend did not confirm complaint submission.");
+        throw new Error("We could not confirm your complaint submission.");
       }
 
       setComplaintSuccess("Your complaint was submitted successfully. The laundry and support team were notified.");
@@ -562,7 +562,7 @@ export default function TrackOrder() {
           </div>
           <h2 className={`ndeef-track-title text-xl mb-3 ${titleClass}`}>Invalid Request</h2>
           <p className={`ndeef-track-muted text-sm mb-7 max-w-xs ${mutedTextClass}`}>
-            We couldn&apos;t load this order from the backend.
+            We couldn&apos;t load this order right now.
           </p>
           <Link
             href="/orders"
@@ -946,7 +946,7 @@ export default function TrackOrder() {
                 <div className="flex-1">
                   <p className={`ndeef-track-title text-sm font-semibold ${strongTextClass}`}>Complaint or return request</p>
                   <p className={`ndeef-track-muted mt-1 text-sm leading-relaxed ${mutedTextClass}`}>
-                    The backend supports post-delivery complaints. It does not expose a separate return endpoint, so return issues are sent as a complaint for follow-up.
+                    Return-related issues can be submitted here as a complaint for follow-up.
                   </p>
                 </div>
               </div>
@@ -992,7 +992,7 @@ export default function TrackOrder() {
           <div className={`ndeef-track-modal w-full max-w-md rounded-3xl p-5 shadow-xl ${modalSurfaceClass}`}>
             <h2 className={`ndeef-track-title text-lg mb-2 ${strongTextClass}`}>Cancel this order?</h2>
             <p className={`ndeef-track-muted text-sm mb-5 leading-relaxed ${mutedTextClass}`}>
-              The current backend only allows cancellation while the order is still pending confirmation.
+              You can cancel while the order is still being prepared. If you already paid, the amount will be returned automatically to your wallet inside the app.
             </p>
             <div className="flex gap-2.5">
               <button
@@ -1028,7 +1028,7 @@ export default function TrackOrder() {
             </div>
 
             <p className={`ndeef-track-muted text-sm mb-4 leading-relaxed ${mutedTextClass}`}>
-              Your message will be sent to the backend complaint flow and routed to the laundry admin and support team.
+              Your message will be sent to the laundry and support team for follow-up.
             </p>
 
             <textarea

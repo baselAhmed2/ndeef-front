@@ -351,7 +351,7 @@ export function LaundriesManagement() {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Laundries Management</h1>
-          <p className="text-sm text-slate-500 mt-1">Connected to `GET /api/admin/laundries`, `POST /api/admin/laundries`, and `PUT /api/admin/laundries/:id/status`.</p>
+          <p className="text-sm text-slate-500 mt-1">Manage laundry accounts, add new locations, and control operational status safely.</p>
         </div>
       </div>
 
@@ -440,9 +440,7 @@ export function LaundriesManagement() {
         </div>
 
         <div className="mt-4 flex flex-col gap-3 border-t border-slate-100 pt-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-xs text-slate-400">
-            Required backend payload: <span className="font-mono">name, address, latitude, longitude</span>
-          </p>
+          <p className="text-xs text-slate-400">Please provide the laundry name, address, and accurate location details.</p>
           <button
             type="submit"
             disabled={isCreating}
@@ -537,7 +535,7 @@ export function LaundriesManagement() {
                             </div>
                             <div>
                               <p className="text-[13px] font-semibold text-slate-800">{laundry.name}</p>
-                              <p className="text-[11px] text-slate-400">Backend id: {laundry.id}</p>
+                              <p className="text-[11px] text-slate-400">Laundry ID: {laundry.id}</p>
                             </div>
                           </div>
                         </td>

@@ -346,7 +346,7 @@ export default function RateLaundry() {
           <AlertCircle size={36} className="text-orange-400 mb-4" strokeWidth={1.5} />
           <p className="text-gray-700 mb-2">We found your order, but couldn&apos;t prepare the laundry review yet.</p>
           <p className="text-gray-500 text-sm mb-6">
-            The current backend order response does not include a direct laundry id, so the app couldn&apos;t safely match the laundry for this review.
+            We could not match this review to a laundry right now.
           </p>
           <Link href={getRoutePath("/track-order", String(order.id))} className="text-[#1D6076] text-sm underline">
             Back to Order
