@@ -282,7 +282,7 @@ export default function TrackOrder() {
   }, [order?.status, track?.status]);
 
   const cfg = statusConfig[currentStatus];
-  const canCancelOrder = order?.status === "pending_confirmation";
+  const canCancelOrder = order?.status === "pending_confirmation" || order?.status === "accepted";
   const canReportDeliveredIssue = currentStatus === "delivered";
   const courierLat =
     typeof track?.courierLatitude === "number" ? track.courierLatitude : null;
@@ -992,7 +992,7 @@ export default function TrackOrder() {
           <div className={`ndeef-track-modal w-full max-w-md rounded-3xl p-5 shadow-xl ${modalSurfaceClass}`}>
             <h2 className={`ndeef-track-title text-lg mb-2 ${strongTextClass}`}>Cancel this order?</h2>
             <p className={`ndeef-track-muted text-sm mb-5 leading-relaxed ${mutedTextClass}`}>
-              The current backend only allows cancellation while the order is still pending confirmation.
+              You can cancel while the order is still being prepared. If you already paid, the amount will be returned automatically to your wallet inside the app.
             </p>
             <div className="flex gap-2.5">
               <button

@@ -291,14 +291,14 @@ export default function Payment() {
               <p className="text-xs text-gray-500">
                 {walletCanCoverOrder
                   ? "Your wallet can cover this order بالكامل."
-                  : `Wallet is short by ${formatMoney(remainingAfterWallet)}. Full wallet payment only is supported for regular orders.`}
+                  : `You need ${formatMoney(remainingAfterWallet)} more in your wallet to pay for this order from wallet balance.`}
               </p>
             </button>
           </div>
 
           {!walletCanCoverOrder ? (
             <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              For normal orders, the current backend supports wallet payment only when the wallet covers the full total. Split payment from wallet + card is not available here yet.
+              Wallet payment is available when your balance covers the full order total. Splitting one order between wallet and card is not available yet.
             </div>
           ) : null}
 

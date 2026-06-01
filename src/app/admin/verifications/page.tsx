@@ -166,10 +166,7 @@ export default function VerificationsPage() {
           </div>
           <h1 className="mt-4 text-2xl font-bold tracking-tight text-slate-900">Verifications Center</h1>
           <p className="mt-1 text-sm text-slate-500 max-w-2xl">
-            Connected to <code className="rounded bg-slate-100 px-1">GET /api/admin/laundries</code> and{" "}
-            <code className="rounded bg-slate-100 px-1">PUT /api/admin/laundries/:id/status</code>. Because the backend
-            exposes only <strong>Active</strong> and <strong>Inactive</strong>, this queue treats inactive laundries as
-            items waiting for manual review.
+            Review pending laundry accounts and approve or suspend them from a single moderation queue.
           </p>
         </div>
       </div>

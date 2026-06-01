@@ -219,7 +219,7 @@ export default function Orders() {
     const notice = searchParams?.get("notice");
     if (!notice) return;
 
-    if (notice === "cancelled") toast.success("Order cancelled successfully.");
+    if (notice === "cancelled") toast.success("Order cancelled. If you already paid, the amount will return to your wallet automatically.");
     if (notice === "placed") toast.success("Order placed successfully.");
     router.replace("/orders");
   }, [router, searchParams]);

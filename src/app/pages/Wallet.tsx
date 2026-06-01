@@ -514,7 +514,7 @@ export default function Wallet() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Wallet</h1>
-            <p className="text-sm text-gray-500">Charge wallet, review balance, and track refunds from backend.</p>
+            <p className="text-sm text-gray-500">Charge your wallet, check your balance, and follow your refunds in one place.</p>
           </div>
           <button
             type="button"
@@ -537,7 +537,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm font-semibold text-emerald-900">Wallet charge completed</p>
                 <p className="mt-1 text-sm text-emerald-800/90">
-                  Your balance and wallet activity below are now read from backend wallet info.
+                  Your wallet balance and latest activity have been updated.
                 </p>
               </div>
             </div>
@@ -551,13 +551,13 @@ export default function Wallet() {
                 <Loader2 size={18} className="animate-spin" strokeWidth={2.2} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-amber-900">Waiting for backend confirmation</p>
+                <p className="text-sm font-semibold text-amber-900">Confirming your payment</p>
                 <p className="mt-1 text-sm text-amber-800/90">
                   {pendingCharge
                     ? pendingCharge.amount > 0
-                      ? `We are waiting for Kashier webhook confirmation for ${formatMoney(pendingCharge.amount)}. Your wallet balance will update automatically once backend records the charge.`
-                      : "We are waiting for Kashier webhook confirmation for your latest wallet charge. Your wallet balance will update automatically once backend records the charge."
-                    : "Payment checkout finished. Your wallet balance will update automatically once backend confirms the charge."}
+                      ? `Your payment for ${formatMoney(pendingCharge.amount)} is being confirmed. Your wallet balance will update automatically in a moment.`
+                      : "Your latest wallet charge is being confirmed. Your wallet balance will update automatically in a moment."
+                    : "Your payment was completed. Your wallet balance will update automatically in a moment."}
                 </p>
               </div>
             </div>
@@ -573,7 +573,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm font-semibold text-emerald-900">Wallet balance updated</p>
                 <p className="mt-1 text-sm text-emerald-800/90">
-                  Backend confirmed the wallet charge and the updated balance is shown below.
+                  Your charge has been added successfully and the updated balance is shown below.
                 </p>
               </div>
             </div>
@@ -603,9 +603,9 @@ export default function Wallet() {
                 <Clock3 size={18} strokeWidth={2.2} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-rose-900">Backend confirmation is taking longer than expected</p>
+                <p className="text-sm font-semibold text-rose-900">Payment confirmation is taking longer than expected</p>
                 <p className="mt-1 text-sm text-rose-800/90">
-                  The checkout may have succeeded, but the wallet charge has not appeared in backend records yet. Try Refresh once, and if the balance still does not change, the backend webhook still needs checking.
+                  Your payment may have gone through, but the balance has not updated yet. Try refreshing once, and if it still does not appear, please contact support.
                 </p>
               </div>
             </div>
@@ -618,7 +618,7 @@ export default function Wallet() {
               <div>
                 <p className="text-sm uppercase tracking-[0.2em] text-white/70">Wallet funding</p>
                 <p className="mt-3 max-w-md text-sm leading-6 text-white/85">
-                  Start a real wallet charge from backend. Returned funds and successful charges will appear here automatically.
+                  Add money to your wallet and any returned amount from cancelled paid orders will appear here automatically.
                 </p>
               </div>
               <div className="rounded-2xl bg-white/10 p-3">
@@ -676,15 +676,15 @@ export default function Wallet() {
                 <ShieldCheck size={22} strokeWidth={2} />
               </div>
               <div>
-                <p className="text-sm font-semibold text-gray-900">Backend wallet sync</p>
+                <p className="text-sm font-semibold text-gray-900">Wallet status</p>
                 <p className="mt-1 text-sm leading-6 text-gray-500">
-                  This page now reads live wallet details from <code className="rounded bg-slate-100 px-1 py-0.5">GET /api/wallet/info</code>.
+                  Your wallet updates automatically after charging, paying, or receiving a refund.
                 </p>
               </div>
             </div>
 
             <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm ${walletActive ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-rose-200 bg-rose-50 text-rose-800"}`}>
-              {walletActive ? "Wallet is active on backend." : "Wallet is inactive on backend."}
+              {walletActive ? "Your wallet is active and ready to use." : "Your wallet is currently unavailable."}
             </div>
           </div>
         </div>
@@ -696,7 +696,7 @@ export default function Wallet() {
             </div>
             <p className="text-sm text-gray-500">Current wallet balance</p>
             <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(walletBalance)}</p>
-            <p className="mt-1 text-sm text-gray-500">Real available balance from backend.</p>
+            <p className="mt-1 text-sm text-gray-500">Available now for your next order.</p>
           </div>
 
           <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -705,7 +705,7 @@ export default function Wallet() {
             </div>
             <p className="text-sm text-gray-500">Total wallet charges</p>
             <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(totalCharged)}</p>
-            <p className="mt-1 text-sm text-gray-500">Lifetime amount charged into wallet.</p>
+            <p className="mt-1 text-sm text-gray-500">Total amount you have added to your wallet.</p>
           </div>
 
           <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
@@ -714,7 +714,7 @@ export default function Wallet() {
             </div>
             <p className="text-sm text-gray-500">Refunds returned</p>
             <p className="mt-2 text-2xl font-bold text-gray-900">{formatMoney(refundsTotal)}</p>
-            <p className="mt-1 text-sm text-gray-500">Refund credits returned to wallet on cancelled orders.</p>
+            <p className="mt-1 text-sm text-gray-500">Money returned to your wallet from cancelled paid orders.</p>
           </div>
         </div>
 
@@ -722,7 +722,7 @@ export default function Wallet() {
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <h2 className="text-lg font-bold text-gray-900">Wallet activity</h2>
-              <p className="text-sm text-gray-500">Live records from <code className="rounded bg-slate-100 px-1 py-0.5">GET /api/wallet/info</code>.</p>
+              <p className="text-sm text-gray-500">See your charges, payments, and refunds here.</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -755,7 +755,7 @@ export default function Wallet() {
           <div className="space-y-3">
             {filteredTransactions.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
-                No wallet activity was returned for this filter yet.
+                No wallet activity for this filter yet.
               </div>
             ) : (
               filteredTransactions.map((transaction) => (

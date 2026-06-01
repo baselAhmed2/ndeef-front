@@ -1004,7 +1004,7 @@ export default function OrderPage() {
                 <div>
                   <p className="text-sm font-medium text-gray-900">Wallet balance</p>
                   <p className="mt-1 text-xs text-gray-500">
-                    Your current balance updates after charging and after any wallet payment or refund.
+                    Your balance updates automatically after charging, paying from wallet, or receiving a refund.
                   </p>
                 </div>
                 <div className="text-right">

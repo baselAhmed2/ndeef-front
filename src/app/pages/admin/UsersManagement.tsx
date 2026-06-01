@@ -140,7 +140,7 @@ export function UsersManagement() {
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Users Management</h1>
-        <p className="text-sm text-slate-500 mt-1">Connected to `GET /api/admin/users` and `PUT /api/admin/users/:id/status`.</p>
+        <p className="text-sm text-slate-500 mt-1">Review user accounts, monitor activity, and update account status from one place.</p>
       </div>
 
       {error ? (

@@ -204,7 +204,7 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Platform Settings</h1>
           <p className="mt-1 text-sm text-slate-500">
-            Connected to `GET/PUT /api/user/settings`, `GET/PUT /api/notifications/preferences`, and `PUT /api/user/change-password`.
+            Manage platform preferences, notification behavior, and account security settings from one place.
           </p>
         </div>
         <button
