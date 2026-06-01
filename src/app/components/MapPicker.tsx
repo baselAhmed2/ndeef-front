@@ -1,7 +1,15 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import { MapPin, Crosshair, Loader2, Navigation, Check, ExternalLink, Search } from "lucide-react";
+import {
+  MapPin,
+  Crosshair,
+  Loader2,
+  Navigation,
+  Check,
+  ExternalLink,
+  Search,
+} from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface MapPickerProps {
@@ -27,6 +35,30 @@ interface NominatimResult {
   display_name: string;
 }
 
+// Nominatim reverse geocode response
+interface NominatimReverse {
+  place_id?: number;
+  licence?: string;
+  osm_type?: string;
+  osm_id?: number;
+  lat?: string;
+  lon?: string;
+  display_name?: string;
+  address?: {
+    house_number?: string;
+    road?: string;
+    neighbourhood?: string;
+    suburb?: string;
+    city?: string;
+    town?: string;
+    village?: string;
+    county?: string;
+    state?: string;
+    country?: string;
+    [k: string]: any;
+  };
+}
+
 export default function MapPicker({
   onLocationSelect,
   initialAddress,
@@ -40,8 +72,13 @@ export default function MapPicker({
   const [isSearching, setIsSearching] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<NominatimResult[]>([]);
+  const [reverseResult, setReverseResult] = useState<NominatimReverse | null>(
+    null,
+  );
+  const [isReverseLoading, setIsReverseLoading] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reverseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Generate OpenStreetMap iframe URL
   const mapPreviewSrc = useMemo(() => {
@@ -70,18 +107,18 @@ export default function MapPicker({
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&countrycodes=eg&accept-language=en`,
         {
           headers: {
-            'Accept': 'application/json',
+            Accept: "application/json",
           },
-        }
+        },
       );
 
-      if (!response.ok) throw new Error('Search failed');
+      if (!response.ok) throw new Error("Search failed");
 
       const data: NominatimResult[] = await response.json();
       setSearchResults(data);
       setShowResults(data.length > 0);
     } catch (error) {
-      console.error('Address search error:', error);
+      console.error("Address search error:", error);
       setSearchResults([]);
     } finally {
       setIsSearching(false);
@@ -158,10 +195,10 @@ export default function MapPicker({
         setLat(newLat);
         setLng(newLng);
         setIsLocating(false);
-        
+
         // Update parent with new coordinates
         onLocationSelect({
-          address: address || `Location at ${newLat.toFixed(4)}, ${newLng.toFixed(4)}`,
+          address: address || `${newLat.toFixed(4)}, ${newLng.toFixed(4)}`,
           latitude: newLat,
           longitude: newLng,
         });
@@ -170,7 +207,8 @@ export default function MapPicker({
         let errorMsg = "Unable to retrieve your location";
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMsg = "Location access denied. Please enable location permissions.";
+            errorMsg =
+              "Location access denied. Please enable location permissions.";
             break;
           case error.POSITION_UNAVAILABLE:
             errorMsg = "Location information unavailable.";
@@ -182,9 +220,51 @@ export default function MapPicker({
         setLocationError(errorMsg);
         setIsLocating(false);
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 },
     );
   };
+
+  // Reverse geocode to human readable address (short form)
+  const reverseGeocode = useCallback(
+    async (latitude: number, longitude: number) => {
+      try {
+        setIsReverseLoading(true);
+        const resp = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
+          { headers: { Accept: "application/json" } },
+        );
+        if (!resp.ok) throw new Error("Reverse geocode failed");
+        const data: NominatimReverse = await resp.json();
+        setReverseResult(data);
+
+        // Build a short address for parent callback
+        const addr = data?.address ?? {};
+        const primary =
+          addr.road ||
+          addr.neighbourhood ||
+          addr.suburb ||
+          addr.town ||
+          addr.village ||
+          addr.county;
+        const secondary = addr.city || addr.town || addr.county || addr.state;
+        const short = [primary, secondary].filter(Boolean).join(", ");
+
+        if (short) {
+          setAddress(short);
+          onLocationSelect({ address: short, latitude, longitude });
+        } else if (data.display_name) {
+          setAddress(data.display_name);
+          onLocationSelect({ address: data.display_name, latitude, longitude });
+        }
+      } catch (err) {
+        console.error("Reverse geocode error", err);
+        setReverseResult(null);
+      } finally {
+        setIsReverseLoading(false);
+      }
+    },
+    [onLocationSelect],
+  );
 
   const handleLatChange = (value: string) => {
     const newLat = parseFloat(value);
@@ -210,8 +290,20 @@ export default function MapPicker({
     }
   };
 
+  // Trigger reverse geocode when coordinates change (debounced)
+  useEffect(() => {
+    if (reverseTimeoutRef.current) clearTimeout(reverseTimeoutRef.current);
+    reverseTimeoutRef.current = setTimeout(() => {
+      reverseGeocode(lat, lng);
+    }, 450);
+
+    return () => {
+      if (reverseTimeoutRef.current) clearTimeout(reverseTimeoutRef.current);
+    };
+  }, [lat, lng, reverseGeocode]);
+
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-4"
@@ -222,7 +314,10 @@ export default function MapPicker({
           Laundry address
         </label>
         <div className="relative">
-          <MapPin size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <MapPin
+            size={16}
+            className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400"
+          />
           <input
             type="text"
             value={address}
@@ -248,7 +343,11 @@ export default function MapPicker({
                   animate={{ scale: 1 }}
                   exit={{ scale: 0 }}
                 >
-                  <Check size={16} className="text-emerald-500" strokeWidth={3} />
+                  <Check
+                    size={16}
+                    className="text-emerald-500"
+                    strokeWidth={3}
+                  />
                 </motion.div>
               ) : (
                 <Search size={16} className="text-gray-400" />
@@ -276,13 +375,17 @@ export default function MapPicker({
                     whileHover={{ x: 4 }}
                   >
                     <div className="flex items-start gap-3">
-                      <MapPin size={14} className="text-[#0f4c5c] mt-1 shrink-0" />
+                      <MapPin
+                        size={14}
+                        className="text-[#0f4c5c] mt-1 shrink-0"
+                      />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-gray-700 leading-snug line-clamp-2">
                           {result.display_name}
                         </p>
                         <p className="text-xs text-gray-400 mt-1">
-                          {parseFloat(result.lat).toFixed(4)}, {parseFloat(result.lon).toFixed(4)}
+                          {parseFloat(result.lat).toFixed(4)},{" "}
+                          {parseFloat(result.lon).toFixed(4)}
                         </p>
                       </div>
                     </div>
@@ -302,12 +405,30 @@ export default function MapPicker({
           className="h-[250px] w-full border-0"
           loading="lazy"
         />
-        
-        {/* Map overlay with coordinates */}
+
+        {/* Map overlay with human-readable location */}
         <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between gap-2">
           <div className="bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg text-xs text-gray-600 shadow-md font-medium flex items-center gap-2">
             <Navigation size={12} className="text-[#0f4c5c]" />
-            {lat.toFixed(6)}, {lng.toFixed(6)}
+            {isReverseLoading ? (
+              "Resolving address…"
+            ) : reverseResult?.address ? (
+              <span className="truncate">
+                {reverseResult.address.road ||
+                  reverseResult.address.neighbourhood ||
+                  reverseResult.address.suburb ||
+                  reverseResult.address.town ||
+                  reverseResult.address.village ||
+                  reverseResult.address.county}
+                {", "}
+                {reverseResult.address.city ||
+                  reverseResult.address.town ||
+                  reverseResult.address.county ||
+                  reverseResult.address.state}
+              </span>
+            ) : (
+              <span className="truncate">{address || "Selected location"}</span>
+            )}
           </div>
           <a
             href={largeMapUrl}
@@ -352,35 +473,45 @@ export default function MapPicker({
         </a>
       </div>
 
-      {/* Manual Coordinates Input */}
+      {/* Readable Location Fields (replace raw coordinates) */}
       <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
         <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
-          Fine-tune Coordinates
+          Fine-tune Location
         </p>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Latitude
+              Street / Neighborhood
             </label>
-            <input
-              type="number"
-              step="0.000001"
-              value={lat}
-              onChange={(e) => handleLatChange(e.target.value)}
-              className="w-full border-2 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-4 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 border-gray-200 bg-white"
-            />
+            <div className="w-full rounded-xl px-3 py-2.5 text-sm text-gray-900 bg-white border border-gray-200">
+              {isReverseLoading
+                ? "Resolving…"
+                : reverseResult?.address
+                  ? reverseResult.address.road ||
+                    reverseResult.address.neighbourhood ||
+                    reverseResult.address.suburb ||
+                    reverseResult.address.village ||
+                    "—"
+                  : address || "—"}
+            </div>
           </div>
+
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1.5">
-              Longitude
+              City / Major Area / Landmark
             </label>
-            <input
-              type="number"
-              step="0.000001"
-              value={lng}
-              onChange={(e) => handleLngChange(e.target.value)}
-              className="w-full border-2 rounded-xl px-3 py-2.5 text-sm text-gray-900 focus:outline-none focus:ring-4 focus:border-[#0f4c5c] focus:ring-[#0f4c5c]/10 border-gray-200 bg-white"
-            />
+            <div className="w-full rounded-xl px-3 py-2.5 text-sm text-gray-900 bg-white border border-gray-200">
+              {isReverseLoading
+                ? "Resolving…"
+                : reverseResult?.address
+                  ? reverseResult.address.city ||
+                    reverseResult.address.town ||
+                    reverseResult.address.county ||
+                    reverseResult.address.state ||
+                    reverseResult.display_name ||
+                    "—"
+                  : address || "—"}
+            </div>
           </div>
         </div>
       </div>
@@ -395,7 +526,9 @@ export default function MapPicker({
             className="p-3 bg-red-50 border border-red-200 rounded-xl"
           >
             <p className="text-red-600 text-xs flex items-center gap-1.5">
-              <span className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center shrink-0">!</span>
+              <span className="w-4 h-4 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                !
+              </span>
               {locationError}
             </p>
           </motion.div>
@@ -404,7 +537,9 @@ export default function MapPicker({
 
       {/* Hint */}
       <p className="text-xs text-gray-500 leading-relaxed">
-        <span className="font-medium text-[#0f4c5c]">Tip:</span> You can enter the address manually above, use your current location, or adjust the coordinates directly. The map will update automatically.
+        <span className="font-medium text-[#0f4c5c]">Tip:</span> You can enter
+        the address manually above, use your current location, or adjust the
+        coordinates directly. The map will update automatically.
       </p>
     </motion.div>
   );
