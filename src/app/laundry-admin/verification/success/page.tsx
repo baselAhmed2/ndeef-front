@@ -8,6 +8,8 @@ import Link from "next/link";
 import { markLaundryVerificationComplete } from "@/app/lib/verification-state";
 
 const REVIEW_CALLBACK_STATUSES = new Set(["in review", "pending", "review", "processing"]);
+const MAX_ATTEMPTS = 10;
+const BASE_DELAY_MS = 5000;
 
 function VerificationSuccessContent() {
   const router = useRouter();
@@ -33,9 +35,15 @@ function VerificationSuccessContent() {
     if (!isAuthReady) return;
 
     let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
+    let cancelled = false;
 
     const checkVerification = async () => {
       try {
+        if (!sessionId) {
+          setError("Verification session could not be found. Please return to the verification page and try again.");
+          return;
+        }
+
         if (sessionId) {
           await syncVerificationStatus(sessionId);
         }
@@ -45,8 +53,8 @@ function VerificationSuccessContent() {
           return;
         }
 
-        const maxAttempts = 8;
-        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+          if (cancelled) return;
           const result = await getVerificationStatus(sessionId);
 
           if (result.isSuccess && result.data?.isVerified) {
@@ -60,26 +68,45 @@ function VerificationSuccessContent() {
             return;
           }
 
-          if (!result.isSuccess && attempt === maxAttempts - 1) {
+          if (!result.isSuccess) {
+            const normalizedError = String(result.error ?? "").toLowerCase();
+            const isRateLimited =
+              normalizedError.includes("429") ||
+              normalizedError.includes("too many") ||
+              normalizedError.includes("rate limit");
+
+            if (isRateLimited) {
+              setError("Too many verification checks were sent. Please wait a moment, then return and try again.");
+              return;
+            }
+          }
+
+          if (!result.isSuccess && attempt === MAX_ATTEMPTS - 1) {
             setError(result.error || "Failed to check verification status");
             return;
           }
 
-          if (attempt < maxAttempts - 1) {
-            await new Promise((resolve) => setTimeout(resolve, 2000));
+          if (attempt < MAX_ATTEMPTS - 1) {
+            const delayMs = BASE_DELAY_MS + attempt * 1000;
+            await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         }
+
+        setError("Verification is still being processed. Please try again in a moment.");
       } catch (err) {
         console.error("Error checking verification:", err);
         setError(err instanceof Error ? err.message : "Unable to complete verification right now.");
       } finally {
-        setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     };
 
     checkVerification();
 
     return () => {
+      cancelled = true;
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
   }, [isLoggedIn, isAuthReady, user, router, logout, sessionId, updateUser]);

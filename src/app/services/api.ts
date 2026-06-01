@@ -378,6 +378,13 @@ export async function getVerificationStatus(
   const raw = await res.text();
   const json = safeParseApiPayload(raw);
   if (!res.ok) {
+    if (res.status === 429) {
+      return {
+        isSuccess: false,
+        error: "429 Too Many Requests",
+      };
+    }
+
     return {
       isSuccess: false,
       error:
@@ -445,6 +452,13 @@ export async function syncVerificationStatus(
     const json = safeParseApiPayload(raw);
 
     if (!res.ok) {
+      if (res.status === 429) {
+        return {
+          isSuccess: false,
+          error: "429 Too Many Requests",
+        };
+      }
+
       return {
         isSuccess: false,
         error:
