@@ -297,6 +297,15 @@ export interface VerificationStatusResponse {
   role: string;
 }
 
+function safeParseApiPayload(raw: string) {
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
 /**
  * POST /api/verification/session
  * Creates a Didit verification session for identity verification.
@@ -349,10 +358,23 @@ export async function getVerificationStatus(): Promise<ApiResult<VerificationSta
   const res = await fetch(`${BASE_URL}/verification/status`, {
     headers: getAuthHeaders(),
   });
-
-  const json = await res.json();
+  const raw = await res.text();
+  const json = safeParseApiPayload(raw);
   if (!res.ok) {
-    return { isSuccess: false, error: json.message ?? "Failed to get verification status" };
+    return {
+      isSuccess: false,
+      error:
+        (json && typeof json === "object" && "message" in json && typeof json.message === "string"
+          ? json.message
+          : null) ?? "Failed to get verification status",
+    };
+  }
+
+  if (!json || typeof json !== "object") {
+    return {
+      isSuccess: false,
+      error: "Verification status response was invalid.",
+    };
   }
 
   const normalizedApprovalStatus = String(

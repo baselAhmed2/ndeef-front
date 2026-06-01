@@ -7,10 +7,13 @@ import { getVerificationStatus } from "@/app/services/api";
 import Link from "next/link";
 import { markLaundryVerificationComplete } from "@/app/lib/verification-state";
 
+const SUCCESS_CALLBACK_STATUSES = new Set(["approved", "verified", "completed", "complete", "success"]);
+const REVIEW_CALLBACK_STATUSES = new Set(["in review", "pending", "review", "processing"]);
+
 function VerificationSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, isLoggedIn, isAuthReady, logout } = useAuth();
+  const { user, isLoggedIn, isAuthReady, logout, updateUser } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,8 +21,8 @@ function VerificationSuccessContent() {
   // Get params from URL (Didit returns: ?sessionId=xxx&status=Approved)
   const sessionId = searchParams?.get("sessionId") || searchParams?.get("session_id");
   const status = searchParams?.get("status");
-  const urlStatus = status?.toLowerCase();
-  const isApprovedFromDidit = urlStatus === "approved";
+  const urlStatus = status?.trim().toLowerCase() ?? "";
+  const isApprovedFromDidit = SUCCESS_CALLBACK_STATUSES.has(urlStatus);
   
   // Log for debugging
   console.log("Verification callback - Session:", sessionId, "Status:", status);
@@ -41,6 +44,7 @@ function VerificationSuccessContent() {
       try {
         if (isApprovedFromDidit) {
           markLaundryVerificationComplete();
+          updateUser({ needsVerification: false });
           setIsVerified(true);
           redirectTimeout = setTimeout(() => {
             logout();
@@ -49,26 +53,33 @@ function VerificationSuccessContent() {
           return;
         }
 
-        // Check verification status from backend
-        const result = await getVerificationStatus();
+        const maxAttempts = 8;
+        for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+          const result = await getVerificationStatus();
 
-        if (result.isSuccess && result.data) {
-          setIsVerified(result.data.isVerified);
-
-          // If verified, wait a moment, then send the user to login.
-          if (result.data.isVerified) {
+          if (result.isSuccess && result.data?.isVerified) {
             markLaundryVerificationComplete();
+            updateUser({ needsVerification: false });
+            setIsVerified(true);
             redirectTimeout = setTimeout(() => {
               logout();
               router.replace("/login");
-            }, 3000);
+            }, 1500);
+            return;
           }
-        } else {
-          setError(result.error || "Failed to check verification status");
+
+          if (!result.isSuccess && attempt === maxAttempts - 1) {
+            setError(result.error || "Failed to check verification status");
+            return;
+          }
+
+          if (attempt < maxAttempts - 1) {
+            await new Promise((resolve) => setTimeout(resolve, 2000));
+          }
         }
       } catch (err) {
         console.error("Error checking verification:", err);
-        setError("An unexpected error occurred");
+        setError(err instanceof Error ? err.message : "Unable to complete verification right now.");
       } finally {
         setIsLoading(false);
       }
@@ -79,7 +90,7 @@ function VerificationSuccessContent() {
     return () => {
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  }, [isLoggedIn, isAuthReady, user, router, logout, isApprovedFromDidit]);
+  }, [isLoggedIn, isAuthReady, user, router, logout, isApprovedFromDidit, updateUser]);
 
   if (isLoading) {
     return (
@@ -128,7 +139,7 @@ function VerificationSuccessContent() {
     );
   }
 
-  if (urlStatus === "in review" || urlStatus === "pending") {
+  if (REVIEW_CALLBACK_STATUSES.has(urlStatus)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
@@ -186,7 +197,7 @@ function VerificationSuccessContent() {
     );
   }
 
-  if (isVerified || urlStatus === "approved") {
+  if (isVerified || SUCCESS_CALLBACK_STATUSES.has(urlStatus)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
@@ -208,7 +219,7 @@ function VerificationSuccessContent() {
     );
   }
 
-  // Not verified yet
+  // Not verified yet after several checks
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center max-w-md mx-auto px-4">

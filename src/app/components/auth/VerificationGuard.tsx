@@ -70,7 +70,7 @@ export function VerificationGuard({ children }: VerificationGuardProps) {
             ? Number((error as { status?: number }).status)
             : null;
         const shouldForceVerification =
-          !hasFreshVerification && (currentUser.needsVerification || status === 401 || status === 403);
+          !hasFreshVerification && Boolean(currentUser.needsVerification) && (status === 401 || status === 403);
 
         if (shouldForceVerification && !isVerificationPage) {
           updateUser({ needsVerification: true });

@@ -69,6 +69,13 @@ export interface BackendUserDto {
   role: string;
   token: string | null;
   needsVerification?: boolean;
+  isIdentityVerified?: boolean;
+  isVerified?: boolean;
+  verified?: boolean;
+  isApproved?: boolean;
+  adminApprovalStatus?: string | null;
+  verificationStatus?: string | null;
+  status?: string | null;
 }
 
 export interface BackendUserProfileDto {
@@ -860,6 +867,27 @@ function splitName(fullName: string) {
 
 export function mapUserDtoToAuthUser(user: BackendUserDto): AuthUser {
   const { firstName, lastName } = splitName(user.name);
+  const normalizedApprovalStatus = String(
+    user.adminApprovalStatus ??
+      user.verificationStatus ??
+      user.status ??
+      "",
+  )
+    .trim()
+    .toLowerCase();
+  const isVerificationComplete =
+    Boolean(
+      user.isIdentityVerified ??
+        user.isVerified ??
+        user.verified ??
+        user.isApproved,
+    ) ||
+    normalizedApprovalStatus === "approved" ||
+    normalizedApprovalStatus === "verified" ||
+    normalizedApprovalStatus === "completed" ||
+    normalizedApprovalStatus === "complete" ||
+    normalizedApprovalStatus === "active";
+
   return {
     id: user.id,
     name: user.name,
@@ -870,7 +898,12 @@ export function mapUserDtoToAuthUser(user: BackendUserDto): AuthUser {
     role: user.role,
     token: user.token,
     avatarUrl: null,
-    needsVerification: user.needsVerification,
+    needsVerification: isVerificationComplete
+      ? false
+      : (
+          user.needsVerification ??
+          (String(user.role ?? "").trim().toLowerCase().replace(/\s+/g, "") === "laundryadmin")
+        ),
   };
 }
 
