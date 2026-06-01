@@ -5,6 +5,10 @@ import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { getVerificationStatus, startVerificationSession } from "@/app/lib/laundry-admin-client";
+import {
+  clearPendingLaundryVerificationSession,
+  storePendingLaundryVerificationSession,
+} from "@/app/lib/verification-state";
 
 const RATE_LIMIT_COOLDOWN_SECONDS = 60;
 
@@ -58,6 +62,11 @@ export default function VerificationPage() {
       const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
       const session = await startVerificationSession(redirectUrl);
       console.log("[Verification] Session created", session);
+      if (session.sessionId) {
+        storePendingLaundryVerificationSession(session.sessionId);
+      } else {
+        clearPendingLaundryVerificationSession();
+      }
       window.location.href = session.url;
     } catch (err) {
       console.error("[Verification] Could not continue verification flow", {
@@ -81,10 +90,12 @@ export default function VerificationPage() {
       if (isRateLimit) {
         setIsRateLimited(true);
         startCooldown();
+        clearPendingLaundryVerificationSession();
         setError(
           "Too many verification attempts. Didit limits how often a new session can be created. Please wait 60 seconds before trying again."
         );
       } else {
+        clearPendingLaundryVerificationSession();
         setError(message);
       }
     } finally {

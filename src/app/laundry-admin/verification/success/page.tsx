@@ -5,7 +5,11 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { getVerificationStatus, syncVerificationStatus } from "@/app/services/api";
 import Link from "next/link";
-import { markLaundryVerificationComplete } from "@/app/lib/verification-state";
+import {
+  clearPendingLaundryVerificationSession,
+  getPendingLaundryVerificationSession,
+  markLaundryVerificationComplete,
+} from "@/app/lib/verification-state";
 
 const REVIEW_CALLBACK_STATUSES = new Set(["in review", "pending", "review", "processing"]);
 const MAX_ATTEMPTS = 10;
@@ -18,9 +22,11 @@ function VerificationSuccessContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(null);
+  const [hasResolvedSessionLookup, setHasResolvedSessionLookup] = useState(false);
 
   // Didit may return either verificationSessionId, sessionId, or session_id depending on the callback path.
-  const sessionId =
+  const callbackSessionId =
     searchParams?.get("verificationSessionId") ||
     searchParams?.get("sessionId") ||
     searchParams?.get("session_id");
@@ -28,24 +34,35 @@ function VerificationSuccessContent() {
   const urlStatus = status?.trim().toLowerCase() ?? "";
   
   // Log for debugging
-  console.log("Verification callback - Session:", sessionId, "Status:", status);
+  console.log("Verification callback - Session:", callbackSessionId, "Status:", status);
   console.log("Full URL:", typeof window !== "undefined" ? window.location.href : "");
 
   useEffect(() => {
-    if (!isAuthReady) return;
+    const fallbackSessionId = getPendingLaundryVerificationSession();
+    const nextSessionId = callbackSessionId || fallbackSessionId;
+    setResolvedSessionId(nextSessionId);
+    setHasResolvedSessionLookup(true);
+
+    if (callbackSessionId) {
+      clearPendingLaundryVerificationSession();
+    }
+  }, [callbackSessionId]);
+
+  useEffect(() => {
+    if (!isAuthReady || !hasResolvedSessionLookup) return;
 
     let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
 
     const checkVerification = async () => {
       try {
-        if (!sessionId) {
+        if (!resolvedSessionId) {
           setError("Verification session could not be found. Please return to the verification page and try again.");
           return;
         }
 
-        if (sessionId) {
-          await syncVerificationStatus(sessionId);
+        if (resolvedSessionId) {
+          await syncVerificationStatus(resolvedSessionId);
         }
 
         if (!isLoggedIn || !user) {
@@ -55,10 +72,11 @@ function VerificationSuccessContent() {
 
         for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
           if (cancelled) return;
-          const result = await getVerificationStatus(sessionId);
+          const result = await getVerificationStatus(resolvedSessionId);
 
           if (result.isSuccess && result.data?.isVerified) {
             markLaundryVerificationComplete();
+            clearPendingLaundryVerificationSession();
             updateUser({ needsVerification: false });
             setIsVerified(true);
             redirectTimeout = setTimeout(() => {
@@ -109,7 +127,7 @@ function VerificationSuccessContent() {
       cancelled = true;
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  }, [isLoggedIn, isAuthReady, user, router, logout, sessionId, updateUser]);
+  }, [isLoggedIn, isAuthReady, user, router, logout, resolvedSessionId, updateUser, hasResolvedSessionLookup]);
 
   if (isLoading) {
     return (

@@ -1616,7 +1616,7 @@ export async function getForecast(): Promise<any> {
 
 export async function startVerificationSession(
   callbackUrl?: string,
-): Promise<{ url: string }> {
+): Promise<{ url: string; sessionId: string | null }> {
   const resolvedCallback =
     callbackUrl ??
     (typeof window !== "undefined"
@@ -1637,10 +1637,18 @@ export async function startVerificationSession(
           payload?.Url ??
           payload?.sessionUrl ??
           payload?.verificationUrl);
+    const sessionId =
+      typeof payload === "string"
+        ? null
+        : (payload?.sessionId ??
+          payload?.SessionId ??
+          payload?.verificationSessionId ??
+          payload?.session_id ??
+          null);
     if (!url) {
       throw new ApiError("Verification session was created without a redirect URL.");
     }
-    return { url };
+    return { url, sessionId: typeof sessionId === "string" && sessionId.trim() ? sessionId.trim() : null };
   } catch (error) {
     console.error("Failed to create Didit verification session", error);
     throw error instanceof Error
