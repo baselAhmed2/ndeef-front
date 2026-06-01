@@ -451,7 +451,7 @@ export async function syncVerificationStatus(
       `${BASE_URL}/verification/sync?verificationSessionId=${encodeURIComponent(sessionId)}`,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
       },
     );
     const raw = await res.text();
