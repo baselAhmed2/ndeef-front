@@ -36,7 +36,7 @@ interface AuthContextType {
     newPassword: string,
   ) => Promise<AuthResult>;
   logout: () => void;
-  socialLogin: (provider: string, credential?: string) => Promise<AuthResult>;
+  socialLogin: (provider: string, credential?: string, role?: "Customer" | "LaundryAdmin" | "Courier") => Promise<AuthResult>;
   updateUser: (patch: Partial<User>) => void;
 }
 

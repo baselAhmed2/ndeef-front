@@ -418,7 +418,7 @@ export default function Login() {
           {/* Laundry admin hint */}
           {accountType === "LaundryAdmin" && (
             <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
-              Laundry owners sign in with email to keep the verification flow correct.
+              Laundry owners can sign in with Google or email.
               New here?{" "}
               <Link href="/signup?role=LaundryAdmin" className={`${accountAccentClass} font-medium underline`}>
                 Register your laundry
@@ -428,7 +428,7 @@ export default function Login() {
 
           {accountType === "Courier" && (
             <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
-              Couriers sign in here with their regular account.
+              Couriers can sign in with Google or email.
               New here?{" "}
               <Link href="/signup?role=Courier" className={`${accountAccentClass} font-medium underline`}>
                 Create a courier account
