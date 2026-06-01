@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense } from "react";
+import { useEffect, useMemo, useState, Suspense, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import { getVerificationStatus, syncVerificationStatus } from "@/app/services/api";
@@ -19,7 +19,7 @@ function VerificationSuccessContent() {
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Didit may return either verificationSessionId, sessionId, or session_id depending on the callback path.
+  // Didit may return verificationSessionId, sessionId, session_id, session, or id
   const sessionIdFromQuery =
     searchParams?.get("verificationSessionId") ||
     searchParams?.get("sessionId") ||
@@ -42,13 +42,29 @@ function VerificationSuccessContent() {
   const sessionId = sessionIdFromQuery || sessionIdFromHash;
   const status = searchParams?.get("status");
   const urlStatus = status?.trim().toLowerCase() ?? "";
-  
-  // Log for debugging
-  console.log("Verification callback - Session:", sessionId, "Status:", status);
-  console.log("Full URL:", typeof window !== "undefined" ? window.location.href : "");
+
+  // Capture mutable values in refs so the effect doesn't re-run when they change reference
+  const isLoggedInRef = useRef(isLoggedIn);
+  const userRef = useRef(user);
+  const logoutRef = useRef(logout);
+  const updateUserRef = useRef(updateUser);
+  const routerRef = useRef(router);
+  isLoggedInRef.current = isLoggedIn;
+  userRef.current = user;
+  logoutRef.current = logout;
+  updateUserRef.current = updateUser;
+  routerRef.current = router;
+
+  const hasStartedRef = useRef(false);
 
   useEffect(() => {
+    // Guard: only run once, and only after auth is ready
     if (!isAuthReady) return;
+    if (hasStartedRef.current) return;
+    hasStartedRef.current = true;
+
+    // Debug log — inside effect so it prints exactly once
+    console.log("[Didit] Verification callback - Session:", sessionId, "Status:", status, "URL:", window.location.href);
 
     let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
     let cancelled = false;
@@ -59,8 +75,8 @@ function VerificationSuccessContent() {
           await syncVerificationStatus(sessionId);
         }
 
-        if (!isLoggedIn || !user) {
-          router.push("/login");
+        if (!isLoggedInRef.current || !userRef.current) {
+          routerRef.current.push("/login");
           return;
         }
 
@@ -70,11 +86,11 @@ function VerificationSuccessContent() {
 
           if (result.isSuccess && result.data?.isVerified) {
             markLaundryVerificationComplete();
-            updateUser({ needsVerification: false });
+            updateUserRef.current({ needsVerification: false });
             setIsVerified(true);
             redirectTimeout = setTimeout(() => {
-              logout();
-              router.replace("/login");
+              logoutRef.current();
+              routerRef.current.replace("/login");
             }, 1500);
             return;
           }
@@ -85,7 +101,6 @@ function VerificationSuccessContent() {
               normalizedError.includes("429") ||
               normalizedError.includes("too many") ||
               normalizedError.includes("rate limit");
-
             if (isRateLimited) {
               setError("Too many verification checks were sent. Please wait a moment, then return and try again.");
               return;
@@ -103,16 +118,12 @@ function VerificationSuccessContent() {
           }
         }
 
-        setError(
-          "Verification is still being processed. Please try again in a moment.",
-        );
+        setError("Verification is still being processed. Please try again in a moment.");
       } catch (err) {
-        console.error("Error checking verification:", err);
+        console.error("[Didit] Error checking verification:", err);
         setError(err instanceof Error ? err.message : "Unable to complete verification right now.");
       } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+        if (!cancelled) setIsLoading(false);
       }
     };
 
@@ -122,7 +133,8 @@ function VerificationSuccessContent() {
       cancelled = true;
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  }, [isLoggedIn, isAuthReady, user, router, logout, sessionId, updateUser]);
+  // Only re-run if auth readiness or sessionId changes — everything else is via refs
+  }, [isAuthReady, sessionId]);
 
   if (isLoading) {
     return (
