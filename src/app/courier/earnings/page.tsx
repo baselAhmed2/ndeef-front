@@ -12,7 +12,6 @@ import {
   ArrowDownRight,
   Calendar,
   Loader2,
-  Info,
 } from "lucide-react";
 import {
   getCourierEarnings,
@@ -279,12 +278,7 @@ export default function CourierEarningsPage() {
               </div>
             </div>
           ))}
-          <div className="ndeef-courier-soft flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-            <Info className="mt-0.5 w-4 h-4 shrink-0 text-amber-600" />
-            <p className="text-xs text-amber-800">
-              Detailed courier ratings, ranking, and working hours are not available yet. This page currently shows earnings and completion metrics.
-            </p>
-          </div>
+
         </div>
 
         <div className="ndeef-courier-card bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
