@@ -46,13 +46,13 @@ function looksSensitiveMessage(value: string) {
     "stack trace",
     "stacktrace",
     "exception",
-    " at ",
+    " at system.",
+    " at microsoft.",
+    " at lambda_method",
     "select ",
     "insert ",
     "update ",
-    "delete ",
     "bearer ",
-    "token",
   ].some((token) => normalized.includes(token));
 }
 

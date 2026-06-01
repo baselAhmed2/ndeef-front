@@ -46,6 +46,7 @@ export default function VerificationPage() {
 
     try {
       const status = await getVerificationStatus();
+      console.log("[Verification] Status response", status);
       const needsVerification = !status.isIdentityVerified;
       updateUser({ needsVerification });
 
@@ -56,8 +57,14 @@ export default function VerificationPage() {
 
       const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
       const session = await startVerificationSession(redirectUrl);
+      console.log("[Verification] Session created", session);
       window.location.href = session.url;
     } catch (err) {
+      console.error("[Verification] Could not continue verification flow", {
+        error: err instanceof Error ? err.message : err,
+        userRole: currentUser.role,
+        needsVerification: currentUser.needsVerification,
+      });
       if (currentUser.needsVerification === false) {
         router.replace("/laundry-admin");
         return;
