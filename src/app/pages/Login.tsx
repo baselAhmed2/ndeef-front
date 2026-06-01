@@ -101,9 +101,9 @@ function SegmentedControl({
           type="button"
           onClick={() => onChange(key)}
           whileTap={{ scale: 0.98 }}
-          className={`flex min-w-0 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 relative ${value === key
-              ? "text-[#1D6076] dark:text-[#EBA050]"
-              : "text-gray-500 hover:text-gray-700 dark:text-[#7AAFC2] dark:hover:text-[#EEF4F8]"
+          className={`flex min-w-0 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2 rounded-xl text-xs sm:text-sm transition-all duration-300 relative ${value === key
+              ? "text-[#1D6076] dark:text-[#EBA050] font-bold"
+              : "text-gray-500 hover:text-gray-700 dark:text-[#7AAFC2] dark:hover:text-[#EEF4F8] font-medium"
             }`}
         >
           {value === key && (
@@ -427,7 +427,7 @@ export default function Login() {
             <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
               Laundry owners sign in with email to keep the verification flow correct.
               New here?{" "}
-              <Link href="/signup?role=LaundryAdmin" className={`${accountAccentClass} font-medium hover:underline`}>
+              <Link href="/signup?role=LaundryAdmin" className={`${accountAccentClass} font-medium underline`}>
                 Register your laundry
               </Link>
             </p>
@@ -437,7 +437,7 @@ export default function Login() {
             <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
               Couriers sign in here with their regular account.
               New here?{" "}
-              <Link href="/signup?role=Courier" className={`${accountAccentClass} font-medium hover:underline`}>
+              <Link href="/signup?role=Courier" className={`${accountAccentClass} font-medium underline`}>
                 Create a courier account
               </Link>
             </p>
@@ -453,6 +453,7 @@ export default function Login() {
                 transition={{ duration: 0.2 }}
                 className="mt-4 flex items-start gap-3 bg-red-50/80 backdrop-blur-sm border border-red-200 rounded-xl px-4 py-3.5 shadow-sm dark:bg-red-500/10 dark:border-red-500/25"
               >
+                <div className="w-1 self-stretch bg-red-400 rounded-full shrink-0" />
                 <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
                   <AlertCircle size={14} className="text-red-500" />
                 </div>
@@ -463,8 +464,9 @@ export default function Login() {
                       type="button"
                       onClick={() => { setAccountType("Customer"); setError(""); }}
                       whileHover={{ x: 2 }}
-                      className={`mt-2 text-sm ${accountAccentClass} font-semibold hover:underline inline-flex items-center gap-1`}
+                      className={`mt-2 text-sm ${accountAccentClass} font-semibold underline inline-flex items-center gap-1`}
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Switch to Customer login
                     </motion.button>
                   )}
@@ -473,8 +475,9 @@ export default function Login() {
                       type="button"
                       onClick={() => { setAccountType("LaundryAdmin"); setError(""); }}
                       whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#EBA050] font-semibold hover:underline inline-flex items-center gap-1"
+                      className="mt-2 text-sm text-[#EBA050] font-semibold underline inline-flex items-center gap-1"
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Switch to Laundry Owner login
                     </motion.button>
                   )}
@@ -483,8 +486,9 @@ export default function Login() {
                       type="button"
                       onClick={() => { setAccountType("Courier"); setError(""); }}
                       whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#4FA3C1] font-semibold hover:underline inline-flex items-center gap-1"
+                      className="mt-2 text-sm text-[#4FA3C1] font-semibold underline inline-flex items-center gap-1"
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Switch to Courier login
                     </motion.button>
                   )}
@@ -493,8 +497,9 @@ export default function Login() {
                       type="button"
                       onClick={() => setError("")}
                       whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#1D6076] font-semibold hover:underline inline-flex items-center gap-1"
+                      className="mt-2 text-sm text-[#1D6076] font-semibold underline inline-flex items-center gap-1"
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Try another account type
                     </motion.button>
                   )}
@@ -627,7 +632,7 @@ export default function Login() {
                 <label className="text-sm font-medium text-gray-700 dark:text-slate-200">Password</label>
                 <Link
                   href={`/forgot-password?email=${encodeURIComponent(email)}`}
-                  className="text-xs text-[#1D6076] hover:text-[#164d5f] dark:text-[#EBA050] dark:hover:text-[#d4832a] font-semibold hover:underline transition-colors"
+                  className="text-xs text-[#1D6076] hover:text-[#164d5f] dark:text-[#EBA050] dark:hover:text-[#d4832a] font-semibold underline transition-colors"
                 >
                   Forgot password?
                 </Link>
@@ -791,21 +796,21 @@ export default function Login() {
             {accountType === "LaundryAdmin" ? (
               <>
                 New laundry owner?{" "}
-                <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium hover:underline">
+                <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium underline">
                   Create an account
                 </Link>
               </>
             ) : accountType === "Courier" ? (
               <>
                 Need a courier account?{" "}
-                <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium hover:underline">
+                <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium underline">
                   Sign up
                 </Link>
               </>
             ) : (
               <>
                 Don&apos;t have an account?{" "}
-                <Link href="/signup" className="text-[#1D6076] font-medium hover:underline">
+                <Link href="/signup" className="text-[#1D6076] font-medium underline">
                   Sign up
                 </Link>
               </>
