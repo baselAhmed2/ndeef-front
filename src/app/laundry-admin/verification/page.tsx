@@ -4,11 +4,8 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, ShieldCheck, Clock, AlertTriangle } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
-import { getVerificationStatus, startVerificationSession } from "@/app/lib/laundry-admin-client";
-import {
-  clearPendingLaundryVerificationSession,
-  storePendingLaundryVerificationSession,
-} from "@/app/lib/verification-state";
+import { completeVerification, getVerificationStatus } from "@/app/lib/laundry-admin-client";
+import { clearPendingLaundryVerificationSession } from "@/app/lib/verification-state";
 
 const RATE_LIMIT_COOLDOWN_SECONDS = 60;
 
@@ -42,7 +39,7 @@ export default function VerificationPage() {
     };
   }, []);
 
-  const redirectToDidit = useCallback(async () => {
+  const completeAccountVerification = useCallback(async () => {
     if (!user) return;
     const currentUser = user;
     setIsStarting(true);
@@ -59,15 +56,11 @@ export default function VerificationPage() {
         return;
       }
 
-      const redirectUrl = `${window.location.origin}/laundry-admin/verification/success`;
-      const session = await startVerificationSession(redirectUrl);
-      console.log("[Verification] Session created", session);
-      if (session.sessionId) {
-        storePendingLaundryVerificationSession(session.sessionId);
-      } else {
-        clearPendingLaundryVerificationSession();
-      }
-      window.location.href = session.url;
+      clearPendingLaundryVerificationSession();
+      const completion = await completeVerification();
+      console.log("[Verification] Verification completed", completion);
+      updateUser({ needsVerification: false });
+      router.replace("/laundry-admin");
     } catch (err) {
       console.error("[Verification] Could not continue verification flow", {
         error: err instanceof Error ? err.message : err,
@@ -92,7 +85,7 @@ export default function VerificationPage() {
         startCooldown();
         clearPendingLaundryVerificationSession();
         setError(
-          "Too many verification attempts. Didit limits how often a new session can be created. Please wait 60 seconds before trying again."
+          "Too many verification attempts were made. Please wait 60 seconds before trying again."
         );
       } else {
         clearPendingLaundryVerificationSession();
@@ -117,13 +110,13 @@ export default function VerificationPage() {
       return;
     }
 
-    void redirectToDidit();
+    void completeAccountVerification();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthReady, isLoggedIn]);
 
   const handleTryAgain = () => {
     if (isRateLimited || isStarting) return;
-    void redirectToDidit();
+    void completeAccountVerification();
   };
 
   const hasError = Boolean(error);
@@ -161,7 +154,7 @@ export default function VerificationPage() {
 
         {/* Description */}
         <p className="mt-2 text-sm leading-6 text-gray-500 dark:text-slate-400">
-          {error || "You will be redirected to the secure Didit verification page in a moment."}
+          {error || "We are confirming your account so you can continue to the laundry dashboard."}
         </p>
 
         {/* Cooldown badge */}

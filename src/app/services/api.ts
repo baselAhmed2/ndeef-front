@@ -301,6 +301,12 @@ export interface VerificationSyncResponse {
   synced: boolean;
 }
 
+export interface VerificationCompletionResponse {
+  verified: boolean;
+  adminApprovalStatus?: string | null;
+  role?: string | null;
+}
+
 function safeParseApiPayload(raw: string) {
   if (!raw) return null;
   try {
@@ -480,6 +486,43 @@ export async function syncVerificationStatus(
       error: "Unable to refresh verification status right now. Please check your connection and try again.",
     };
   }
+}
+
+export async function completeVerification(): Promise<ApiResult<VerificationCompletionResponse>> {
+  let res: Response;
+
+  try {
+    res = await fetch(`${BASE_URL}/verification/complete`, {
+      method: "POST",
+      headers: getAuthHeaders(),
+    });
+  } catch {
+    return {
+      isSuccess: false,
+      error: "Unable to complete verification right now. Please try again.",
+    };
+  }
+
+  const raw = await res.text();
+  const json = safeParseApiPayload(raw);
+
+  if (!res.ok) {
+    return {
+      isSuccess: false,
+      error:
+        (json && typeof json === "object" && "message" in json && typeof json.message === "string"
+          ? json.message
+          : null) ?? "Could not complete verification right now.",
+    };
+  }
+
+  return {
+    isSuccess: true,
+    data:
+      json && typeof json === "object"
+        ? (json as VerificationCompletionResponse)
+        : { verified: true },
+  };
 }
 
 /**

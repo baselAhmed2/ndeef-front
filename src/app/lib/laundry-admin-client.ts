@@ -1657,6 +1657,32 @@ export async function startVerificationSession(
   }
 }
 
+export async function completeVerification(): Promise<{
+  verified: boolean;
+  adminApprovalStatus?: string | null;
+  role?: string | null;
+}> {
+  try {
+    const payload = await apiRequest<any>("/verification/complete", {
+      method: "POST",
+    });
+
+    return {
+      verified: Boolean(payload?.verified),
+      adminApprovalStatus:
+        typeof payload?.adminApprovalStatus === "string"
+          ? payload.adminApprovalStatus
+          : null,
+      role: typeof payload?.role === "string" ? payload.role : null,
+    };
+  } catch (error) {
+    console.error("Failed to complete verification", error);
+    throw error instanceof Error
+      ? error
+      : new Error("Could not complete verification.");
+  }
+}
+
 function toFrontendNotificationType(
   type: string | number | null | undefined,
 ): LaundryNotificationType {
