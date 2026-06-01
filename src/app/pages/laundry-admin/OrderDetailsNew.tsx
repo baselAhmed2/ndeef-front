@@ -512,7 +512,7 @@ export function OrderDetailsNew() {
               </div>
               <div>
                 <p className="font-semibold text-gray-900">{order.customer}</p>
-                <p className="text-xs text-gray-400">Backend customer</p>
+                <p className="text-xs text-gray-400">Customer</p>
               </div>
             </div>
             <div className="space-y-3">

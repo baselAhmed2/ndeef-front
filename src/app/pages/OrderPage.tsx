@@ -524,7 +524,7 @@ export default function OrderPage() {
       setOrderRedirecting(false);
       setSubmitError(
         isBackendSessionMismatch
-          ? `Your saved session may belong to a different backend environment. Please sign out and sign in again on ${BACKEND_ORIGIN} before placing the order.`
+          ? `Your saved session is no longer valid here. Please sign out and sign in again on ${BACKEND_ORIGIN} before placing the order.`
           : error instanceof ApiError
             ? error.message
           : error instanceof Error
@@ -881,7 +881,7 @@ export default function OrderPage() {
               </select>
               {savedAddresses.length === 0 && (
                 <p className="text-xs text-amber-600">
-                  No saved addresses were returned from backend. Add one in your profile before ordering a bundle.
+                  No saved addresses found. Add one in your profile before ordering a bundle.
                 </p>
               )}
               {errors.address && (
@@ -1051,7 +1051,7 @@ export default function OrderPage() {
                 <p className="text-sm text-gray-900 font-medium">Credit Card</p>
               </div>
                 <p className="text-xs text-gray-500">
-                  The order is created first, then the backend opens the card checkout for that order.
+                  Your order will be created first, then card checkout will open automatically.
                 </p>
               </button>
 
@@ -1085,7 +1085,7 @@ export default function OrderPage() {
                   <div>
                     <p className="text-sm font-medium text-emerald-900">Use wallet balance first</p>
                     <p className="mt-1 text-xs leading-5 text-emerald-800/90">
-                      Available wallet balance: {walletBalance.toFixed(2)} EGP. For bundle orders, backend can deduct from wallet first and leave only the remaining amount for the selected payment flow.
+                      Available wallet balance: {walletBalance.toFixed(2)} EGP. For bundle orders, your wallet balance can be used first and any remaining amount will continue with the selected payment method.
                     </p>
                   </div>
                   <button

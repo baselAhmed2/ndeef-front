@@ -280,7 +280,7 @@ export default function Orders() {
             >
               <Package size={26} className="text-[#1D6076]" strokeWidth={1.5} />
             </motion.div>
-            <p className="text-sm text-gray-500">Loading orders from the backend...</p>
+            <p className="text-sm text-gray-500">Loading your orders...</p>
           </div>
         ) : orders.length === 0 ? (
           <div className="flex min-h-[60vh] flex-col items-center justify-center">
@@ -306,7 +306,7 @@ export default function Orders() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="mb-8 max-w-sm text-center text-base text-gray-500"
             >
-              Your account is connected to the backend, but there are no customer orders yet.
+              You do not have any orders yet.
             </motion.p>
             <Link
               href="/nearby"

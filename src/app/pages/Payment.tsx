@@ -152,7 +152,7 @@ export default function Payment() {
       const cashierUrl = response.paymentUrl;
       if (!cashierUrl) {
         throw new ApiError(
-          "Backend did not return a cashier URL for card payment.",
+          "Unable to open card payment right now.",
           500,
           response,
         );
@@ -182,7 +182,7 @@ export default function Payment() {
       <div className="flex min-h-screen flex-col items-center justify-center bg-[#f5f5f5] px-8 text-center">
         <AlertCircle size={36} className="mb-4 text-red-400" strokeWidth={1.5} />
         <p className="mb-1 text-gray-700">Invalid payment request</p>
-        <p className="mb-6 text-sm text-gray-400">No valid backend order was found for this payment screen.</p>
+        <p className="mb-6 text-sm text-gray-400">No valid order was found for this payment screen.</p>
         <Link href="/nearby" className="text-sm text-[#1D6076] underline">
           Browse Laundries
         </Link>
@@ -226,7 +226,7 @@ export default function Payment() {
             <h1 className="text-lg text-gray-900">Secure Payment</h1>
             <div className="flex items-center gap-1">
               <Lock size={11} className="text-emerald-500" strokeWidth={2.5} />
-              <p className="text-xs text-emerald-600">Backend payment confirmation</p>
+              <p className="text-xs text-emerald-600">Payment confirmation</p>
             </div>
           </div>
         </div>

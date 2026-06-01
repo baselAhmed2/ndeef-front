@@ -285,7 +285,7 @@ export function Settings() {
           window.localStorage.setItem(LOCAL_PROFILE_PHOTO_KEY, localImageUrl);
         }
         setProfile((prev) => ({ ...prev, imageUrl: localImageUrl }));
-        setSaveError("The backend image upload is unavailable right now, so the photo was saved locally on this device.");
+        setSaveError("Photo upload is unavailable right now, so the photo was saved only on this device.");
       } catch (readError) {
         console.error(readError);
         setSaveError(error instanceof Error ? error.message : "Failed to upload photo.");
@@ -689,7 +689,7 @@ export function Settings() {
                 <div className="p-4 rounded-xl border border-gray-100 bg-gray-50 flex flex-col justify-between">
                   <div>
                     <h4 className="font-medium text-gray-900 text-sm mb-1">Commercial Register</h4>
-                    <p className="text-xs text-gray-400 mb-4">Follow the current backend-supported verification guidance</p>
+                    <p className="text-xs text-gray-400 mb-4">Follow the current verification guidance</p>
                   </div>
                   <button
                     type="button"

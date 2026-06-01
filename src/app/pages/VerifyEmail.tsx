@@ -117,7 +117,7 @@ export default function VerifyEmail() {
           </h1>
 
           <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-            Enter the OTP code the backend sent to{" "}
+            Enter the OTP code sent to{" "}
             <span className="font-medium text-gray-700">{email || "your email"}</span>.
           </p>
 

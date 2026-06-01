@@ -154,7 +154,7 @@ export function Analytics() {
             Advanced Analytics
           </h2>
           <p className="mt-1 text-sm text-gray-400">
-            Revenue insights and backend demand forecast
+            Revenue insights and demand forecast
           </p>
         </div>
       </div>

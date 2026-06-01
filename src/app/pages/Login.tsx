@@ -17,15 +17,13 @@ import {
   Store,
   Check,
   Truck,
-  Shield,
-
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { GoogleSignInButton } from "../components/auth/GoogleSignInButton";
 import { Monogram } from "../components/brand/Monogram";
 import { hasRecentLaundryVerificationMarker } from "../lib/verification-state";
 // Note: laundry-admin-client functions are dynamically imported in resolveLaundryAdminLoginPath
-type AccountType = "Customer" | "LaundryAdmin" | "Courier" | "Admin";
+type AccountType = "Customer" | "LaundryAdmin" | "Courier";
 
 function normalizeRole(role?: string) {
   return (role ?? "").trim().toLowerCase().replace(/\s+/g, "");
@@ -48,8 +46,6 @@ function isAdminRole(role?: string) {
 
 function getNoAccountMessage(accountType: AccountType) {
   switch (accountType) {
-    case "Admin":
-      return "No super admin account found with this email.";
     case "LaundryAdmin":
       return "No laundry owner account found with this email.";
     case "Courier":
@@ -65,15 +61,12 @@ function getAccountTypeLabel(accountType: AccountType) {
       return "Laundry Owner";
     case "Courier":
       return "Courier";
-    case "Admin":
-      return "Super Admin";
     default:
       return "Customer";
   }
 }
 
 function getAccountTypeFromRole(role?: string): AccountType {
-  if (isAdminRole(role)) return "Admin";
   if (isLaundryAdminRole(role)) return "LaundryAdmin";
   if (isCourierRole(role)) return "Courier";
   return "Customer";
@@ -99,10 +92,9 @@ function SegmentedControl({
     { key: "Customer", label: "Customer", icon: User },
     { key: "LaundryAdmin", label: "Laundry Owner", icon: Store },
     { key: "Courier", label: "Courier", icon: Truck },
-    { key: "Admin", label: "Admin", icon: Shield },
   ];
   return (
-    <div className="ndeef-auth-segment grid grid-cols-2 gap-1 p-1 bg-gray-100/80 dark:bg-[#122633]/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-white/5 shadow-inner sm:grid-cols-4">
+    <div className="ndeef-auth-segment grid grid-cols-2 gap-1 p-1 bg-gray-100/80 dark:bg-[#122633]/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-white/5 shadow-inner sm:grid-cols-3">
       {options.map(({ key, label, icon: Icon }) => (
         <motion.button
           key={key}
@@ -169,8 +161,6 @@ function getAccountAccentClass(accountType: AccountType) {
       return "text-[#EBA050]";
     case "Courier":
       return "text-[#4FA3C1]";
-    case "Admin":
-      return "text-[#8B5CF6]";
     default:
       return "text-[#1D6076]";
   }
@@ -182,8 +172,6 @@ function getAccountHintClass(accountType: AccountType) {
       return "bg-[#EBA050]/10 border border-[#EBA050]/25 text-[#7a5711] dark:bg-[#EBA050]/12 dark:border-[#EBA050]/20 dark:text-[#f4d28a]";
     case "Courier":
       return "bg-[#4FA3C1]/10 border border-[#4FA3C1]/25 text-[#1f6175] dark:bg-[#4FA3C1]/12 dark:border-[#4FA3C1]/20 dark:text-[#9fd7e8]";
-    case "Admin":
-      return "bg-[#8B5CF6]/10 border border-[#8B5CF6]/25 text-[#5b34ab] dark:bg-[#8B5CF6]/12 dark:border-[#8B5CF6]/20 dark:text-[#d2c0ff]";
     default:
       return "bg-[#1D6076]/10 border border-[#1D6076]/20 text-[#1D6076] dark:bg-[#1D6076]/12 dark:border-[#1D6076]/20 dark:text-[#9ec8d6]";
   }
@@ -211,9 +199,7 @@ export default function Login() {
       ? "LaundryAdmin"
       : initialRole === "Courier"
         ? "Courier"
-        : initialRole === "Admin" || initialRole === "SuperAdmin"
-          ? "Admin"
-          : "Customer",
+        : "Customer",
   );
   const [error, setError] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -228,8 +214,6 @@ export default function Login() {
           ? "LaundryAdmin"
           : initialRole === "Courier"
             ? "Courier"
-            : initialRole === "Admin" || initialRole === "SuperAdmin"
-              ? "Admin"
             : "Customer",
       );
       setEmail("");
@@ -299,6 +283,11 @@ export default function Login() {
       const isAdmin = isAdminRole(resolvedRole);
       const isCustomer = !isLaundryAdmin && !isCourier && !isAdmin;
 
+      if (isAdmin) {
+        router.replace(resolvePostLoginPath(resolvedRole, from));
+        return;
+      }
+
       if (accountType === "Customer" && !isCustomer) {
         rejectWrongAccountType(getWrongAccountTypeMessage("Customer", resolvedRole));
         return;
@@ -311,11 +300,6 @@ export default function Login() {
 
       if (accountType === "Courier" && !isCourier) {
         rejectWrongAccountType(getWrongAccountTypeMessage("Courier", resolvedRole));
-        return;
-      }
-
-      if (accountType === "Admin" && !isAdmin) {
-        rejectWrongAccountType(getWrongAccountTypeMessage("Admin", resolvedRole));
         return;
       }
 
@@ -364,11 +348,6 @@ export default function Login() {
       setError(
         "Laundry owners should sign in with email so the Laundry Admin setup and verification flow stays correct.",
       );
-      return;
-    }
-
-    if (accountType === "Admin") {
-      setError("Super admin accounts should sign in with email and password.");
       return;
     }
 
@@ -464,15 +443,6 @@ export default function Login() {
             </p>
           )}
 
-          {accountType === "Admin" && (
-            <p
-              className="mt-3 mb-1 rounded-xl px-3 py-2 text-xs leading-relaxed text-white"
-              style={{ backgroundColor: "#1E5D72", border: "1px solid #17495a" }}
-            >
-              Super admin accounts sign in here with email and password only.
-            </p>
-          )}
-
           {/* Error */}
           <AnimatePresence mode="wait">
             {error && (
@@ -516,16 +486,6 @@ export default function Login() {
                       className="mt-2 text-sm text-[#4FA3C1] font-semibold hover:underline inline-flex items-center gap-1"
                     >
                       Switch to Courier login
-                    </motion.button>
-                  )}
-                  {accountType !== "Admin" && error.includes("Please switch to Super Admin login") && (
-                    <motion.button
-                      type="button"
-                      onClick={() => { setAccountType("Admin"); setError(""); }}
-                      whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#8B5CF6] font-semibold hover:underline inline-flex items-center gap-1"
-                    >
-                      Switch to Super Admin login
                     </motion.button>
                   )}
                   {error === getNoAccountMessage(accountType) && (
@@ -797,17 +757,6 @@ export default function Login() {
                         <Truck size={18} />
                         <span>Sign In as Courier</span>
                       </motion.div>
-                    ) : accountType === "Admin" ? (
-                      <motion.div
-                        key="admin"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        className="flex items-center gap-2 relative z-10"
-                      >
-                        <Shield size={18} />
-                        <span>Sign In as Super Admin</span>
-                      </motion.div>
                     ) : (
                       <motion.span
                         key="signin"
@@ -852,10 +801,6 @@ export default function Login() {
                 <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium hover:underline">
                   Sign up
                 </Link>
-              </>
-            ) : accountType === "Admin" ? (
-              <>
-                Super admin access is managed by backend roles.
               </>
             ) : (
               <>
@@ -920,8 +865,6 @@ export default function Login() {
                   <>Manage your laundry,<br />all in one place.</>
                 ) : accountType === "Courier" ? (
                   <>Deliver orders,<br />stay in motion.</>
-                ) : accountType === "Admin" ? (
-                  <>Control the platform,<br />from one dashboard.</>
                 ) : (
                   <>Clean clothes,<br />zero hassle.</>
                 )}
@@ -931,8 +874,6 @@ export default function Login() {
                   ? "Track orders, manage services, and grow your business with Nazeef."
                   : accountType === "Courier"
                     ? "Use the regular login and signup flow, then head straight to your courier dashboard."
-                    : accountType === "Admin"
-                      ? "Review users, laundries, commissions, and platform operations from the admin dashboard."
                     : "Browse verified laundries, schedule pickups, and get fresh clothes delivered to your door."}
               </p>
             </motion.div>

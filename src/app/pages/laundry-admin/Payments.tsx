@@ -592,7 +592,7 @@ export function Payments() {
           </div>
           <div className="flex items-center gap-1.5">
             <TrendingUp className="h-4 w-4 text-green-500" />
-            <span className="text-sm font-semibold text-green-600">Backend Connected</span>
+            <span className="text-sm font-semibold text-green-600">Connected</span>
           </div>
         </div>
         <ResponsiveContainer width="100%" height={180}>
