@@ -195,13 +195,11 @@ function hasMatchingWalletCharge(
 function InteractiveVisaCard({
   balance,
   cardholderName,
-  phone,
-  isActive
+  phone
 }: {
   balance: number;
   cardholderName: string;
   phone: string;
-  isActive: boolean;
 }) {
   const [tiltStyle, setTiltStyle] = useState<React.CSSProperties>({});
 
@@ -214,9 +212,9 @@ function InteractiveVisaCard({
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
 
-    // Max 7 degrees tilt for optimal readability and natural metallic response
-    const rotateX = ((centerY - y) / centerY) * 7;
-    const rotateY = ((x - centerX) / centerX) * -7;
+    // Max 6 degrees tilt for optimal readability and natural metallic response
+    const rotateX = ((centerY - y) / centerY) * 6;
+    const rotateY = ((x - centerX) / centerX) * -6;
 
     setTiltStyle({
       transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`,
@@ -254,56 +252,32 @@ function InteractiveVisaCard({
       {/* Dynamic 3D lighting sheen */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[1200ms] cubic-bezier(0.25, 1, 0.5, 1) pointer-events-none" />
 
-      {/* Card Content Overlay */}
-      <div className="absolute inset-0 p-5 flex flex-col justify-between text-white pointer-events-none">
-        {/* Top Header */}
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col">
-            <span className="text-[9px] sm:text-[10px] tracking-[0.25em] font-bold text-white/80 uppercase font-sans">
-              Nazeef Platinum
-            </span>
-            <span className={`inline-flex items-center gap-1 mt-1 px-1.5 py-0.5 rounded-full text-[8px] font-semibold tracking-wider uppercase ${
-              isActive ? "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30" : "bg-rose-500/20 text-rose-300 border border-rose-500/30"
-            }`}>
-              <span className={`h-1 w-1 rounded-full ${isActive ? "bg-emerald-400" : "bg-rose-400"}`} />
-              {isActive ? "Active" : "Inactive"}
-            </span>
-          </div>
-          {/* Note: Visa logo & Contactless are present in the background design */}
-        </div>
-
-        {/* Center: Available Balance (Styled beautifully & creatively) */}
-        <div className="flex flex-col mt-3">
-          <span className="text-[8px] sm:text-[9px] tracking-[0.2em] font-medium text-white/60 uppercase">
-            Available Balance
+      {/* CARD CONTENT - ONLY DYNAMIC LAYERS WITH PERFECT PERCENTAGE POSITIONING */}
+      <div className="absolute inset-0 pointer-events-none">
+        
+        {/* 1. Dynamic Available Balance Glassmorphic Capsule (Sits perfectly next to EMV chip) */}
+        <div className="absolute left-[31%] top-[45%] w-[38%] h-[23%] bg-white/10 dark:bg-[#165267]/20 backdrop-blur-md border border-white/20 rounded-[14px] px-2.5 py-1.5 shadow-[0_8px_32px_0_rgba(0,0,0,0.18)] flex flex-col justify-center transition-all duration-300 group-hover:bg-white/15">
+          <span className="text-[7px] tracking-[0.15em] text-white/80 uppercase font-semibold font-sans">
+            Balance
           </span>
-          <span className="text-xl sm:text-2xl font-extrabold tracking-tight mt-0.5 drop-shadow-[0_2px_4px_rgba(0,0,0,0.3)]">
+          <span className="text-[12px] sm:text-[14px] md:text-[15px] font-extrabold tracking-tight text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.3)] mt-0.5 truncate">
             {balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}{" "}
-            <span className="text-[10px] sm:text-xs font-medium text-white/80">EGP</span>
+            <span className="text-[8px] font-medium text-white/90">EGP</span>
           </span>
         </div>
 
-        {/* Bottom Section: Cardholder and Number */}
-        <div className="flex items-end justify-between mt-auto">
-          {/* Holder Name */}
-          <div className="flex flex-col min-w-0 pr-2">
-            <span className="text-[7px] sm:text-[8px] tracking-[0.15em] text-white/50 uppercase">
-              Cardholder
-            </span>
-            <span className="text-[11px] sm:text-[12px] font-mono font-bold tracking-[0.12em] text-white truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)] mt-0.5 uppercase">
-              {cardholderName || "Nazeef Customer"}
-            </span>
-          </div>
+        {/* 2. Cardholder Name Mask & Dynamic Text Overlay (Bottom Left) */}
+        <div className="absolute left-[8%] bottom-[8%] w-[42%] h-[11%] bg-[#165267] flex items-center px-1 rounded-sm">
+          <span className="text-[9px] sm:text-[11px] md:text-[12px] font-mono font-bold tracking-[0.1em] text-white uppercase truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
+            {cardholderName || "NAZEEF CUSTOMER"}
+          </span>
+        </div>
 
-          {/* Masked Card Number */}
-          <div className="flex flex-col items-end text-right shrink-0">
-            <span className="text-[7px] sm:text-[8px] tracking-[0.15em] text-white/50 uppercase font-sans">
-              Card Number
-            </span>
-            <span className="text-[10px] sm:text-[12px] font-mono font-bold tracking-wider text-white/90 mt-0.5 drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
-              {cardNumber}
-            </span>
-          </div>
+        {/* 3. Card Number Mask & Dynamic Text Overlay (Bottom Right) */}
+        <div className="absolute right-[8%] bottom-[8%] w-[38%] h-[11%] bg-gradient-to-r from-[#e0803c] to-[#e8994a] flex items-center justify-end px-1 rounded-sm">
+          <span className="text-[9px] sm:text-[11px] md:text-[12px] font-mono font-bold tracking-wider text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
+            {cardNumber.split(" ").slice(-2).join(" ")} {/* Keep tail masked cleanly or full number */}
+          </span>
         </div>
       </div>
     </div>
@@ -694,7 +668,7 @@ export default function Wallet() {
         {/* Dynamic Split Hero Section */}
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-stretch">
           {/* Card Showcase Column */}
-          <div className="flex flex-col justify-between gap-5 bg-white dark:bg-[#111e29] border border-gray-200/80 dark:border-white/5 p-6 rounded-[30px] shadow-sm transition-colors duration-300">
+          <div className="flex flex-col justify-between gap-5 bg-white dark:bg-[#111e29] border border-gray-200/80 dark:border-white/5 p-6 sm:p-8 rounded-[30px] shadow-sm transition-colors duration-300">
             <div className="flex items-center justify-between mb-2">
               <div>
                 <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">My Nazeef Visa Card</h2>
@@ -715,7 +689,6 @@ export default function Wallet() {
                 balance={walletBalance}
                 cardholderName={user?.name || ""}
                 phone={user?.phone || ""}
-                isActive={walletActive}
               />
             </div>
 
@@ -729,7 +702,7 @@ export default function Wallet() {
           </div>
 
           {/* Quick Charge Control panel */}
-          <div className="overflow-hidden rounded-[30px] bg-gradient-to-br from-[#1D6076] via-[#246b83] to-[#0d3d50] dark:from-[#112d38] dark:via-[#193a47] dark:to-[#09222c] p-6 text-white shadow-xl sm:p-8 flex flex-col justify-between transition-colors duration-300">
+          <div className="overflow-hidden rounded-[30px] bg-gradient-to-br from-[#1D6076] via-[#246b83] to-[#0d3d50] dark:from-[#112d38] dark:via-[#193a47] dark:to-[#09222c] p-6 sm:p-8 text-white shadow-xl flex flex-col justify-between transition-colors duration-300">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm uppercase tracking-[0.2em] text-white/70">Wallet Funding</p>
