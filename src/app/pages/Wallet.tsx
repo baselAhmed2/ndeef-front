@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { chargeWalletRequest, getWalletInfoRequest } from "../lib/api";
+import { chargeWalletRequest, confirmWalletChargeRequest, getWalletInfoRequest } from "../lib/api";
 
 type WalletTransaction = {
   id: number;
@@ -460,6 +460,16 @@ export default function Wallet() {
     }
     setSyncState("waiting");
 
+    const confirmCharge = async () => {
+      if (!activePendingCharge?.merchantOrderId) return;
+
+      try {
+        await confirmWalletChargeRequest(user.token as string, activePendingCharge.merchantOrderId);
+      } catch (error) {
+        console.warn("[Wallet] Unable to confirm wallet charge immediately.", error);
+      }
+    };
+
     const poll = async () => {
       if (cancelled) return;
       attempts += 1;
@@ -484,13 +494,22 @@ export default function Wallet() {
           void poll();
         }, 3000);
       } catch {
-        if (!cancelled && attempts >= 8) {
+        if (cancelled) return;
+        if (attempts >= 8) {
           setSyncState("timeout");
+          return;
         }
+
+        window.setTimeout(() => {
+          void poll();
+        }, 3000);
       }
     };
 
-    void poll();
+    void (async () => {
+      await confirmCharge();
+      await poll();
+    })();
 
     return () => {
       cancelled = true;
@@ -573,6 +592,37 @@ export default function Wallet() {
     }
   };
 
+  const handleRefreshWallet = async () => {
+    if (!user?.token) return;
+
+    const activePendingCharge = pendingCharge ?? readPendingWalletCharge();
+
+    try {
+      if (activePendingCharge?.merchantOrderId) {
+        setPendingCharge(activePendingCharge);
+        setSyncState("waiting");
+        await confirmWalletChargeRequest(user.token, activePendingCharge.merchantOrderId);
+      }
+
+      const mapped = await loadWalletInfo(user.token);
+      if (hasMatchingWalletCharge(mapped, activePendingCharge)) {
+        clearPendingWalletCharge();
+        setPendingCharge(null);
+        setSyncState("confirmed");
+        toast.success("Wallet balance updated.");
+        return;
+      }
+
+      if (activePendingCharge?.merchantOrderId) {
+        setSyncState("timeout");
+        toast.info("Payment is still waiting for gateway confirmation.");
+      }
+    } catch (error) {
+      setSyncState(activePendingCharge?.merchantOrderId ? "timeout" : "idle");
+      toast.error(error instanceof Error ? error.message : "Unable to refresh wallet right now.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] dark:bg-[#0b131a] flex items-center justify-center transition-colors duration-300">
@@ -651,7 +701,7 @@ export default function Wallet() {
           </div>
           <button
             type="button"
-            onClick={() => void (user?.token ? loadWalletInfo(user.token) : Promise.resolve())}
+            onClick={() => void handleRefreshWallet()}
             className="ml-auto inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#111e29] px-3 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 transition hover:bg-gray-50 dark:hover:bg-white/8"
           >
             <RefreshCw size={15} strokeWidth={2} className="dark:text-slate-400" />
@@ -720,8 +770,21 @@ export default function Wallet() {
               <div>
                 <p className="text-sm font-semibold text-rose-900 dark:text-rose-300">Confirmation is taking longer than expected</p>
                 <p className="mt-1 text-sm text-rose-800/90 dark:text-rose-400/80">
-                  The checkout may have succeeded, but the wallet charge has not appeared yet. Try Refresh once, and if the balance still does not change, please contact support.
+                  The checkout may have succeeded, but the wallet charge has not appeared yet. Try Retry confirmation once, and if the balance still does not change, please contact support with the reference below.
                 </p>
+                {pendingCharge?.merchantOrderId ? (
+                  <p className="mt-2 break-all rounded-2xl bg-white/70 dark:bg-black/10 px-3 py-2 text-xs font-semibold text-rose-900 dark:text-rose-200">
+                    Reference: {pendingCharge.merchantOrderId}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void handleRefreshWallet()}
+                  className="mt-3 inline-flex items-center gap-2 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-800 dark:bg-rose-500 dark:text-slate-950 dark:hover:bg-rose-400"
+                >
+                  <RefreshCw size={15} strokeWidth={2} />
+                  Retry confirmation
+                </button>
               </div>
             </div>
           </div>

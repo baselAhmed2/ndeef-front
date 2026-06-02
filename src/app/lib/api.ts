@@ -1364,6 +1364,17 @@ export async function chargeWalletRequest(token: string, amount: number) {
   );
 }
 
+export async function confirmWalletChargeRequest(token: string, merchantOrderId: string) {
+  return request<{ confirmed?: boolean; message?: string; Message?: string }>(
+    "/wallet/charge/confirm",
+    {
+      method: "POST",
+      body: JSON.stringify({ merchantOrderId }),
+    },
+    token,
+  );
+}
+
 export async function getWalletInfoRequest(token: string) {
   return request<BackendCustomerWalletInfoDto>("/wallet/info", undefined, token);
 }
