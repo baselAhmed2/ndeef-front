@@ -20,7 +20,6 @@ import {
   User,
   Loader2,
   ArrowUpRight,
-  Info,
 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -400,14 +399,7 @@ export default function CourierProfilePage() {
                 </div>
               ))}
             </div>
-            {(earnings?.hoursActive ?? 0) === 0 && (
-              <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
-                <Info className="mt-0.5 w-4 h-4 shrink-0 text-amber-600" />
-                <p className="text-xs text-amber-800">
-                  Working hours are not available yet, so this section may show `0h` until more data appears.
-                </p>
-              </div>
-            )}
+
           </div>
 
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">

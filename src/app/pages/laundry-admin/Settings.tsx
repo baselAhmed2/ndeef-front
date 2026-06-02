@@ -37,6 +37,7 @@ import {
   ShieldCheck,
   Loader2,
 } from "lucide-react";
+import MapPicker from "@/app/components/MapPicker";
 
 function Toggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -526,37 +527,18 @@ export function Settings() {
                   </div>
                 </div>
                 <div className="sm:col-span-2">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
-                    Laundry Address
-                  </label>
-                  <input
-                    value={profile.address}
-                    onChange={(e) => setProfile({ ...profile, address: e.target.value })}
-                    className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
-                    Latitude
-                  </label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={profile.latitude}
-                    onChange={(e) => setProfile({ ...profile, latitude: Number(e.target.value) })}
-                    className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide block mb-1.5">
-                    Longitude
-                  </label>
-                  <input
-                    type="number"
-                    step="0.000001"
-                    value={profile.longitude}
-                    onChange={(e) => setProfile({ ...profile, longitude: Number(e.target.value) })}
-                    className="w-full h-10 px-3 text-sm rounded-xl border border-gray-200 focus:outline-none focus:border-[#1D5B70] focus:ring-2 focus:ring-[#1D5B70]/20"
+                  <MapPicker
+                    onLocationSelect={(location) => {
+                      setProfile((prev) => ({
+                        ...prev,
+                        address: location.address,
+                        latitude: location.latitude,
+                        longitude: location.longitude,
+                      }));
+                    }}
+                    initialAddress={profile.address}
+                    initialLat={profile.latitude}
+                    initialLng={profile.longitude}
                   />
                 </div>
               </div>

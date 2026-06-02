@@ -280,6 +280,10 @@ html.dark .ndeef-home-page .ndeef-home-warm-section {
   background: linear-gradient(135deg, #a25d12 0%, #7b4308 100%) !important;
 }
 
+.ndeef-page-shell {
+  background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%) !important;
+}
+
 html.dark .ndeef-page-shell {
   background: linear-gradient(180deg, #020617 0%, #0f172a 100%) !important;
 }

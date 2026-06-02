@@ -52,6 +52,7 @@ const mainNav: NavItemConfig[] = [
   { icon: Users, label: "Users", path: "/admin/users" },
   { icon: ShieldAlert, label: "Fraud Monitor", path: "/admin/fraud", badgeKey: "fraud" },
   { icon: Wallet, label: "Commissions", path: "/admin/commissions" },
+  { icon: Wallet, label: "Payout Profile", path: "/admin/payout-profile" },
   { icon: BarChart3, label: "Analytics", path: "/admin/analytics" },
   { icon: Bell, label: "Notifications", path: "/admin/notifications", badgeKey: "notifications" },
 ];

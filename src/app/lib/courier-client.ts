@@ -371,14 +371,18 @@ function normalizeCourierTodayStats(stats: CourierTodayStatsDto | CourierStatsDt
 
 function normalizeCourierLifetimeStats(stats: CourierStatsDto): CourierLifetimeStatsDto {
   const raw = stats as Record<string, unknown>;
+  const totalCompletedOrders = pickNumber(raw, "totalCompletedOrders", "TotalCompletedOrders");
+  const totalCancellations = pickNumber(raw, "totalCancellations", "TotalCancellations");
+  const totalOrders = totalCompletedOrders + totalCancellations;
+  const completionRate = totalOrders > 0 ? (totalCompletedOrders / totalOrders) * 100 : 0;
   return {
     totalEarnings: pickNumber(raw, "totalEarnings", "TotalEarnings"),
     todayEarnings: pickNumber(raw, "todayEarnings", "TodayEarnings"),
     weekEarnings: pickNumber(raw, "weekEarnings", "WeekEarnings"),
     monthEarnings: pickNumber(raw, "monthEarnings", "MonthEarnings"),
-    totalCompletedOrders: pickNumber(raw, "totalCompletedOrders", "TotalCompletedOrders"),
-    totalCancellations: pickNumber(raw, "totalCancellations", "TotalCancellations"),
-    completionRate: pickNumber(raw, "completionRate", "CompletionRate"),
+    totalCompletedOrders,
+    totalCancellations,
+    completionRate,
   };
 }
 
@@ -386,13 +390,17 @@ function normalizeCourierEarnings(stats: CourierEarningsResponseDto | CourierSta
   const raw = stats as Record<string, unknown>;
   if ("ordersDone" in raw || "dailyEarnings" in raw || "recentTransactions" in raw) {
     const typed = stats as CourierEarningsResponseDto;
+    const ordersDone = parseNumber(typed.ordersDone);
+    const cancelled = parseNumber(typed.cancelled);
+    const totalOrders = ordersDone + cancelled;
+    const completionRate = totalOrders > 0 ? (ordersDone / totalOrders) * 100 : 0;
     return {
       totalEarned: parseNumber(typed.totalEarned),
-      ordersDone: parseNumber(typed.ordersDone),
+      ordersDone,
       hoursActive: parseNumber(typed.hoursActive),
       avgPerOrder: parseNumber(typed.avgPerOrder),
-      cancelled: parseNumber(typed.cancelled),
-      completionRate: parseNumber(typed.completionRate),
+      cancelled,
+      completionRate,
       rating: parseNumber(typed.rating),
       topPercent: parseNumber(typed.topPercent),
       dailyEarnings: Array.isArray(typed.dailyEarnings) ? typed.dailyEarnings : [],
@@ -405,7 +413,8 @@ function normalizeCourierEarnings(stats: CourierEarningsResponseDto | CourierSta
   const totalEarned = pickNumber(raw, "totalEarnings", "TotalEarnings");
   const ordersDone = pickNumber(raw, "totalCompletedOrders", "TotalCompletedOrders");
   const cancelled = pickNumber(raw, "totalCancellations", "TotalCancellations");
-  const completionRate = pickNumber(raw, "completionRate", "CompletionRate");
+  const totalOrders = ordersDone + cancelled;
+  const completionRate = totalOrders > 0 ? (ordersDone / totalOrders) * 100 : 0;
   const avgPerOrder = ordersDone > 0 ? totalEarned / ordersDone : 0;
 
   return {

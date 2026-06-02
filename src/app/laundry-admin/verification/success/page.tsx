@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState, Suspense, useRef } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/app/context/AuthContext";
 import {
@@ -15,8 +16,6 @@ import {
 } from "@/app/lib/verification-state";
 
 const REVIEW_CALLBACK_STATUSES = new Set(["in review", "pending", "review", "processing"]);
-const MAX_ATTEMPTS = 10;
-const BASE_DELAY_MS = 5000;
 
 function VerificationSuccessContent() {
   const router = useRouter();
@@ -25,22 +24,19 @@ function VerificationSuccessContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isVerified, setIsVerified] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(null);
-  const [hasResolvedSessionLookup, setHasResolvedSessionLookup] = useState(false);
 
-  // Didit may return verificationSessionId, sessionId, session_id, session, or id
+  // Didit may append: verificationSessionId, sessionId, session_id, session, or id
   const sessionIdFromQuery =
     searchParams?.get("verificationSessionId") ||
     searchParams?.get("sessionId") ||
     searchParams?.get("session_id") ||
     searchParams?.get("session") ||
     searchParams?.get("id");
+
   const sessionIdFromHash = useMemo(() => {
     if (typeof window === "undefined") return null;
-
     const hash = window.location.hash?.replace(/^#/, "") ?? "";
     if (!hash) return null;
-
     const hashParams = new URLSearchParams(hash);
     return (
       hashParams.get("verificationSessionId") ||
@@ -50,11 +46,12 @@ function VerificationSuccessContent() {
       hashParams.get("id")
     );
   }, []);
+
   const callbackSessionId = sessionIdFromQuery || sessionIdFromHash;
   const status = searchParams?.get("status");
   const urlStatus = status?.trim().toLowerCase() ?? "";
 
-  // Capture mutable values in refs so the effect doesn't re-run when they change reference
+  // Capture mutable values in refs so the effect reads current values without re-triggering.
   const isLoggedInRef = useRef(isLoggedIn);
   const userRef = useRef(user);
   const logoutRef = useRef(logout);
@@ -66,16 +63,31 @@ function VerificationSuccessContent() {
   updateUserRef.current = updateUser;
   routerRef.current = router;
 
+  // Freeze the session ID on first render so it doesn't become an effect dependency.
+  const frozenSessionIdRef = useRef(callbackSessionId);
   const hasStartedRef = useRef(false);
 
   useEffect(() => {
-    // Guard: only run once, and only after auth is ready
     if (!isAuthReady) return;
     if (hasStartedRef.current) return;
     hasStartedRef.current = true;
 
-    // Debug log — inside effect so it prints exactly once
-    console.log("[Didit] Verification callback - Session:", sessionId, "Status:", status, "URL:", window.location.href);
+    const resolvedFromUrl = frozenSessionIdRef.current;
+    const fallbackSessionId = getPendingLaundryVerificationSession();
+    const resolvedSessionId = resolvedFromUrl || fallbackSessionId;
+
+    if (resolvedFromUrl) {
+      clearPendingLaundryVerificationSession();
+    }
+
+    console.log(
+      "[Didit] Verification callback - Session:",
+      resolvedSessionId,
+      "Status:",
+      status,
+      "URL:",
+      window.location.href,
+    );
 
     let cancelled = false;
     let redirectTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -83,26 +95,36 @@ function VerificationSuccessContent() {
     const markCompleted = () => {
       markLaundryVerificationComplete();
       clearPendingLaundryVerificationSession();
-      updateUser({ needsVerification: false });
+      updateUserRef.current({ needsVerification: false });
       setIsVerified(true);
       redirectTimeout = setTimeout(() => {
-        logout();
-        router.replace("/login");
+        logoutRef.current();
+        routerRef.current.replace("/login");
       }, 1500);
     };
 
     const checkVerification = async () => {
       try {
-        if (sessionId) {
-          await syncVerificationStatus(sessionId);
-        }
-
         if (!isLoggedInRef.current || !userRef.current) {
           routerRef.current.push("/login");
           return;
         }
 
         if (!resolvedSessionId) {
+          const directStatus = await getVerificationStatus(null);
+          if (directStatus.isSuccess && directStatus.data?.isVerified) {
+            markCompleted();
+            return;
+          }
+
+          if (!directStatus.isSuccess) {
+            const errText = String(directStatus.error ?? "").toLowerCase();
+            if (errText.includes("429") || errText.includes("too many")) {
+              setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
+              return;
+            }
+          }
+
           const completion = await completeVerification();
           if (completion.isSuccess && completion.data?.verified) {
             markCompleted();
@@ -113,20 +135,32 @@ function VerificationSuccessContent() {
           return;
         }
 
-        await syncVerificationStatus(resolvedSessionId);
+        try {
+          await syncVerificationStatus(resolvedSessionId);
+        } catch (syncErr: unknown) {
+          const syncStatus =
+            typeof syncErr === "object" && syncErr !== null && "status" in syncErr
+              ? Number((syncErr as { status?: number }).status)
+              : null;
 
-        for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
+          if (syncStatus === 429) {
+            setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
+            return;
+          }
+
+          console.warn("[Didit] syncVerificationStatus failed, continuing to poll", syncErr);
+        }
+
+        const MAX_POLL = 5;
+        const POLL_BASE_MS = 8000;
+
+        for (let attempt = 0; attempt < MAX_POLL; attempt += 1) {
           if (cancelled) return;
 
           const result = await getVerificationStatus(resolvedSessionId);
+
           if (result.isSuccess && result.data?.isVerified) {
-            markLaundryVerificationComplete();
-            updateUserRef.current({ needsVerification: false });
-            setIsVerified(true);
-            redirectTimeout = setTimeout(() => {
-              logoutRef.current();
-              routerRef.current.replace("/login");
-            }, 1500);
+            markCompleted();
             return;
           }
 
@@ -136,13 +170,14 @@ function VerificationSuccessContent() {
               normalizedError.includes("429") ||
               normalizedError.includes("too many") ||
               normalizedError.includes("rate limit");
+
             if (isRateLimited) {
               setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
               return;
             }
           }
 
-          if (!result.isSuccess && attempt === MAX_ATTEMPTS - 1) {
+          if (!result.isSuccess && attempt === MAX_POLL - 1) {
             const completion = await completeVerification();
             if (completion.isSuccess && completion.data?.verified) {
               markCompleted();
@@ -153,16 +188,33 @@ function VerificationSuccessContent() {
             return;
           }
 
-          if (attempt < MAX_ATTEMPTS - 1) {
-            const delayMs = BASE_DELAY_MS + attempt * 1000;
+          if (attempt < MAX_POLL - 1) {
+            const delayMs = POLL_BASE_MS + attempt * 1000;
             await new Promise((resolve) => setTimeout(resolve, delayMs));
           }
         }
 
-        setError("Verification is still being processed. Please try again in a moment.");
-      } catch (err) {
-        console.error("[Didit] Error checking verification:", err);
-        setError(err instanceof Error ? err.message : "Unable to complete verification right now.");
+        const completion = await completeVerification();
+        if (completion.isSuccess && completion.data?.verified) {
+          markCompleted();
+          return;
+        }
+
+        setError("لم يكتمل تأكيد التحقق بعد. حاول مرة أخرى بعد لحظات.");
+      } catch (err: unknown) {
+        if (cancelled) return;
+
+        const httpStatus =
+          typeof err === "object" && err !== null && "status" in err
+            ? Number((err as { status?: number }).status)
+            : null;
+
+        if (httpStatus === 429) {
+          setError("تم إرسال عدد كبير من محاولات التحقق. يرجى الانتظار قليلًا ثم المحاولة مرة أخرى.");
+        } else {
+          console.error("[Didit] Error checking verification:", err);
+          setError(err instanceof Error ? err.message : "تعذر إكمال التحقق الآن.");
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
@@ -174,20 +226,15 @@ function VerificationSuccessContent() {
       cancelled = true;
       if (redirectTimeout) clearTimeout(redirectTimeout);
     };
-  // Only re-run if auth readiness or sessionId changes — everything else is via refs
-  }, [isAuthReady, sessionId]);
+  }, [isAuthReady, status]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            جاري التحقق من حالة الحساب...
-          </h2>
-          <p className="text-gray-600">
-            يرجى الانتظار بينما نقوم بتأكيد التفعيل.
-          </p>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">جاري التحقق من حالة الحساب...</h2>
+          <p className="text-gray-600">يرجى الانتظار بينما نقوم بتأكيد التفعيل.</p>
         </div>
       </div>
     );
@@ -197,10 +244,8 @@ function VerificationSuccessContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-red-500 text-5xl mb-4">X</div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-            تعذر إكمال التحقق
-          </h2>
+          <div className="text-red-500 text-5xl mb-4">❌</div>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">تعذر إكمال التحقق</h2>
           <p className="text-gray-600 mb-6">
             لم يكتمل التحقق هذه المرة. يمكنك إعادة المحاولة أو الرجوع إلى صفحة التحقق.
           </p>
@@ -227,10 +272,8 @@ function VerificationSuccessContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-yellow-500 text-5xl mb-4">...</div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-            جارٍ إنهاء التفعيل
-          </h2>
+          <div className="text-yellow-500 text-5xl mb-4">⏳</div>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">جارٍ إنهاء التفعيل</h2>
           <p className="text-gray-600 mb-6">
             نراجع حالة الحساب الآن. يمكنك تحديث الصفحة بعد لحظات إذا لزم الأمر.
           </p>
@@ -257,10 +300,8 @@ function VerificationSuccessContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-red-500 text-5xl mb-4">!</div>
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">
-            حدث خطأ
-          </h2>
+          <div className="text-red-500 text-5xl mb-4">⚠️</div>
+          <h2 className="text-xl font-semibold text-gray-800 mb-2">حدث خطأ</h2>
           <p className="text-gray-600 mb-6">{error}</p>
           <div className="flex gap-3 justify-center">
             <button
@@ -285,10 +326,8 @@ function VerificationSuccessContent() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto px-4">
-          <div className="text-green-500 text-5xl mb-4">OK</div>
-          <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-            تم تفعيل الحساب بنجاح
-          </h2>
+          <div className="text-green-500 text-5xl mb-4">✅</div>
+          <h2 className="text-2xl font-semibold text-gray-800 mb-2">تم تفعيل الحساب بنجاح</h2>
           <p className="text-gray-600 mb-6">
             تم تأكيد الحساب. سيتم تحويلك إلى تسجيل الدخول خلال لحظات.
           </p>
@@ -306,13 +345,9 @@ function VerificationSuccessContent() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center max-w-md mx-auto px-4">
-        <div className="text-yellow-500 text-5xl mb-4">...</div>
-        <h2 className="text-2xl font-semibold text-gray-800 mb-2">
-          جارٍ معالجة التفعيل
-        </h2>
-        <p className="text-gray-600 mb-6">
-          ما زلنا نراجع حالة الحساب. يمكنك المحاولة مرة أخرى بعد لحظات.
-        </p>
+        <div className="text-yellow-500 text-5xl mb-4">⏳</div>
+        <h2 className="text-2xl font-semibold text-gray-800 mb-2">جارٍ معالجة التفعيل</h2>
+        <p className="text-gray-600 mb-6">ما زلنا نراجع حالة الحساب. يمكنك المحاولة مرة أخرى بعد لحظات.</p>
         <div className="flex gap-3 justify-center">
           <button
             onClick={() => window.location.reload()}

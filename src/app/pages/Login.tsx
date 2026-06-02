@@ -158,22 +158,22 @@ async function resolveLaundryAdminLoginPath(
 function getAccountAccentClass(accountType: AccountType) {
   switch (accountType) {
     case "LaundryAdmin":
-      return "text-[#EBA050]";
+      return "text-[#F59E0B]";
     case "Courier":
-      return "text-[#4FA3C1]";
+      return "text-[#3B82F6]";
     default:
-      return "text-[#1D6076]";
+      return "text-[#0EA5E9]";
   }
 }
 
 function getAccountHintClass(accountType: AccountType) {
   switch (accountType) {
     case "LaundryAdmin":
-      return "bg-[#EBA050]/10 border border-[#EBA050]/25 text-[#7a5711] dark:bg-[#EBA050]/12 dark:border-[#EBA050]/20 dark:text-[#f4d28a]";
+      return "bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-300";
     case "Courier":
-      return "bg-[#4FA3C1]/10 border border-[#4FA3C1]/25 text-[#1f6175] dark:bg-[#4FA3C1]/12 dark:border-[#4FA3C1]/20 dark:text-[#9fd7e8]";
+      return "bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300";
     default:
-      return "bg-[#1D6076]/10 border border-[#1D6076]/20 text-[#1D6076] dark:bg-[#1D6076]/12 dark:border-[#1D6076]/20 dark:text-[#9ec8d6]";
+      return "bg-sky-50 border border-sky-200 text-sky-800 dark:bg-sky-900/20 dark:border-sky-700 dark:text-sky-300";
   }
 }
 
@@ -344,16 +344,9 @@ export default function Login() {
   };
 
   const handleSocial = async (provider: string, credential: string) => {
-    if (accountType === "LaundryAdmin") {
-      setError(
-        "Laundry owners should sign in with email so the Laundry Admin setup and verification flow stays correct.",
-      );
-      return;
-    }
-
     setError("");
     setSocialLoad(provider);
-    const result = await socialLogin(provider, credential);
+    const result = await socialLogin(provider, credential, accountType);
     setSocialLoad("");
 
     if (result.ok) {
@@ -375,8 +368,8 @@ export default function Login() {
       >
         {/* Background decoration */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-[#1D6076]/5 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-[#EBA050]/5 rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-sky-500/5 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-amber-500/5 rounded-full blur-3xl" />
         </div>
 
         <div className="w-full max-w-[420px] mx-auto relative z-10">
@@ -425,9 +418,9 @@ export default function Login() {
           {/* Laundry admin hint */}
           {accountType === "LaundryAdmin" && (
             <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
-              Laundry owners sign in with email to keep the verification flow correct.
+              Laundry owners can sign in with Google or email.
               New here?{" "}
-              <Link href="/signup?role=LaundryAdmin" className={`${accountAccentClass} font-medium hover:underline`}>
+              <Link href="/signup?role=LaundryAdmin" className={`${accountAccentClass} font-medium underline`}>
                 Register your laundry
               </Link>
             </p>
@@ -435,9 +428,9 @@ export default function Login() {
 
           {accountType === "Courier" && (
             <p className={`text-xs mt-3 mb-1 rounded-xl px-3 py-2 ${accountHintClass}`}>
-              Couriers sign in here with their regular account.
+              Couriers can sign in with Google or email.
               New here?{" "}
-              <Link href="/signup?role=Courier" className={`${accountAccentClass} font-medium hover:underline`}>
+              <Link href="/signup?role=Courier" className={`${accountAccentClass} font-medium underline`}>
                 Create a courier account
               </Link>
             </p>
@@ -453,6 +446,7 @@ export default function Login() {
                 transition={{ duration: 0.2 }}
                 className="mt-4 flex items-start gap-3 bg-red-50/80 backdrop-blur-sm border border-red-200 rounded-xl px-4 py-3.5 shadow-sm dark:bg-red-500/10 dark:border-red-500/25"
               >
+                <div className="w-1 self-stretch bg-red-400 rounded-full shrink-0" />
                 <div className="w-6 h-6 rounded-full bg-red-100 flex items-center justify-center shrink-0 mt-0.5">
                   <AlertCircle size={14} className="text-red-500" />
                 </div>
@@ -463,8 +457,9 @@ export default function Login() {
                       type="button"
                       onClick={() => { setAccountType("Customer"); setError(""); }}
                       whileHover={{ x: 2 }}
-                      className={`mt-2 text-sm ${accountAccentClass} font-semibold hover:underline inline-flex items-center gap-1`}
+                      className={`mt-2 text-sm ${accountAccentClass} font-semibold underline inline-flex items-center gap-1`}
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Switch to Customer login
                     </motion.button>
                   )}
@@ -473,8 +468,9 @@ export default function Login() {
                       type="button"
                       onClick={() => { setAccountType("LaundryAdmin"); setError(""); }}
                       whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#EBA050] font-semibold hover:underline inline-flex items-center gap-1"
+                      className="mt-2 text-sm text-amber-600 dark:text-amber-400 font-semibold underline inline-flex items-center gap-1"
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Switch to Laundry Owner login
                     </motion.button>
                   )}
@@ -483,8 +479,9 @@ export default function Login() {
                       type="button"
                       onClick={() => { setAccountType("Courier"); setError(""); }}
                       whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#4FA3C1] font-semibold hover:underline inline-flex items-center gap-1"
+                      className="mt-2 text-sm text-blue-600 dark:text-blue-400 font-semibold underline inline-flex items-center gap-1"
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Switch to Courier login
                     </motion.button>
                   )}
@@ -493,8 +490,9 @@ export default function Login() {
                       type="button"
                       onClick={() => setError("")}
                       whileHover={{ x: 2 }}
-                      className="mt-2 text-sm text-[#1D6076] font-semibold hover:underline inline-flex items-center gap-1"
+                      className="mt-2 text-sm text-sky-600 dark:text-sky-400 font-semibold underline inline-flex items-center gap-1"
                     >
+                      <ArrowLeft size={14} strokeWidth={2} />
                       Try another account type
                     </motion.button>
                   )}
@@ -503,9 +501,9 @@ export default function Login() {
             )}
           </AnimatePresence>
 
-          {/* Social (Customer only) */}
+          {/* Social (Customer, Courier, LaundryAdmin) */}
           <AnimatePresence mode="wait">
-            {accountType === "Customer" && (
+            {(accountType === "Customer" || accountType === "Courier" || accountType === "LaundryAdmin") && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: "auto" }}
@@ -627,7 +625,7 @@ export default function Login() {
                 <label className="text-sm font-medium text-gray-700 dark:text-slate-200">Password</label>
                 <Link
                   href={`/forgot-password?email=${encodeURIComponent(email)}`}
-                  className="text-xs text-[#1D6076] hover:text-[#164d5f] dark:text-[#EBA050] dark:hover:text-[#d4832a] font-semibold hover:underline transition-colors"
+                  className="text-xs text-sky-600 hover:text-sky-700 dark:text-sky-400 dark:hover:text-sky-300 font-semibold underline transition-colors"
                 >
                   Forgot password?
                 </Link>
@@ -778,7 +776,7 @@ export default function Login() {
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
-                  className="text-xs text-[#1D6076]/70 text-center font-medium"
+                  className="text-xs text-slate-600/70 dark:text-slate-400/70 text-center font-medium"
                 >
                   {loginProgress}
                 </motion.p>
@@ -791,21 +789,21 @@ export default function Login() {
             {accountType === "LaundryAdmin" ? (
               <>
                 New laundry owner?{" "}
-                <Link href="/signup?role=LaundryAdmin" className="text-[#1D6076] font-medium hover:underline">
+                <Link href="/signup?role=LaundryAdmin" className="text-sky-600 dark:text-sky-400 font-medium underline">
                   Create an account
                 </Link>
               </>
             ) : accountType === "Courier" ? (
               <>
                 Need a courier account?{" "}
-                <Link href="/signup?role=Courier" className="text-[#1D6076] font-medium hover:underline">
+                <Link href="/signup?role=Courier" className="text-sky-600 dark:text-sky-400 font-medium underline">
                   Sign up
                 </Link>
               </>
             ) : (
               <>
                 Don&apos;t have an account?{" "}
-                <Link href="/signup" className="text-[#1D6076] font-medium hover:underline">
+                <Link href="/signup" className="text-sky-600 dark:text-sky-400 font-medium underline">
                   Sign up
                 </Link>
               </>
@@ -819,7 +817,7 @@ export default function Login() {
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="ndeef-auth-brand hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-[#1D6076] to-[#164d5f] relative flex-col justify-between p-12 overflow-hidden"
+        className="ndeef-auth-brand hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-sky-600 to-sky-800 relative flex-col justify-between p-12 overflow-hidden"
       >
         {/* Animated background shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">

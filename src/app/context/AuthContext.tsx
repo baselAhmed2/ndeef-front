@@ -36,7 +36,7 @@ interface AuthContextType {
     newPassword: string,
   ) => Promise<AuthResult>;
   logout: () => void;
-  socialLogin: (provider: string, credential?: string) => Promise<AuthResult>;
+  socialLogin: (provider: string, credential?: string, role?: "Customer" | "LaundryAdmin" | "Courier") => Promise<AuthResult>;
   updateUser: (patch: Partial<User>) => void;
 }
 
@@ -195,6 +195,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const socialLogin = async (
     provider: string,
     credential?: string,
+    role?: "Customer" | "LaundryAdmin" | "Courier",
   ): Promise<AuthResult> => {
     if (provider !== "google" && provider !== "facebook") {
       return {
@@ -213,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response =
         provider === "google"
-          ? await googleLoginRequest(credential)
+          ? await googleLoginRequest(credential, role)
           : await facebookLoginRequest(credential);
       const nextUser = mapUserDtoToAuthUser(response);
 
