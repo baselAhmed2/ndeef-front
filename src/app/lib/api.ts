@@ -111,7 +111,7 @@ export interface WalletPaymentResponse {
 
 export interface BackendWalletInfoTransactionDto {
   id: number;
-  orderId?: number | null;
+  orderId?: string | number | null;
   amount: number;
   paymentReference?: string | null;
   type: string;

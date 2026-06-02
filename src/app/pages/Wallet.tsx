@@ -23,6 +23,7 @@ import { chargeWalletRequest, getWalletInfoRequest } from "../lib/api";
 
 type WalletTransaction = {
   id: number;
+  orderId: string | null;
   title: string;
   amount: number;
   amountLabel: string;
@@ -38,6 +39,10 @@ type WalletTransaction = {
 
 type ActivityFilter = "all" | "wallet" | "mobile" | "cash" | "refund";
 type WalletSyncState = "idle" | "waiting" | "confirmed" | "failed" | "timeout";
+type WalletChargeReturn = {
+  status: string;
+  merchantOrderId: string | null;
+};
 type PendingWalletCharge = {
   amount: number;
   startedAt: string;
@@ -189,7 +194,11 @@ function hasMatchingWalletCharge(
   if (!pendingCharge) return false;
 
   if (pendingCharge.merchantOrderId) {
-    return items.some((item) => item.paymentReference === pendingCharge.merchantOrderId);
+    return items.some(
+      (item) =>
+        item.paymentReference === pendingCharge.merchantOrderId ||
+        item.orderId === pendingCharge.merchantOrderId,
+    );
   }
 
   const startedAt = new Date(pendingCharge.startedAt).getTime();
@@ -331,6 +340,7 @@ export default function Wallet() {
   const [syncState, setSyncState] = useState<WalletSyncState>("idle");
   const chargeStatus = searchParams?.get("status");
   const callbackMerchantOrderId = searchParams?.get("merchantOrderId");
+  const [walletChargeReturn, setWalletChargeReturn] = useState<WalletChargeReturn | null>(null);
   const [pendingCharge, setPendingCharge] = useState<PendingWalletCharge | null>(null);
   const normalizedRole = String(user?.role ?? "").trim().toLowerCase().replace(/\s+/g, "");
   const isCustomerRole = !normalizedRole || normalizedRole === "customer" || normalizedRole === "1";
@@ -348,6 +358,7 @@ export default function Wallet() {
 
       return {
         id: item.id,
+        orderId: normalizeMerchantOrderId(item.orderId),
         title: inferTransactionTitle(source, type),
         amount: positive ? amount : -amount,
         amountLabel: `${positive ? "+" : "-"}${formatMoney(amount)}`,
@@ -402,22 +413,31 @@ export default function Wallet() {
   }, [chargeStatus, isAuthReady, loadWalletInfo, user?.token]);
 
   useEffect(() => {
-    if (!user?.token || !chargeStatus) return;
+    if (!chargeStatus) return;
 
-    if (chargeStatus === "failed") {
+    setWalletChargeReturn({
+      status: chargeStatus,
+      merchantOrderId: normalizeMerchantOrderId(callbackMerchantOrderId),
+    });
+  }, [callbackMerchantOrderId, chargeStatus]);
+
+  useEffect(() => {
+    if (!user?.token || !walletChargeReturn) return;
+
+    if (walletChargeReturn.status === "failed") {
       clearPendingWalletCharge();
       setPendingCharge(null);
       setSyncState("failed");
       return;
     }
 
-    if (chargeStatus !== "success") return;
+    if (walletChargeReturn.status !== "success") return;
 
     let cancelled = false;
     let attempts = 0;
     const activePendingCharge = (() => {
       const stored = readPendingWalletCharge();
-      const queryMerchantOrderId = normalizeMerchantOrderId(callbackMerchantOrderId);
+      const queryMerchantOrderId = walletChargeReturn.merchantOrderId;
 
       if (!queryMerchantOrderId) {
         return stored;
@@ -475,7 +495,7 @@ export default function Wallet() {
     return () => {
       cancelled = true;
     };
-  }, [callbackMerchantOrderId, chargeStatus, loadWalletInfo, user?.token]);
+  }, [loadWalletInfo, user?.token, walletChargeReturn]);
 
   useEffect(() => {
     if (!chargeStatus) return;
@@ -511,6 +531,7 @@ export default function Wallet() {
       (transaction) => getFilterForTransaction(transaction.paymentMethod, transaction.source) === filter,
     );
   }, [filter, transactions]);
+  const walletReturnStatus = walletChargeReturn?.status ?? chargeStatus;
 
   const handleChargeWallet = async () => {
     if (!user?.token || charging) return;
@@ -640,7 +661,7 @@ export default function Wallet() {
       </div>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        {chargeStatus === "success" ? (
+        {walletReturnStatus === "success" ? (
           <div className="rounded-3xl border border-emerald-200 dark:border-emerald-500/20 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-500/5 dark:to-transparent px-5 py-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 p-2 text-emerald-700 dark:text-emerald-400">
@@ -690,7 +711,7 @@ export default function Wallet() {
           </div>
         ) : null}
 
-        {chargeStatus === "failed" ? (
+        {walletReturnStatus === "failed" ? (
           <div className="rounded-3xl border border-rose-200 dark:border-rose-500/20 bg-gradient-to-r from-rose-50 to-white dark:from-rose-500/5 dark:to-transparent px-5 py-4 shadow-sm">
             <div className="flex items-start gap-3">
               <div className="rounded-2xl bg-rose-100 dark:bg-rose-500/20 p-2 text-rose-700 dark:text-rose-400">
