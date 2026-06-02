@@ -9,6 +9,7 @@ import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
 const INPUT_RATE = 16000;
 const OUTPUT_RATE = 24000;
 const CHUNK_SAMPLES = 2048;
+const LEGACY_VOICE_WS_ORIGIN = "wss://ndeefapp.runasp.net";
 
 function float32ToPcm16(input: Float32Array, inputRate: number): Int16Array {
   if (inputRate === INPUT_RATE) {
@@ -111,14 +112,59 @@ class PCMRecorder {
   }
 }
 
-function buildVoiceWebSocketUrl(token: string): string {
+function buildVoiceWebSocketCandidates(token: string): string[] {
   const fromEnv = process.env.NEXT_PUBLIC_BACKEND_WS_URL?.trim();
+  const urls: string[] = [];
+
   if (fromEnv) {
-    return `${fromEnv.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`;
+    urls.push(`${fromEnv.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`);
   }
-    const httpBase = BACKEND_ORIGIN;
+
+  urls.push(`${LEGACY_VOICE_WS_ORIGIN}/api/voice/socket?access_token=${encodeURIComponent(token)}`);
+
+  const httpBase = BACKEND_ORIGIN;
   const wsBase = httpBase.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
-  return `${wsBase.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`;
+  urls.push(`${wsBase.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`);
+
+  return Array.from(new Set(urls));
+}
+
+function openVoiceSocket(url: string, timeoutMs = 8000): Promise<WebSocket> {
+  return new Promise<WebSocket>((resolve, reject) => {
+    const socket = new WebSocket(url);
+    socket.binaryType = "arraybuffer";
+
+    const timeout = window.setTimeout(() => {
+      socket.close();
+      reject(new Error("WebSocket timeout"));
+    }, timeoutMs);
+
+    socket.onopen = () => {
+      window.clearTimeout(timeout);
+      resolve(socket);
+    };
+    socket.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("WebSocket failed"));
+    };
+  });
+}
+
+async function openVoiceSocketWithFallback(token: string): Promise<WebSocket> {
+  const candidates = buildVoiceWebSocketCandidates(token);
+  let lastError: unknown = null;
+
+  for (const url of candidates) {
+    try {
+      console.log("[Voice] Connecting to:", url.replace(/access_token=.*/, "access_token=***"));
+      return await openVoiceSocket(url);
+    } catch (error) {
+      lastError = error;
+      console.warn("[Voice] WebSocket candidate failed:", url.replace(/access_token=.*/, "access_token=***"), error);
+    }
+  }
+
+  throw lastError instanceof Error ? lastError : new Error("WebSocket failed");
 }
 
 type VoiceMsg = {
@@ -195,6 +241,12 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
           setIsListening(true);
           if (micStreamRef.current) startMicStreaming(ws, micStreamRef.current);
           break;
+        case "connecting_to_ai":
+          statusRef.current = "active";
+          setStatus("active");
+          setIsListening(false);
+          setIsAssistantSpeaking(false);
+          break;
         case "listening":
           setIsListening(true);
           setIsAssistantSpeaking(false);
@@ -265,23 +317,13 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
               channelCount: 1,
             },
           }),
-          new Promise<WebSocket>((resolve, reject) => {
-            const socket = new WebSocket(buildVoiceWebSocketUrl(authToken));
-            socket.binaryType = "arraybuffer";
-            const timeout = setTimeout(() => reject(new Error("WebSocket timeout")), 20000);
-            socket.onopen = () => {
-              clearTimeout(timeout);
-              resolve(socket);
-            };
-            socket.onerror = () => {
-              clearTimeout(timeout);
-              reject(new Error("WebSocket failed"));
-            };
-          }),
+          openVoiceSocketWithFallback(authToken),
         ]);
 
         micStreamRef.current = micStream;
         wsRef.current = ws;
+        statusRef.current = "active";
+        setStatus("active");
 
         ws.onmessage = (event) => {
           if (event.data instanceof ArrayBuffer) {
