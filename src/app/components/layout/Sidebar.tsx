@@ -122,11 +122,11 @@ export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boole
     const badgeValue = item.badgeKey ? badges[item.badgeKey] : 0;
 
     return (
-      <Link key={item.path} href={item.path} onClick={() => setOpen(false)}>
+      <Link key={item.path} href={item.path} onClick={() => setOpen(false)} className="block">
         <motion.div
           whileHover={{ x: 4 }}
           transition={{ duration: 0.15 }}
-          className={`relative flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer transition-all duration-200 ${
+          className={`relative flex items-center gap-3 px-3.5 py-3 rounded-2xl cursor-pointer transition-all duration-200 ${
             active
               ? "bg-white/20 text-white shadow-sm"
               : "text-white/60 hover:text-white hover:bg-white/10"
@@ -192,18 +192,18 @@ export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boole
         </button>
       </div>
 
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 px-3 py-5 space-y-2 overflow-y-auto overflow-x-hidden">
         {mainNav.map(renderNavItem)}
       </nav>
 
-      <div className="py-3 px-2 space-y-1 border-t border-white/10">
+      <div className="px-3 py-4 space-y-2 border-t border-white/10">
         {bottomNav.map(renderNavItem)}
         <button
           onClick={() => {
             logout();
             window.location.href = "/";
           }}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-white/60 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200"
+          className="w-full flex items-center gap-3 px-3.5 py-3 rounded-2xl text-white/60 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200"
         >
           <LogOut className="w-5 h-5 shrink-0" />
           <span className="text-sm font-medium whitespace-nowrap overflow-hidden">
@@ -214,7 +214,7 @@ export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boole
 
       <AnimatePresence>
         {user && (
-          <div className="px-2 pb-3">
+          <div className="px-3 pb-4 pt-2">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-white/10 border border-white/10">
               <img
                 src={`https://ui-avatars.com/api/?name=${encodeURIComponent(`${user.firstName} ${user.lastName}`.trim() || "Admin User")}&background=1D5B70&color=fff&size=80`}
