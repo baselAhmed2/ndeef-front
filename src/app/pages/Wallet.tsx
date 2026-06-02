@@ -500,7 +500,7 @@ export default function Wallet() {
   useEffect(() => {
     if (!chargeStatus) return;
     if (chargeStatus === "success") {
-      toast.success("Wallet charge completed successfully.");
+      toast.info("Payment checkout completed. Updating your wallet balance...");
     } else if (chargeStatus === "failed") {
       toast.error("Wallet charge did not complete successfully.");
     }
@@ -661,22 +661,6 @@ export default function Wallet() {
       </div>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        {walletReturnStatus === "success" ? (
-          <div className="rounded-3xl border border-emerald-200 dark:border-emerald-500/20 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-500/5 dark:to-transparent px-5 py-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 p-2 text-emerald-700 dark:text-emerald-400">
-                <CheckCircle2 size={18} strokeWidth={2.2} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Wallet charge completed</p>
-                <p className="mt-1 text-sm text-emerald-800/90 dark:text-emerald-400/80">
-                  Your balance and wallet activity have been updated successfully.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
         {syncState === "waiting" ? (
           <div className="rounded-3xl border border-amber-200 dark:border-amber-500/20 bg-gradient-to-r from-amber-50 to-white dark:from-amber-500/5 dark:to-transparent px-5 py-4 shadow-sm">
             <div className="flex items-start gap-3">
