@@ -210,6 +210,8 @@ export interface BackendPaymentDto {
   paymentMethod: string;
   paymentDate: string | null;
   paymentUrl?: string | null;
+  walletDeduction?: number;
+  amountDue?: number;
 }
 
 export interface BackendOrderDto {
@@ -1857,7 +1859,7 @@ export async function processPaymentRequest(
   payload: {
     orderId: number;
     amount: number;
-    paymentMethod: "CreditCard" | "MobilePayment" | "Cash" | "Wallet";
+    paymentMethod: "CreditCard" | "Cash";
   },
 ) {
   return request<BackendPaymentDto>(

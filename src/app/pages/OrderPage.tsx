@@ -15,8 +15,8 @@ import {
   ChevronDown,
   Banknote,
   CreditCard,
-  Wallet,
   RefreshCw,
+
   Trash2,
   Navigation,
   X,
@@ -35,7 +35,6 @@ import {
   mapLaundryDtoToUiLaundry,
   placeBundleOrderRequest,
   placeOrderRequest,
-  processPaymentRequest,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -149,7 +148,6 @@ export default function OrderPage() {
     null,
   );
   const [walletBalance, setWalletBalance] = useState(0);
-  const [useWalletBalance, setUseWalletBalance] = useState(false);
   const [loading, setLoading] = useState(true);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
   const [selectedDate, setSelectedDate] = useState("Today");
@@ -534,7 +532,7 @@ export default function OrderPage() {
               serviceId: item.serviceId,
               quantity: item.quantity,
             })),
-            useWalletBalance,
+            useWalletBalance: false, // المحفظة بتتخصم تلقائياً في صفحة الدفع
             scheduledPickupTime: toPickupDateTime(selectedDate, selectedTime),
           })
         : await placeOrderRequest(user.token, {
@@ -557,28 +555,7 @@ export default function OrderPage() {
         return;
       }
 
-      if (paymentMethod === "wallet") {
-        try {
-          await processPaymentRequest(user.token, {
-            orderId: Number(order.id),
-            amount: Number(total + deliveryFee),
-            paymentMethod: "Wallet",
-          });
-          setWalletBalance((current) =>
-            Math.max(0, current - Number(total + deliveryFee)),
-          );
-          shouldKeepLockedAfterSubmit = true;
-          setOrderRedirecting(true);
-          router.push(`/track-order/${order.id}?notice=paid`);
-          return;
-        } catch (paymentError) {
-          shouldKeepLockedAfterSubmit = true;
-          setOrderRedirecting(true);
-          router.push(`/payment?orderId=${order.id}`);
-          return;
-        }
-      }
-
+      // كرت أو أي طريقة أخرى → روح لصفحة الدفع (المحفظة هتتخصم تلقائياً هناك)
       shouldKeepLockedAfterSubmit = true;
       setOrderRedirecting(true);
       router.push(`/payment?orderId=${order.id}`);
@@ -1120,30 +1097,20 @@ export default function OrderPage() {
             PAYMENT METHOD
           </p>
 
-          <div className="mb-4 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] px-4 py-3.5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  Wallet balance
-                </p>
-                <p className="mt-1 text-xs text-gray-500">
-                  Your balance updates automatically after charging, paying from
-                  wallet, or receiving a refund.
-                </p>
-              </div>
-              <div className="text-right">
-                <p className="text-lg font-semibold text-[#1D6076]">
-                  {walletBalance.toFixed(2)} EGP
-                </p>
-                {!selectedBundle && !walletCanCoverRegularOrder ? (
-                  <p className="mt-1 text-xs text-amber-700">
-                    Need {(total + deliveryFee - walletBalance).toFixed(2)} EGP
-                    more for full wallet payment
+          {walletBalance > 0 && (
+            <div className="mb-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-emerald-900">
+                    💳 Wallet balance will be applied automatically
                   </p>
-                ) : null}
+                  <p className="mt-1 text-xs text-emerald-700">
+                    You have <strong>{walletBalance.toFixed(2)} EGP</strong> in your wallet. It will be deducted automatically on the next step — you only pay the difference.
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
@@ -1166,8 +1133,7 @@ export default function OrderPage() {
                 </p>
               </div>
               <p className="text-xs text-gray-500">
-                The order is created first, then stays pending until cash
-                payment is processed.
+                Pay with cash when your order is delivered.
               </p>
             </button>
 
@@ -1189,40 +1155,10 @@ export default function OrderPage() {
                 <p className="text-sm text-gray-900 font-medium">Credit Card</p>
               </div>
               <p className="text-xs text-gray-500">
-                Your order will be created first, then card checkout will open
-                automatically.
+                Wallet balance deducted first — pay only the difference.
               </p>
             </button>
           </div>
-
-          {selectedBundle ? (
-            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3.5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-sm font-medium text-emerald-900">
-                    Use wallet balance first
-                  </p>
-                  <p className="mt-1 text-xs leading-5 text-emerald-800/90">
-                    Available wallet balance: {walletBalance.toFixed(2)} EGP.
-                    For bundle orders, your wallet balance can be used first and
-                    any remaining amount will continue with the selected payment
-                    method.
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setUseWalletBalance((current) => !current)}
-                  className={`min-w-[88px] rounded-full px-3 py-2 text-xs font-semibold transition ${
-                    useWalletBalance
-                      ? "bg-emerald-600 text-white"
-                      : "bg-white text-emerald-800 border border-emerald-200"
-                  }`}
-                >
-                  {useWalletBalance ? "Enabled" : "Enable"}
-                </button>
-              </div>
-            </div>
-          ) : null}
         </div>
       </div>
 
@@ -1262,9 +1198,7 @@ export default function OrderPage() {
               <>
                 {paymentMethod === "cash"
                   ? "Create Order (Cash)"
-                  : paymentMethod === "wallet"
-                    ? "Create Order and Pay from Wallet"
-                    : "Create Order and Pay"}
+                  : "Create Order and Pay"}
                 <ChevronDown size={16} className="-rotate-90" strokeWidth={2} />
               </>
             )}

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
 import {
   ArrowLeft,
   CheckCircle2,
@@ -11,15 +11,15 @@ import {
   EyeOff,
   Filter,
   Loader2,
-  Plus,
   RefreshCw,
   ShieldCheck,
+  TrendingUp,
   Wallet as WalletIcon,
   XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "../context/AuthContext";
-import { chargeWalletRequest, confirmWalletChargeRequest, getWalletInfoRequest } from "../lib/api";
+import { getWalletInfoRequest } from "../lib/api";
 
 type WalletTransaction = {
   id: number;
@@ -36,41 +36,7 @@ type WalletTransaction = {
   source: string;
 };
 
-
 type ActivityFilter = "all" | "wallet" | "mobile" | "cash" | "refund";
-type WalletSyncState = "idle" | "waiting" | "confirmed" | "failed" | "timeout";
-type WalletChargeReturn = {
-  status: string;
-  merchantOrderId: string | null;
-};
-type PendingWalletCharge = {
-  amount: number;
-  startedAt: string;
-  merchantOrderId: string | null;
-};
-
-const QUICK_AMOUNTS = [100, 250, 500, 1000] as const;
-const PENDING_WALLET_CHARGE_KEY = "nazeef_pending_wallet_charge";
-
-async function openExternalUrl(url: string) {
-  const capacitor = typeof window !== "undefined" ? (window as typeof window & {
-    Capacitor?: {
-      isNativePlatform?: () => boolean;
-      Plugins?: {
-        Browser?: {
-          open?: (options: { url: string }) => Promise<void>;
-        };
-      };
-    };
-  }).Capacitor : undefined;
-
-  if (capacitor?.isNativePlatform?.() && capacitor.Plugins?.Browser?.open) {
-    await capacitor.Plugins.Browser.open({ url });
-    return;
-  }
-
-  window.location.href = url;
-}
 
 function formatMoney(amount: number) {
   return `${amount.toFixed(2)} EGP`;
@@ -78,7 +44,6 @@ function formatMoney(amount: number) {
 
 function formatTransactionDate(value: string | null | undefined) {
   if (!value) return "Pending transaction";
-
   const date = new Date(value);
   return date.toLocaleString("en-US", {
     month: "short",
@@ -100,85 +65,24 @@ function getMethodFromSource(source: string) {
 function getFilterForTransaction(method: string, source: string): ActivityFilter {
   const normalizedSource = String(source || "").toLowerCase();
   if (normalizedSource.includes("refund")) return "refund";
-
   switch (method) {
-    case "Wallet":
-      return "wallet";
-    case "MobilePayment":
-      return "mobile";
-    case "Cash":
-      return "cash";
-    case "Refund":
-      return "refund";
-    default:
-      return "all";
-  }
-}
-
-function getMethodChipClass(method: string) {
-  switch (method) {
-    case "Wallet":
-      return "bg-emerald-50 text-emerald-700";
-    case "MobilePayment":
-      return "bg-sky-50 text-sky-700";
-    case "Cash":
-      return "bg-amber-50 text-amber-700";
-    case "Refund":
-      return "bg-violet-50 text-violet-700";
-    default:
-      return "bg-slate-100 text-slate-600";
-  }
-}
-
-function getStatusChipClass(status: string) {
-  switch (String(status).toLowerCase()) {
-    case "completed":
-    case "paid":
-      return "bg-emerald-50 text-emerald-700";
-    case "pending":
-      return "bg-amber-50 text-amber-700";
-    case "failed":
-      return "bg-rose-50 text-rose-700";
-    default:
-      return "bg-slate-100 text-slate-600";
+    case "Wallet": return "wallet";
+    case "MobilePayment": return "mobile";
+    case "Cash": return "cash";
+    case "Refund": return "refund";
+    default: return "all";
   }
 }
 
 function inferTransactionTitle(source: string, type: string) {
-  const normalizedSource = String(source || "").toLowerCase();
-  const normalizedType = String(type || "").toLowerCase();
-
-  if (normalizedSource.includes("walletcharge")) return "Wallet Charge";
-  if (normalizedSource.includes("walletpayment")) {
-    return normalizedType === "debit" ? "Wallet Payment" : "Wallet Credit";
-  }
-  if (normalizedSource.includes("refund")) return "Refund to Wallet";
-  if (normalizedSource.includes("mobilewallet")) return "Mobile Wallet Payment";
-  if (normalizedSource.includes("cashpayment")) return "Cash Payment";
+  const s = String(source || "").toLowerCase();
+  const t = String(type || "").toLowerCase();
+  if (s.includes("walletcharge")) return "Wallet Charge";
+  if (s.includes("walletpayment")) return t === "debit" ? "Auto-deducted from Wallet" : "Wallet Credit";
+  if (s.includes("refund")) return "Refund to Wallet";
+  if (s.includes("mobilewallet")) return "Mobile Wallet Payment";
+  if (s.includes("cashpayment")) return "Cash Payment";
   return "Wallet Activity";
-}
-
-function readPendingWalletCharge(): PendingWalletCharge | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(PENDING_WALLET_CHARGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as PendingWalletCharge;
-    if (!Number.isFinite(parsed.amount) || !parsed.startedAt) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
-function writePendingWalletCharge(payload: PendingWalletCharge) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(PENDING_WALLET_CHARGE_KEY, JSON.stringify(payload));
-}
-
-function clearPendingWalletCharge() {
-  if (typeof window === "undefined") return;
-  window.localStorage.removeItem(PENDING_WALLET_CHARGE_KEY);
 }
 
 function normalizeMerchantOrderId(value: unknown) {
@@ -187,39 +91,11 @@ function normalizeMerchantOrderId(value: unknown) {
   return trimmed.length > 0 ? trimmed : null;
 }
 
-function hasMatchingWalletCharge(
-  items: WalletTransaction[],
-  pendingCharge: PendingWalletCharge | null,
-) {
-  if (!pendingCharge) return false;
-
-  if (pendingCharge.merchantOrderId) {
-    return items.some(
-      (item) =>
-        item.paymentReference === pendingCharge.merchantOrderId ||
-        item.orderId === pendingCharge.merchantOrderId,
-    );
-  }
-
-  const startedAt = new Date(pendingCharge.startedAt).getTime();
-  const earliestAcceptedTime = startedAt - 2 * 60 * 1000;
-
-  return items.some((item) => {
-    const source = item.source.toLowerCase();
-    const createdAt = item.createdAt ? new Date(item.createdAt).getTime() : 0;
-    return (
-      source.includes("walletcharge") &&
-      item.positive &&
-      Math.abs(Math.abs(item.amount) - pendingCharge.amount) < 0.01 &&
-      createdAt >= earliestAcceptedTime
-    );
-  });
-}
-
+// ========= Interactive Visa Card =========
 function InteractiveVisaCard({
   balance,
   cardholderName,
-  phone
+  phone,
 }: {
   balance: number;
   cardholderName: string;
@@ -233,13 +109,10 @@ function InteractiveVisaCard({
     const rect = card.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
-
     const centerX = rect.width / 2;
     const centerY = rect.height / 2;
-
     const rotateX = ((centerY - y) / centerY) * 6;
     const rotateY = ((x - centerX) / centerX) * -6;
-
     setTiltStyle({
       transform: `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale3d(1.02, 1.02, 1.02)`,
       transition: "transform 0.08s cubic-bezier(0.25, 1, 0.5, 1)",
@@ -258,27 +131,19 @@ function InteractiveVisaCard({
 
   return (
     <div
-      className="relative w-full max-w-[400px] aspect-[1.586/1] rounded-[24px] overflow-hidden select-none cursor-pointer group shadow-[0_15px_35px_-5px_rgba(29,96,118,0.3)] hover:shadow-[0_25px_50px_-5px_rgba(29,96,118,0.45)] dark:shadow-[0_15px_40px_rgba(0,0,0,0.6)] dark:hover:shadow-[0_25px_50px_rgba(45,160,180,0.2)] transition-shadow duration-300"
+      className="relative w-full max-w-[400px] aspect-[1.586/1] rounded-[24px] overflow-hidden select-none cursor-pointer group shadow-[0_15px_35px_-5px_rgba(29,96,118,0.3)] hover:shadow-[0_25px_50px_-5px_rgba(29,96,118,0.45)] transition-shadow duration-300"
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={tiltStyle}
     >
-      {/* Visa Card Background Image */}
       <div
         className="absolute inset-0 bg-cover bg-center bg-no-repeat transition-all duration-700 ease-out group-hover:scale-[1.04]"
         style={{ backgroundImage: "url('/visa-card.png')" }}
       />
-
-      {/* Metallic Reflex Glow */}
       <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-white/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
-
-      {/* 3D Sheen */}
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.08] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-[1200ms] pointer-events-none" />
 
-      {/* CARD CONTENT */}
       <div className="absolute inset-0">
-
-        {/* 1. Balance — above cardholder name (bottom-left empty area) */}
         <div className="absolute left-[8%] bottom-[21%] flex items-end gap-1.5">
           <div className="flex flex-col">
             <span className="text-[6px] sm:text-[7px] tracking-[0.18em] text-white/70 uppercase font-semibold font-sans mb-0.5">
@@ -291,59 +156,43 @@ function InteractiveVisaCard({
               {" "}<span className="text-[8px] font-semibold text-white/80">EGP</span>
             </span>
           </div>
-
-          {/* Eye toggle — clickable, outside pointer-events-none */}
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setBalanceVisible((v) => !v); }}
             className="mb-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-white/15 hover:bg-white/30 text-white/80 hover:text-white transition-all duration-200"
             aria-label={balanceVisible ? "Hide balance" : "Show balance"}
           >
-            {balanceVisible
-              ? <Eye className="h-2.5 w-2.5" />
-              : <EyeOff className="h-2.5 w-2.5" />}
+            {balanceVisible ? <Eye className="h-2.5 w-2.5" /> : <EyeOff className="h-2.5 w-2.5" />}
           </button>
         </div>
 
-        {/* 2. Cardholder Name (Bottom Left) */}
         <div className="absolute left-[8%] bottom-[8%] w-[42%] h-[11%] bg-[#165267] flex items-center px-1 rounded-sm pointer-events-none">
           <span className="text-[9px] sm:text-[11px] md:text-[12px] font-mono font-bold tracking-[0.1em] text-white uppercase truncate drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
             {cardholderName || "NAZEEF CUSTOMER"}
           </span>
         </div>
 
-        {/* 3. Card Number (Bottom Right) */}
         <div className="absolute right-[8%] bottom-[8%] w-[38%] h-[11%] bg-gradient-to-r from-[#e0803c] to-[#e8994a] flex items-center justify-end px-1 rounded-sm pointer-events-none">
           <span className="text-[9px] sm:text-[11px] md:text-[12px] font-mono font-bold tracking-wider text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.2)]">
             {cardNumber.split(" ").slice(-2).join(" ")}
           </span>
         </div>
-
       </div>
     </div>
   );
 }
 
+// ========= Main Wallet Page =========
 export default function Wallet() {
   const { user, isAuthReady } = useAuth();
-  const router = useRouter();
-  const pathname = usePathname();
-  const searchParams = useSearchParams();
   const [loading, setLoading] = useState(true);
-  const [charging, setCharging] = useState(false);
   const [walletBalance, setWalletBalance] = useState(0);
   const [walletActive, setWalletActive] = useState(true);
-  const [totalCharged, setTotalCharged] = useState(0);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [filter, setFilter] = useState<ActivityFilter>("all");
-  const [chargeAmount, setChargeAmount] = useState("250");
-  const [syncState, setSyncState] = useState<WalletSyncState>("idle");
-  const chargeStatus = searchParams?.get("status");
-  const callbackMerchantOrderId = searchParams?.get("merchantOrderId");
-  const [walletChargeReturn, setWalletChargeReturn] = useState<WalletChargeReturn | null>(null);
-  const [pendingCharge, setPendingCharge] = useState<PendingWalletCharge | null>(null);
   const normalizedRole = String(user?.role ?? "").trim().toLowerCase().replace(/\s+/g, "");
   const isCustomerRole = !normalizedRole || normalizedRole === "customer" || normalizedRole === "1";
+
 
   const loadWalletInfo = useCallback(async (authToken: string) => {
     const walletInfo = await getWalletInfoRequest(authToken);
@@ -374,29 +223,20 @@ export default function Wallet() {
 
     setWalletBalance(Number(walletInfo.balance ?? 0));
     setWalletActive(Boolean(walletInfo.isActive ?? true));
-    setTotalCharged(Number(walletInfo.totalCharged ?? 0));
     setTransactions(mapped);
-
     return mapped;
   }, []);
 
   useEffect(() => {
     if (!isAuthReady) return;
     const token = user?.token ?? null;
-    if (!token) {
-      setLoading(false);
-      return;
-    }
-    const authToken = token;
+    if (!token) { setLoading(false); return; }
 
     let active = true;
-
     async function loadWalletPage() {
       try {
         setLoading(true);
-        const pending = readPendingWalletCharge();
-        setPendingCharge(pending);
-        await loadWalletInfo(authToken);
+        await loadWalletInfo(token!);
         if (!active) return;
       } catch (error) {
         if (!active) return;
@@ -405,240 +245,52 @@ export default function Wallet() {
         if (active) setLoading(false);
       }
     }
-
     void loadWalletPage();
-    return () => {
-      active = false;
-    };
-  }, [chargeStatus, isAuthReady, loadWalletInfo, user?.token]);
+    return () => { active = false; };
+  }, [isAuthReady, loadWalletInfo, user?.token]);
 
-  useEffect(() => {
-    if (!chargeStatus) return;
-
-    setWalletChargeReturn({
-      status: chargeStatus,
-      merchantOrderId: normalizeMerchantOrderId(callbackMerchantOrderId),
-    });
-  }, [callbackMerchantOrderId, chargeStatus]);
-
-  useEffect(() => {
-    if (!user?.token || !walletChargeReturn) return;
-
-    if (walletChargeReturn.status === "failed") {
-      clearPendingWalletCharge();
-      setPendingCharge(null);
-      setSyncState("failed");
-      return;
+  const handleRefreshWallet = async () => {
+    if (!user?.token) return;
+    try {
+      await loadWalletInfo(user.token);
+      toast.success("Wallet refreshed.");
+    } catch {
+      toast.error("Unable to refresh wallet right now.");
     }
-
-    if (walletChargeReturn.status !== "success") return;
-
-    let cancelled = false;
-    let attempts = 0;
-    const activePendingCharge = (() => {
-      const stored = readPendingWalletCharge();
-      const queryMerchantOrderId = walletChargeReturn.merchantOrderId;
-
-      if (!queryMerchantOrderId) {
-        return stored;
-      }
-
-      if (stored?.merchantOrderId === queryMerchantOrderId) {
-        return stored;
-      }
-
-      return {
-        amount: stored?.amount ?? 0,
-        startedAt: stored?.startedAt ?? new Date().toISOString(),
-        merchantOrderId: queryMerchantOrderId,
-      };
-    })();
-
-    setPendingCharge(activePendingCharge);
-    if (activePendingCharge) {
-      writePendingWalletCharge(activePendingCharge);
-    }
-    setSyncState("waiting");
-
-    const confirmCharge = async () => {
-      if (!activePendingCharge?.merchantOrderId) return;
-
-      try {
-        await confirmWalletChargeRequest(user.token as string, activePendingCharge.merchantOrderId);
-      } catch (error) {
-        console.warn("[Wallet] Unable to confirm wallet charge immediately.", error);
-      }
-    };
-
-    const poll = async () => {
-      if (cancelled) return;
-      attempts += 1;
-
-      try {
-        const mapped = await loadWalletInfo(user.token as string);
-        if (cancelled) return;
-
-        if (hasMatchingWalletCharge(mapped, activePendingCharge)) {
-          clearPendingWalletCharge();
-          setPendingCharge(null);
-          setSyncState("confirmed");
-          return;
-        }
-
-        if (attempts >= 8) {
-          setSyncState("timeout");
-          return;
-        }
-
-        window.setTimeout(() => {
-          void poll();
-        }, 3000);
-      } catch {
-        if (cancelled) return;
-        if (attempts >= 8) {
-          setSyncState("timeout");
-          return;
-        }
-
-        window.setTimeout(() => {
-          void poll();
-        }, 3000);
-      }
-    };
-
-    void (async () => {
-      await confirmCharge();
-      await poll();
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadWalletInfo, user?.token, walletChargeReturn]);
-
-  useEffect(() => {
-    if (!chargeStatus) return;
-    if (chargeStatus === "success") {
-      toast.info("Payment checkout completed. Updating your wallet balance...");
-    } else if (chargeStatus === "failed") {
-      toast.error("Wallet charge did not complete successfully.");
-    }
-
-    const params = new URLSearchParams(searchParams?.toString() ?? "");
-    params.delete("status");
-    params.delete("merchantOrderId");
-    const nextQuery = params.toString();
-    const timeout = window.setTimeout(() => {
-      const safePath = pathname ?? "/wallet";
-      router.replace(nextQuery ? `${safePath}?${nextQuery}` : safePath, { scroll: false });
-    }, 800);
-
-    return () => window.clearTimeout(timeout);
-  }, [chargeStatus, pathname, router, searchParams]);
+  };
 
   const refundsTotal = useMemo(
-    () =>
-      transactions
-        .filter((transaction) => transaction.source.toLowerCase().includes("refund"))
-        .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0),
+    () => transactions
+      .filter((t) => t.source.toLowerCase().includes("refund"))
+      .reduce((sum, t) => sum + Math.abs(t.amount), 0),
     [transactions],
   );
 
   const filteredTransactions = useMemo(() => {
     if (filter === "all") return transactions;
     return transactions.filter(
-      (transaction) => getFilterForTransaction(transaction.paymentMethod, transaction.source) === filter,
+      (t) => getFilterForTransaction(t.paymentMethod, t.source) === filter,
     );
   }, [filter, transactions]);
-  const walletReturnStatus = walletChargeReturn?.status ?? chargeStatus;
 
-  const handleChargeWallet = async () => {
-    if (!user?.token || charging) return;
-
-    const amount = Number(chargeAmount);
-    if (!Number.isFinite(amount) || amount < 10 || amount > 10000) {
-      toast.error("Amount must be between 10 and 10000 EGP.");
-      return;
-    }
-
-    try {
-      setCharging(true);
-      const response = await chargeWalletRequest(user.token, amount);
-      const checkoutUrl = response.checkoutUrl ?? response.paymentUrl;
-      const merchantOrderId = normalizeMerchantOrderId(response.orderId);
-
-      if (!checkoutUrl) {
-        throw new Error("Unable to start checkout right now.");
-      }
-
-      const nextPendingCharge = {
-        amount,
-        startedAt: new Date().toISOString(),
-        merchantOrderId,
-      };
-
-      writePendingWalletCharge(nextPendingCharge);
-      setPendingCharge(nextPendingCharge);
-      setSyncState("waiting");
-
-      await openExternalUrl(checkoutUrl);
-    } catch (error) {
-      clearPendingWalletCharge();
-      setPendingCharge(null);
-      setSyncState("idle");
-      toast.error(error instanceof Error ? error.message : "Failed to start wallet charge.");
-    } finally {
-      setCharging(false);
-    }
-  };
-
-  const handleRefreshWallet = async () => {
-    if (!user?.token) return;
-
-    const activePendingCharge = pendingCharge ?? readPendingWalletCharge();
-
-    try {
-      if (activePendingCharge?.merchantOrderId) {
-        setPendingCharge(activePendingCharge);
-        setSyncState("waiting");
-        await confirmWalletChargeRequest(user.token, activePendingCharge.merchantOrderId);
-      }
-
-      const mapped = await loadWalletInfo(user.token);
-      if (hasMatchingWalletCharge(mapped, activePendingCharge)) {
-        clearPendingWalletCharge();
-        setPendingCharge(null);
-        setSyncState("confirmed");
-        toast.success("Wallet balance updated.");
-        return;
-      }
-
-      if (activePendingCharge?.merchantOrderId) {
-        setSyncState("timeout");
-        toast.info("Payment is still waiting for gateway confirmation.");
-      }
-    } catch (error) {
-      setSyncState(activePendingCharge?.merchantOrderId ? "timeout" : "idle");
-      toast.error(error instanceof Error ? error.message : "Unable to refresh wallet right now.");
-    }
-  };
-
+  // ---- Loading ----
   if (loading) {
     return (
-      <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] dark:bg-[#0b131a] flex items-center justify-center transition-colors duration-300">
-        <Loader2 className="animate-spin text-[#1D6076] dark:text-[#7aafd2]" size={28} strokeWidth={2} />
+      <div className="ndeef-page-shell min-h-screen bg-slate-50 flex items-center justify-center">
+        <Loader2 className="animate-spin text-[#1D6076]" size={28} strokeWidth={2} />
       </div>
     );
   }
 
+  // ---- Not logged in ----
   if (isAuthReady && !user?.token) {
     return (
-      <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] dark:bg-[#0b131a] flex items-center justify-center px-6 transition-colors duration-300">
+      <div className="ndeef-page-shell min-h-screen bg-slate-50 flex items-center justify-center px-6">
         <div className="text-center">
-          <p className="text-lg font-semibold text-gray-900 dark:text-white">Please log in to access your wallet.</p>
+          <p className="text-lg font-semibold text-gray-900">Please log in to access your wallet.</p>
           <Link
             href="/login?from=/wallet"
-            className="mt-4 inline-flex rounded-xl bg-[#1D6076] dark:bg-[#EBA050] px-4 py-3 text-white dark:text-slate-950 font-medium hover:opacity-90 transition-opacity"
+            className="mt-4 inline-flex rounded-xl bg-[#1D6076] px-4 py-3 text-white font-medium hover:opacity-90 transition-opacity"
           >
             Go to Login
           </Link>
@@ -647,35 +299,28 @@ export default function Wallet() {
     );
   }
 
+  // ---- Non-customer ----
   if (isAuthReady && user?.token && !isCustomerRole) {
     return (
-      <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] dark:bg-[#0b131a] px-6 py-12 transition-colors duration-300">
-        <div className="mx-auto max-w-2xl rounded-[32px] border border-amber-200 dark:border-amber-500/20 bg-white dark:bg-[#111e29] p-8 shadow-sm transition-all">
-          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 dark:bg-amber-500/10 text-amber-700 dark:text-amber-400">
+      <div className="ndeef-page-shell min-h-screen bg-slate-50 px-6 py-12">
+        <div className="mx-auto max-w-2xl rounded-[32px] border border-amber-200 bg-white p-8 shadow-sm">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
             <WalletIcon size={24} strokeWidth={2.2} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Wallet charge returned to a non-customer session</h1>
-          <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-slate-300">
-            This browser is currently signed in as <span className="font-semibold text-gray-900 dark:text-white">{user.role}</span>, so the customer wallet page cannot open here.
+          <h1 className="text-2xl font-bold text-gray-900">Wallet not available for this role</h1>
+          <p className="mt-3 text-sm leading-6 text-gray-600">
+            This page is for customers only. You are signed in as <span className="font-semibold">{user.role}</span>.
           </p>
-          <p className="mt-3 text-sm leading-6 text-gray-600 dark:text-slate-300">
-            If the charge was started from a customer account on another session or device, sign in here with that same customer account to see the updated wallet balance.
-          </p>
-          {chargeStatus ? (
-            <div className="mt-5 rounded-2xl border border-slate-200 dark:border-white/5 bg-slate-50 dark:bg-[#182835] px-4 py-3 text-sm text-slate-700 dark:text-slate-300">
-              Payment gateway returned status: <span className="font-semibold dark:text-white">{chargeStatus}</span>
-            </div>
-          ) : null}
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
               href="/login?role=Customer&from=/wallet"
-              className="inline-flex items-center justify-center rounded-2xl bg-[#1D6076] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164d5f] dark:bg-[#EBA050] dark:text-slate-950 dark:hover:bg-[#d4832a]"
+              className="inline-flex items-center justify-center rounded-2xl bg-[#1D6076] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#164d5f]"
             >
               Sign in as Customer
             </Link>
             <Link
               href="/"
-              className="inline-flex items-center justify-center rounded-2xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#182835] px-5 py-3 text-sm font-semibold text-gray-700 dark:text-slate-300 transition hover:bg-gray-50 dark:hover:bg-white/8"
+              className="inline-flex items-center justify-center rounded-2xl border border-gray-200 bg-white px-5 py-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50"
             >
               Go Home
             </Link>
@@ -685,154 +330,80 @@ export default function Wallet() {
     );
   }
 
+  // ---- Main page ----
   return (
-    <div className="ndeef-page-shell min-h-screen bg-[#f8fafc] dark:bg-[#0b131a] transition-colors duration-300" dir="ltr">
-      <div className="ndeef-page-header border-b border-gray-200 dark:border-white/5 bg-white/95 dark:bg-[#111e29]/95 backdrop-blur-sm transition-colors">
+    <div className="ndeef-page-shell min-h-screen bg-slate-50 transition-colors duration-300" dir="ltr">
+
+      {/* ── Header ── */}
+      <div className="ndeef-page-header border-b border-gray-200 bg-white/95 backdrop-blur-sm">
         <div className="mx-auto flex max-w-5xl items-center gap-4 px-4 py-4 sm:px-6 lg:px-8">
           <Link
             href="/"
-            className="inline-flex items-center justify-center rounded-xl p-2 text-gray-700 dark:text-slate-300 transition hover:bg-gray-100 dark:hover:bg-white/8"
+            className="inline-flex items-center justify-center rounded-xl p-2 text-gray-600 hover:bg-gray-100 transition"
           >
             <ArrowLeft size={22} strokeWidth={2} />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Wallet</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Review your balance, track refunds, and manage your Nazeef Card.</p>
+            <h1 className="text-2xl font-bold text-gray-900">Wallet</h1>
+            <p className="text-sm text-gray-500">Your balance, refunds & transaction history.</p>
           </div>
           <button
             type="button"
             onClick={() => void handleRefreshWallet()}
-            className="ml-auto inline-flex items-center gap-2 rounded-xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#111e29] px-3 py-2 text-sm font-medium text-gray-700 dark:text-slate-200 transition hover:bg-gray-50 dark:hover:bg-white/8"
+            className="ml-auto inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"
           >
-            <RefreshCw size={15} strokeWidth={2} className="dark:text-slate-400" />
+            <RefreshCw size={15} strokeWidth={2} className="text-gray-400" />
             Refresh
           </button>
         </div>
       </div>
 
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-5 sm:px-6 lg:px-8">
-        {syncState === "waiting" ? (
-          <div className="rounded-3xl border border-amber-200 dark:border-amber-500/20 bg-gradient-to-r from-amber-50 to-white dark:from-amber-500/5 dark:to-transparent px-5 py-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-amber-100 dark:bg-amber-500/20 p-2 text-amber-700 dark:text-amber-400">
-                <Loader2 size={18} className="animate-spin" strokeWidth={2.2} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-amber-900 dark:text-amber-300">Waiting for payment confirmation</p>
-                <p className="mt-1 text-sm text-amber-800/90 dark:text-amber-400/80">
-                  {pendingCharge
-                    ? `We are finalizing your ${formatMoney(pendingCharge.amount)} wallet charge. Your balance will update automatically once it is confirmed.`
-                    : "Payment checkout finished. Your wallet balance will update automatically once the payment is confirmed."}
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
 
-        {syncState === "confirmed" ? (
-          <div className="rounded-3xl border border-emerald-200 dark:border-emerald-500/20 bg-gradient-to-r from-emerald-50 to-white dark:from-emerald-500/5 dark:to-transparent px-5 py-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-emerald-100 dark:bg-emerald-500/20 p-2 text-emerald-700 dark:text-emerald-400">
-                <CheckCircle2 size={18} strokeWidth={2.2} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-emerald-900 dark:text-emerald-300">Wallet balance updated</p>
-                <p className="mt-1 text-sm text-emerald-800/90 dark:text-emerald-400/80">
-                  Your wallet charge has been confirmed and the updated balance is shown below.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {walletReturnStatus === "failed" ? (
-          <div className="rounded-3xl border border-rose-200 dark:border-rose-500/20 bg-gradient-to-r from-rose-50 to-white dark:from-rose-500/5 dark:to-transparent px-5 py-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-rose-100 dark:bg-rose-500/20 p-2 text-rose-700 dark:text-rose-400">
-                <XCircle size={18} strokeWidth={2.2} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-rose-900 dark:text-rose-300">Wallet charge failed</p>
-                <p className="mt-1 text-sm text-rose-800/90 dark:text-rose-400/80">
-                  The payment gateway returned a failed status. You can retry the charge below.
-                </p>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {syncState === "timeout" ? (
-          <div className="rounded-3xl border border-rose-200 dark:border-rose-500/20 bg-gradient-to-r from-rose-50 to-white dark:from-rose-500/5 dark:to-transparent px-5 py-4 shadow-sm">
-            <div className="flex items-start gap-3">
-              <div className="rounded-2xl bg-rose-100 dark:bg-rose-500/20 p-2 text-rose-700 dark:text-rose-400">
-                <Clock3 size={18} strokeWidth={2.2} />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-rose-900 dark:text-rose-300">Confirmation is taking longer than expected</p>
-                <p className="mt-1 text-sm text-rose-800/90 dark:text-rose-400/80">
-                  The checkout may have succeeded, but the wallet charge has not appeared yet. Try Retry confirmation once, and if the balance still does not change, please contact support with the reference below.
-                </p>
-                {pendingCharge?.merchantOrderId ? (
-                  <p className="mt-2 break-all rounded-2xl bg-white/70 dark:bg-black/10 px-3 py-2 text-xs font-semibold text-rose-900 dark:text-rose-200">
-                    Reference: {pendingCharge.merchantOrderId}
-                  </p>
-                ) : null}
-                <button
-                  type="button"
-                  onClick={() => void handleRefreshWallet()}
-                  className="mt-3 inline-flex items-center gap-2 rounded-xl bg-rose-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-rose-800 dark:bg-rose-500 dark:text-slate-950 dark:hover:bg-rose-400"
-                >
-                  <RefreshCw size={15} strokeWidth={2} />
-                  Retry confirmation
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
-        {/* Dynamic Split Hero Section */}
+        {/* ── Hero: Card + Info Panel ── */}
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr] items-stretch">
-          {/* Card Showcase Column */}
-          <div className="flex flex-col justify-between gap-5 bg-white dark:bg-[#111e29] border border-gray-200/80 dark:border-white/5 p-6 sm:p-8 rounded-[30px] shadow-sm transition-colors duration-300">
+
+          {/* Card showcase */}
+          <div className="flex flex-col justify-between gap-5 bg-white border border-gray-200 p-6 sm:p-8 rounded-[30px] shadow-sm">
             <div className="flex items-center justify-between mb-2">
               <div>
-                <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">My Nazeef Visa Card</h2>
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">Hover or move cursor over the card for a dynamic 3D response.</p>
+                <h2 className="text-lg font-bold text-gray-900 leading-tight">My Nazeef Visa Card</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Hover over the card for a 3D effect.</p>
               </div>
               <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
-                walletActive 
-                  ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-500/20" 
-                  : "bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-200 dark:border-rose-500/20"
+                walletActive
+                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  : "bg-red-50 text-red-700 border border-red-200"
               }`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${walletActive ? "bg-emerald-500 animate-pulse" : "bg-rose-500"}`} />
-                {walletActive ? "Active Card" : "Inactive"}
+                <span className={`h-1.5 w-1.5 rounded-full ${walletActive ? "bg-emerald-500 animate-pulse" : "bg-red-500"}`} />
+                {walletActive ? "Active" : "Inactive"}
               </span>
             </div>
 
             <div className="flex-1 flex items-center justify-center py-4">
-              <InteractiveVisaCard 
+              <InteractiveVisaCard
                 balance={walletBalance}
                 cardholderName={user?.name || ""}
                 phone={user?.phone || ""}
               />
             </div>
 
-            <div className="border-t border-gray-100 dark:border-white/5 pt-4 flex items-center justify-between text-xs text-gray-500 dark:text-slate-400">
+            <div className="border-t border-gray-100 pt-4 flex items-center justify-between text-xs text-gray-400">
               <span className="flex items-center gap-1">
-                <ShieldCheck size={14} className="text-[#1D6076] dark:text-[#7aafd2]" />
+                <ShieldCheck size={14} className="text-[#1D6076]" />
                 Secure Chip Enabled
               </span>
               <span>100% Secure Web Callback</span>
             </div>
           </div>
 
-          {/* Wallet Refunds Info panel */}
-          <div className="overflow-hidden rounded-[30px] bg-gradient-to-br from-[#1D6076] via-[#246b83] to-[#0d3d50] dark:from-[#112d38] dark:via-[#193a47] dark:to-[#09222c] p-6 sm:p-8 text-white shadow-xl flex flex-col justify-between transition-colors duration-300">
+          {/* How it works */}
+          <div className="overflow-hidden rounded-[30px] bg-gradient-to-br from-[#1D6076] via-[#246b83] to-[#0d3d50] p-6 sm:p-8 text-white shadow-xl flex flex-col justify-between">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-white/70">Wallet Returns & Refunds</p>
+                <p className="text-sm uppercase tracking-[0.2em] text-white/70">How Your Wallet Works</p>
                 <p className="mt-3 text-sm leading-6 text-white/90">
-                  Your Nazeef Wallet balance is dedicated exclusively to processing order returns and refunds.
+                  Your wallet balance is deducted automatically on every order. Pay only the difference.
                 </p>
               </div>
               <div className="rounded-2xl bg-white/10 p-3">
@@ -840,82 +411,76 @@ export default function Wallet() {
               </div>
             </div>
 
-            <div className="mt-6 space-y-4 rounded-[26px] bg-white/10 dark:bg-white/5 p-5 backdrop-blur-sm">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-full bg-emerald-500/20 p-1 text-emerald-400">
-                  <CheckCircle2 size={14} />
+            <div className="mt-6 space-y-4 rounded-[26px] bg-white/10 p-5 backdrop-blur-sm">
+              {[
+                { title: "Auto-deducted on Orders", desc: "Wallet balance is applied automatically — you pay only the remaining amount." },
+                { title: "Instant Card Refunds", desc: "If you cancel a card-paid order, your money returns to this wallet instantly." },
+                { title: "Always Visible", desc: "Every deduction and refund is recorded here so you always know where your money went." },
+              ].map((item) => (
+                <div key={item.title} className="flex items-start gap-3">
+                  <div className="mt-0.5 rounded-full bg-emerald-500/20 p-1 text-emerald-400">
+                    <CheckCircle2 size={14} />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-white">{item.title}</h4>
+                    <p className="mt-0.5 text-xs text-white/70">{item.desc}</p>
+                  </div>
                 </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Instant Returns</h4>
-                  <p className="mt-0.5 text-xs text-white/70">Refunding cancelled orders to your wallet is instant, saving credit card processing delays.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-full bg-emerald-500/20 p-1 text-emerald-400">
-                  <CheckCircle2 size={14} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Automated Credits</h4>
-                  <p className="mt-0.5 text-xs text-white/70">Any refunds are credited to this wallet automatically and tracked under the activities tab.</p>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 rounded-full bg-emerald-500/20 p-1 text-emerald-400">
-                  <CheckCircle2 size={14} />
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Refund Balance</h4>
-                  <p className="mt-0.5 text-xs text-white/70">Wallet balance is updated instantly and can be reviewed at any time.</p>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
 
-        {/* Dashboard stats grids */}
+        {/* ── Stats Grid ── */}
         <div className="grid gap-4 md:grid-cols-3">
-          <div className="rounded-3xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#111e29] p-5 shadow-sm transition-colors duration-300">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400">
-              <WalletIcon size={20} strokeWidth={2} />
+          {[
+            {
+              icon: <WalletIcon size={20} strokeWidth={2} />,
+              bg: "bg-emerald-50 text-emerald-600",
+              label: "Current Balance",
+              value: formatMoney(walletBalance),
+              sub: "Your spendable wallet balance.",
+            },
+            {
+              icon: <TrendingUp size={20} strokeWidth={2} />,
+              bg: "bg-sky-50 text-sky-600",
+              label: "Wallet Savings",
+              value: formatMoney(
+                transactions
+                  .filter((t) => t.source.toLowerCase().includes("walletpayment") && !t.positive)
+                  .reduce((s, t) => s + Math.abs(t.amount), 0)
+              ),
+              sub: "Total deducted automatically from wallet.",
+            },
+            {
+              icon: <Clock3 size={20} strokeWidth={2} />,
+              bg: "bg-violet-50 text-violet-600",
+              label: "Refunds Received",
+              value: formatMoney(refundsTotal),
+              sub: "Returned from cancelled orders.",
+            },
+          ].map((stat) => (
+            <div key={stat.label} className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className={`mb-3 flex h-11 w-11 items-center justify-center rounded-2xl ${stat.bg}`}>
+                {stat.icon}
+              </div>
+              <p className="text-sm text-gray-500">{stat.label}</p>
+              <p className="mt-2 text-2xl font-bold text-gray-900">{stat.value}</p>
+              <p className="mt-1 text-xs text-gray-400">{stat.sub}</p>
             </div>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Current wallet balance</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatMoney(walletBalance)}</p>
-            <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">Your current available balance.</p>
-          </div>
-
-          <div className="rounded-3xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#111e29] p-5 shadow-sm transition-colors duration-300">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-sky-50 dark:bg-sky-500/10 text-sky-600 dark:text-sky-400">
-              <Plus size={20} strokeWidth={2} />
-            </div>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Total wallet charges</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatMoney(totalCharged)}</p>
-            <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">Lifetime amount charged into wallet.</p>
-          </div>
-
-          <div className="rounded-3xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#111e29] p-5 shadow-sm transition-colors duration-300">
-            <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-violet-50 dark:bg-violet-500/10 text-violet-600 dark:text-violet-400">
-              <Clock3 size={20} strokeWidth={2} />
-            </div>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Refunds returned</p>
-            <p className="mt-2 text-2xl font-bold text-gray-900 dark:text-white">{formatMoney(refundsTotal)}</p>
-            <p className="mt-1 text-xs text-gray-400 dark:text-slate-500">Refund credits returned to wallet on cancelled orders.</p>
-          </div>
+          ))}
         </div>
 
-        {/* History Activities */}
-        <div className="rounded-3xl border border-gray-200 dark:border-white/5 bg-white dark:bg-[#111e29] p-5 shadow-sm sm:p-6 transition-colors duration-300">
+        {/* ── Transaction History ── */}
+        <div className="rounded-3xl border border-gray-200 bg-white p-5 shadow-sm sm:p-6">
           <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">Wallet activity</h2>
-              <p className="text-sm text-gray-500 dark:text-slate-400">
-                Your latest wallet activity and payment updates.
-              </p>
+              <h2 className="text-lg font-bold text-gray-900">Wallet activity</h2>
+              <p className="text-sm text-gray-500">Your latest wallet activity and payment updates.</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <span className="inline-flex items-center gap-2 rounded-full border border-slate-200 dark:border-white/5 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-slate-400">
+              <span className="inline-flex items-center gap-2 rounded-full border border-gray-200 px-3 py-2 text-xs font-semibold text-gray-500">
                 <Filter size={14} />
                 Filter
               </span>
@@ -931,8 +496,8 @@ export default function Wallet() {
                   onClick={() => setFilter(value)}
                   className={`rounded-full px-3 py-2 text-xs font-semibold transition ${
                     filter === value
-                      ? "bg-[#1D6076] dark:bg-[#EBA050] text-white dark:text-slate-950"
-                      : "border border-slate-200 dark:border-white/5 bg-white dark:bg-[#182835] text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-white/8"
+                      ? "bg-[#1D6076] text-white"
+                      : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
                   }`}
                 >
                   {label}
@@ -943,38 +508,49 @@ export default function Wallet() {
 
           <div className="space-y-3">
             {filteredTransactions.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-gray-200 dark:border-white/10 bg-gray-50 dark:bg-[#182835]/40 px-4 py-8 text-center text-sm text-gray-500 dark:text-slate-400">
-                No wallet activity was returned for this filter yet.
+              <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-400">
+                No wallet activity for this filter yet.
               </div>
             ) : (
-              filteredTransactions.map((transaction) => (
+              filteredTransactions.map((tx) => (
                 <div
-                  key={transaction.id}
-                  className="flex flex-col gap-4 rounded-2xl border border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-[#182835] px-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-gray-100/50 dark:hover:bg-[#172733] transition-colors duration-200"
+                  key={tx.id}
+                  className="flex flex-col gap-4 rounded-2xl border border-gray-100 bg-gray-50 px-4 py-4 sm:flex-row sm:items-center sm:justify-between hover:bg-gray-100/70 transition-colors duration-200"
                 >
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900 dark:text-white">{transaction.title}</p>
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getMethodChipClass(transaction.paymentMethod)}`}>
-                        {transaction.paymentMethod}
+                      <p className="text-sm font-semibold text-gray-900">{tx.title}</p>
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        tx.paymentMethod === "Refund" ? "bg-violet-100 text-violet-700" :
+                        tx.paymentMethod === "Wallet" ? "bg-emerald-100 text-emerald-700" :
+                        tx.paymentMethod === "Cash" ? "bg-amber-100 text-amber-700" :
+                        "bg-sky-100 text-sky-700"
+                      }`}>
+                        {tx.paymentMethod}
                       </span>
-                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${getStatusChipClass(transaction.paymentStatus)}`}>
-                        {transaction.paymentStatus}
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                        tx.paymentStatus.toLowerCase() === "completed" || tx.paymentStatus.toLowerCase() === "paid"
+                          ? "bg-emerald-100 text-emerald-700"
+                          : tx.paymentStatus.toLowerCase() === "pending"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-red-100 text-red-700"
+                      }`}>
+                        {tx.paymentStatus}
                       </span>
                     </div>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-slate-400">{transaction.time}</p>
+                    <p className="mt-1 text-xs text-gray-400">{tx.time}</p>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className={`text-sm font-bold ${transaction.positive ? "text-emerald-600 dark:text-emerald-400" : "text-gray-950 dark:text-slate-200"}`}>
-                      {transaction.amountLabel}
+                    <span className={`text-sm font-bold ${tx.positive ? "text-emerald-600" : "text-gray-800"}`}>
+                      {tx.amountLabel}
                     </span>
-                    {transaction.paymentStatus.toLowerCase() === "failed" ? (
-                      <XCircle className="h-4 w-4 text-rose-500" />
-                    ) : transaction.paymentStatus.toLowerCase() === "completed" || transaction.paymentStatus.toLowerCase() === "paid" ? (
+                    {tx.paymentStatus.toLowerCase() === "failed" ? (
+                      <XCircle className="h-4 w-4 text-red-400" />
+                    ) : tx.paymentStatus.toLowerCase() === "completed" || tx.paymentStatus.toLowerCase() === "paid" ? (
                       <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                     ) : (
-                      <Clock3 className="h-4 w-4 text-amber-500 animate-pulse" />
+                      <Clock3 className="h-4 w-4 text-amber-400 animate-pulse" />
                     )}
                   </div>
                 </div>
@@ -986,4 +562,3 @@ export default function Wallet() {
     </div>
   );
 }
-

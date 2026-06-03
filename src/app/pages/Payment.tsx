@@ -10,7 +10,9 @@ import {
   Loader2,
   AlertCircle,
   CreditCard,
-  Wallet,
+  WalletCards,
+  CheckCircle2,
+  Sparkles,
 } from "lucide-react";
 import {
   ApiError,
@@ -21,7 +23,6 @@ import {
 import { useAuth } from "../context/AuthContext";
 
 type FlowState = "loading" | "ready" | "processing" | "failed" | "invalid";
-type SelectedMethod = "card" | "wallet";
 
 async function openExternalUrl(url: string) {
   const capacitor = typeof window !== "undefined" ? (window as typeof window & {
@@ -63,7 +64,6 @@ export default function Payment() {
   );
   const [orderTotal, setOrderTotal] = useState(0);
   const [walletBalance, setWalletBalance] = useState(0);
-  const [selectedMethod, setSelectedMethod] = useState<SelectedMethod>("card");
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -99,7 +99,6 @@ export default function Payment() {
 
         setOrderTotal(Number(order.totalPrice ?? 0));
         setWalletBalance(Number(walletInfo.balance ?? 0));
-        setSelectedMethod(Number(walletInfo.balance ?? 0) >= Number(order.totalPrice ?? 0) ? "wallet" : "card");
         setFlowState(status === "failed" ? "failed" : "ready");
       } catch (error) {
         if (!active) return;
@@ -116,12 +115,18 @@ export default function Payment() {
     };
   }, [orderId, status, user?.token]);
 
-  const remainingAfterWallet = useMemo(
-    () => Math.max(0, orderTotal - walletBalance),
+  // الخصم التلقائي من المحفظة
+  const walletDeduction = useMemo(
+    () => Math.min(walletBalance, orderTotal),
     [orderTotal, walletBalance],
   );
 
-  const walletCanCoverOrder = walletBalance >= orderTotal && orderTotal > 0;
+  const amountDue = useMemo(
+    () => Math.max(0, orderTotal - walletDeduction),
+    [orderTotal, walletDeduction],
+  );
+
+  const walletCoversAll = walletDeduction > 0 && amountDue === 0;
 
   const handlePay = async () => {
     if (!user?.token || !orderId) return;
@@ -129,36 +134,22 @@ export default function Payment() {
     try {
       setFlowState("processing");
 
-      const payload =
-        selectedMethod === "wallet"
-          ? {
-              orderId: Number(orderId),
-              amount: orderTotal,
-              paymentMethod: "Wallet" as const,
-            }
-          : {
-              orderId: Number(orderId),
-              amount: orderTotal,
-              paymentMethod: "CreditCard" as const,
-            };
+      const payload = {
+        orderId: Number(orderId),
+        amount: orderTotal,
+        paymentMethod: "CreditCard" as const,
+      };
 
       const response = await processPaymentRequest(user.token, payload);
 
-      if (selectedMethod === "wallet") {
+      // لو المحفظة غطّت الكل — الأوردر اتأكد تلقائياً
+      if (!response.paymentUrl) {
         router.replace(`/track-order/${orderId}?notice=paid`);
         return;
       }
 
-      const cashierUrl = response.paymentUrl;
-      if (!cashierUrl) {
-        throw new ApiError(
-          "Backend did not return a cashier URL for card payment.",
-          500,
-          response,
-        );
-      }
-
-      await openExternalUrl(cashierUrl);
+      // فيه فرق — افتح Kashier
+      await openExternalUrl(response.paymentUrl);
     } catch (error) {
       setFailureMessage(
         error instanceof ApiError
@@ -213,6 +204,7 @@ export default function Payment() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]" dir="ltr">
+      {/* Header */}
       <div className="sticky top-16 z-20 border-b border-gray-100 bg-white px-4 py-4 shadow-sm md:px-8">
         <div className="mx-auto flex max-w-2xl items-center gap-3">
           <button
@@ -232,7 +224,34 @@ export default function Payment() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-2xl px-4 py-6 md:px-8">
+      <div className="mx-auto max-w-2xl px-4 py-6 md:px-8 space-y-4">
+
+        {/* Wallet Auto-Deduction Banner */}
+        {walletDeduction > 0 && (
+          <div className={`rounded-3xl border px-5 py-4 flex items-start gap-3 ${
+            walletCoversAll
+              ? "border-emerald-200 bg-gradient-to-r from-emerald-50 to-white"
+              : "border-sky-200 bg-gradient-to-r from-sky-50 to-white"
+          }`}>
+            <div className={`rounded-2xl p-2 ${walletCoversAll ? "bg-emerald-100 text-emerald-600" : "bg-sky-100 text-sky-600"}`}>
+              {walletCoversAll ? <CheckCircle2 size={18} strokeWidth={2} /> : <Sparkles size={18} strokeWidth={2} />}
+            </div>
+            <div>
+              <p className={`text-sm font-semibold ${walletCoversAll ? "text-emerald-800" : "text-sky-800"}`}>
+                {walletCoversAll
+                  ? "Your wallet covers the full order!"
+                  : `Wallet saving you ${formatMoney(walletDeduction)}`}
+              </p>
+              <p className={`mt-0.5 text-xs ${walletCoversAll ? "text-emerald-600" : "text-sky-600"}`}>
+                {walletCoversAll
+                  ? "No card needed — your order will be confirmed instantly."
+                  : `${formatMoney(walletDeduction)} deducted automatically from your wallet. Pay only ${formatMoney(amountDue)}.`}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Payment Summary */}
         <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="text-lg font-semibold text-gray-900">Payment summary</h2>
           <div className="mt-4 space-y-3 text-sm">
@@ -240,85 +259,63 @@ export default function Payment() {
               <span className="text-gray-500">Order total</span>
               <span className="font-semibold text-gray-900">{formatMoney(orderTotal)}</span>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-gray-500">Wallet balance</span>
-              <span className="font-semibold text-gray-900">{formatMoney(walletBalance)}</span>
-            </div>
-            {!walletCanCoverOrder ? (
+
+            {walletDeduction > 0 && (
               <div className="flex items-center justify-between">
-                <span className="text-gray-500">Remaining if using wallet only</span>
-                <span className="font-semibold text-amber-700">{formatMoney(remainingAfterWallet)}</span>
+                <span className="flex items-center gap-1.5 text-gray-500">
+                  <WalletCards size={13} className="text-emerald-500" />
+                  Wallet deduction
+                </span>
+                <span className="font-semibold text-emerald-600">−{formatMoney(walletDeduction)}</span>
               </div>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-5 rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
-          <h2 className="text-lg font-semibold text-gray-900">Choose payment method</h2>
-          <div className="mt-4 grid gap-3">
-            <button
-              type="button"
-              onClick={() => setSelectedMethod("card")}
-              className={`rounded-2xl border px-4 py-4 text-left transition ${
-                selectedMethod === "card"
-                  ? "border-[#1D6076] bg-[#1D6076]/5"
-                  : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-              }`}
-            >
-              <div className="mb-1.5 flex items-center gap-2.5">
-                <CreditCard size={16} className="text-[#1D6076]" strokeWidth={2} />
-                <p className="text-sm font-medium text-gray-900">Credit Card</p>
-              </div>
-              <p className="text-xs text-gray-500">
-                Pay the full order using Kashier card checkout.
-              </p>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => walletCanCoverOrder && setSelectedMethod("wallet")}
-              disabled={!walletCanCoverOrder}
-              className={`rounded-2xl border px-4 py-4 text-left transition ${
-                selectedMethod === "wallet"
-                  ? "border-[#1D6076] bg-[#1D6076]/5"
-                  : "border-gray-200 bg-gray-50"
-              } ${walletCanCoverOrder ? "hover:bg-gray-100" : "cursor-not-allowed opacity-60"}`}
-            >
-              <div className="mb-1.5 flex items-center gap-2.5">
-                <Wallet size={16} className="text-[#1D6076]" strokeWidth={2} />
-                <p className="text-sm font-medium text-gray-900">Wallet</p>
-              </div>
-              <p className="text-xs text-gray-500">
-                {walletCanCoverOrder
-                  ? "Your wallet can cover this order ╪¿╪º┘ä┘â╪º┘à┘ä."
-                  : `Wallet is short by ${formatMoney(remainingAfterWallet)}. Full wallet payment only is supported for regular orders.`}
-              </p>
-            </button>
-          </div>
-
-          {!walletCanCoverOrder ? (
-            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-              For normal orders, the current backend supports wallet payment only when the wallet covers the full total. Split payment from wallet + card is not available here yet.
-            </div>
-          ) : null}
-
-          <button
-            onClick={() => void handlePay()}
-            disabled={flowState === "processing"}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#1D6076] py-4 text-sm font-medium text-white transition hover:bg-[#2a7a94] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {flowState === "processing" ? (
-              <>
-                <Loader2 size={18} className="animate-spin" strokeWidth={2} />
-                Processing...
-              </>
-            ) : (
-              <>
-                {selectedMethod === "wallet" ? "Pay with Wallet" : "Continue to Card Checkout"}
-              </>
             )}
-          </button>
+
+            <div className="flex items-center justify-between border-t border-gray-100 pt-3">
+              <span className="font-semibold text-gray-700">Amount due</span>
+              <span className="text-lg font-bold text-gray-900">{formatMoney(amountDue)}</span>
+            </div>
+          </div>
         </div>
+
+        {/* Payment Method (only shown when there's something to pay) */}
+        {!walletCoversAll && amountDue > 0 && (
+          <div className="rounded-3xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-semibold text-gray-900">Payment method</h2>
+            <div className="mt-4 rounded-2xl border border-[#1D6076]/20 bg-[#1D6076]/5 px-4 py-4">
+              <div className="flex items-center gap-2.5">
+                <CreditCard size={16} className="text-[#1D6076]" strokeWidth={2} />
+                <p className="text-sm font-medium text-gray-900">Credit / Debit Card</p>
+              </div>
+              <p className="mt-1 text-xs text-gray-500">
+                You will be redirected to Kashier to pay <span className="font-semibold text-gray-800">{formatMoney(amountDue)}</span> securely.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Action Button */}
+        <button
+          onClick={() => void handlePay()}
+          disabled={flowState === "processing"}
+          className="w-full rounded-3xl bg-[#1D6076] py-4 text-sm font-semibold text-white shadow-lg shadow-[#1D6076]/20 transition hover:bg-[#2a7a94] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-70 flex items-center justify-center gap-2"
+        >
+          {flowState === "processing" ? (
+            <>
+              <Loader2 size={18} className="animate-spin" strokeWidth={2} />
+              Processing...
+            </>
+          ) : walletCoversAll ? (
+            <>
+              <CheckCircle2 size={16} strokeWidth={2.5} />
+              Confirm Order — Free via Wallet
+            </>
+          ) : (
+            <>
+              <CreditCard size={16} strokeWidth={2} />
+              Pay {formatMoney(amountDue)} with Card
+            </>
+          )}
+        </button>
       </div>
     </div>
   );
