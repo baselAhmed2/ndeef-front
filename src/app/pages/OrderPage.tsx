@@ -160,6 +160,7 @@ export default function OrderPage() {
   const [paymentMethod, setPaymentMethod] = useState<
     "credit" | "cash" | "wallet"
   >("credit");
+  const [autoSelectedMethod, setAutoSelectedMethod] = useState(false);
   const [validating, setValidating] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [pricingError, setPricingError] = useState("");
@@ -388,6 +389,17 @@ export default function OrderPage() {
   );
 
   useEffect(() => {
+    if (!loading && total > 0 && !autoSelectedMethod) {
+      if (walletCanCoverRegularOrder) {
+        setPaymentMethod("wallet");
+      } else {
+        setPaymentMethod("credit");
+      }
+      setAutoSelectedMethod(true);
+    }
+  }, [loading, total, walletCanCoverRegularOrder, autoSelectedMethod]);
+
+  useEffect(() => {
     if (selectedBundle) {
       if (paymentMethod === "wallet") {
         setPaymentMethod("credit");
@@ -395,15 +407,10 @@ export default function OrderPage() {
       return;
     }
 
-    if (walletCanCoverRegularOrder && paymentMethod === "credit") {
-      setPaymentMethod("wallet");
-      return;
-    }
-
     if (!walletCanCoverRegularOrder && paymentMethod === "wallet") {
       setPaymentMethod("credit");
     }
-  }, [paymentMethod, selectedBundle, walletCanCoverRegularOrder]);
+  }, [selectedBundle, walletCanCoverRegularOrder, paymentMethod]);
 
   const updateItemCount = (serviceId: string, nextValue: number) => {
     setItemCounts((current) => ({
