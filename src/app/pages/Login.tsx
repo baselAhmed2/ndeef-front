@@ -94,27 +94,27 @@ function SegmentedControl({
     { key: "Courier", label: "Courier", icon: Truck },
   ];
   return (
-    <div className="ndeef-auth-segment grid grid-cols-2 gap-1.5 p-1.5 bg-[#dbe6ee] dark:bg-[#122633]/80 backdrop-blur-sm rounded-2xl border border-[#c8d6e2] dark:border-white/5 shadow-[inset_0_1px_0_rgba(255,255,255,0.5)] sm:grid-cols-3">
+    <div className="ndeef-auth-segment flex rounded-2xl border border-slate-200/80 bg-[linear-gradient(180deg,#f8fbfd,#eef4f8)] p-1 shadow-[inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-sm dark:border-white/5 dark:bg-[#122633]/80">
       {options.map(({ key, label, icon: Icon }) => (
         <motion.button
           key={key}
           type="button"
           onClick={() => onChange(key)}
           whileTap={{ scale: 0.98 }}
-          className={`flex min-w-0 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 relative ${value === key
-              ? "text-[#f0a34a] dark:text-[#EBA050]"
-              : "text-[#6a7f8e] hover:text-[#26485c] dark:text-[#7AAFC2] dark:hover:text-[#EEF4F8]"
+          className={`flex-1 flex min-w-0 items-center justify-center gap-1.5 sm:gap-2 py-2.5 sm:py-3 px-2 rounded-xl text-xs sm:text-sm font-medium transition-all duration-300 relative ${value === key
+              ? "text-[#1D6076] dark:text-[#EBA050]"
+              : "text-gray-500 hover:text-gray-800 dark:text-[#7AAFC2] dark:hover:text-[#EEF4F8]"
             }`}
         >
           {value === key && (
             <motion.div
               layoutId="activeTab"
-              className="ndeef-auth-segment-active absolute inset-0 bg-[#23445a] dark:bg-[#1A3347] rounded-xl shadow-[0_8px_18px_rgba(29,96,118,0.16)] border border-[#315d76] dark:border-white/5"
+              className="ndeef-auth-segment-active absolute inset-0 bg-white dark:bg-[#1A3347] rounded-xl shadow-[0_8px_18px_rgba(15,23,42,0.08)] border border-slate-200 dark:border-white/5"
               transition={{ type: "spring", bounce: 0.15, duration: 0.55 }}
             />
           )}
           <span className="relative z-10 flex min-w-0 items-center gap-1 sm:gap-2">
-            <Icon size={15} className={`shrink-0 ${value === key ? "text-[#f0a34a] dark:text-[#EBA050]" : "text-[#8aa0af] dark:text-[#7AAFC2]"}`} />
+            <Icon size={15} className={`shrink-0 ${value === key ? "text-[#1D6076] dark:text-[#EBA050]" : "text-gray-400 dark:text-[#7AAFC2]"}`} />
             <span className="truncate whitespace-nowrap">{label}</span>
           </span>
         </motion.button>
@@ -158,22 +158,22 @@ async function resolveLaundryAdminLoginPath(
 function getAccountAccentClass(accountType: AccountType) {
   switch (accountType) {
     case "LaundryAdmin":
-      return "text-[#F59E0B]";
+      return "text-[#D97706] hover:text-[#B45309] dark:text-[#F59E0B]";
     case "Courier":
-      return "text-[#3B82F6]";
+      return "text-[#1D4ED8] hover:text-[#1E40AF] dark:text-[#3B82F6]";
     default:
-      return "text-[#0EA5E9]";
+      return "text-[#0369A1] hover:text-[#075985] dark:text-[#0EA5E9]";
   }
 }
 
 function getAccountHintClass(accountType: AccountType) {
   switch (accountType) {
     case "LaundryAdmin":
-      return "bg-amber-50 border border-amber-200 text-amber-800 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-300";
+      return "bg-amber-50/80 border border-amber-200/80 text-amber-900 dark:bg-amber-950/30 dark:border-amber-500/20 dark:text-amber-200";
     case "Courier":
-      return "bg-blue-50 border border-blue-200 text-blue-800 dark:bg-blue-900/20 dark:border-blue-700 dark:text-blue-300";
+      return "bg-blue-50/80 border border-blue-200/80 text-blue-900 dark:bg-blue-950/30 dark:border-blue-500/20 dark:text-blue-200";
     default:
-      return "bg-sky-50 border border-sky-200 text-sky-800 dark:bg-sky-900/20 dark:border-sky-700 dark:text-sky-300";
+      return "bg-sky-50/80 border border-sky-200/80 text-sky-900 dark:bg-sky-950/30 dark:border-sky-500/20 dark:text-sky-200";
   }
 }
 
@@ -817,7 +817,7 @@ export default function Login() {
         initial={{ opacity: 0, x: 50 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ duration: 0.6, delay: 0.2 }}
-        className="ndeef-auth-brand hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-sky-600 to-sky-800 relative flex-col justify-between p-12 overflow-hidden"
+        className="ndeef-auth-brand hidden lg:flex lg:w-[480px] xl:w-[540px] bg-gradient-to-br from-[#0f4c5c] to-[#0a3440] relative flex-col justify-between p-12 overflow-hidden"
       >
         {/* Animated background shapes */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">

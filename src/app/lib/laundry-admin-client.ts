@@ -1371,7 +1371,7 @@ export async function proposeLaundryBundleEdit(payload: {
 export async function deactivateLaundryBundle(bundleId: string) {
   return apiRequest(`/Bundles/${bundleId}/deactivate`, {
     method: "PATCH",
-    body: JSON.stringify({ reason: "Deactivated from frontend" }),
+    body: JSON.stringify({ bundleId, reason: "Deactivated from frontend" }),
   });
 }
 
