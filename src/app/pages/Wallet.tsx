@@ -697,7 +697,7 @@ export default function Wallet() {
           </Link>
           <div>
             <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Wallet</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">Charge your wallet, review your balance, and track refunds.</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400">Review your balance, track refunds, and manage your Nazeef Card.</p>
           </div>
           <button
             type="button"
@@ -826,60 +826,49 @@ export default function Wallet() {
             </div>
           </div>
 
-          {/* Quick Charge Control panel */}
+          {/* Wallet Refunds Info panel */}
           <div className="overflow-hidden rounded-[30px] bg-gradient-to-br from-[#1D6076] via-[#246b83] to-[#0d3d50] dark:from-[#112d38] dark:via-[#193a47] dark:to-[#09222c] p-6 sm:p-8 text-white shadow-xl flex flex-col justify-between transition-colors duration-300">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-white/70">Wallet Funding</p>
-                <p className="mt-3 text-sm leading-6 text-white/85">
-                  Top up your account balance instantly using Kashier payment gateway checkout.
+                <p className="text-sm uppercase tracking-[0.2em] text-white/70">Wallet Returns & Refunds</p>
+                <p className="mt-3 text-sm leading-6 text-white/90">
+                  Your Nazeef Wallet balance is dedicated exclusively to processing order returns and refunds.
                 </p>
               </div>
               <div className="rounded-2xl bg-white/10 p-3">
-                <WalletIcon size={24} strokeWidth={2} />
+                <ShieldCheck size={24} strokeWidth={2} />
               </div>
             </div>
 
-            <div className="mt-8 rounded-[26px] bg-white/10 dark:bg-white/5 p-4 backdrop-blur-sm">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-                <label className="block flex-1">
-                  <span className="mb-2 block text-xs font-semibold uppercase tracking-[0.18em] text-white/70">
-                    Charge amount
-                  </span>
-                  <input
-                    type="number"
-                    min="10"
-                    max="10000"
-                    step="10"
-                    value={chargeAmount}
-                    onChange={(event) => setChargeAmount(event.target.value)}
-                    className="h-12 w-full rounded-2xl border border-white/15 bg-white dark:bg-[#182835] px-4 text-base font-semibold text-slate-900 dark:text-white outline-none focus:border-white/40 dark:focus:border-white/20 transition-all"
-                  />
-                </label>
-                <button
-                  onClick={() => void handleChargeWallet()}
-                  disabled={charging}
-                  className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#EBA050] hover:bg-[#e29a49] dark:bg-[#EBA050] dark:text-slate-950 dark:hover:bg-[#d4832a] px-5 text-sm font-semibold text-slate-950 transition disabled:cursor-not-allowed disabled:opacity-60 shrink-0"
-                >
-                  {charging ? <Loader2 size={16} className="animate-spin" strokeWidth={2.4} /> : <Plus size={16} strokeWidth={2.4} />}
-                  {charging ? "Starting..." : "Charge wallet"}
-                </button>
+            <div className="mt-6 space-y-4 rounded-[26px] bg-white/10 dark:bg-white/5 p-5 backdrop-blur-sm">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-emerald-500/20 p-1 text-emerald-400">
+                  <CheckCircle2 size={14} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Instant Returns</h4>
+                  <p className="mt-0.5 text-xs text-white/70">Refunding cancelled orders to your wallet is instant, saving credit card processing delays.</p>
+                </div>
               </div>
 
-              <div className="mt-4 flex flex-wrap gap-2">
-                {QUICK_AMOUNTS.map((amount) => (
-                  <button
-                    key={amount}
-                    onClick={() => setChargeAmount(String(amount))}
-                    className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
-                      Number(chargeAmount) === amount
-                        ? "bg-white text-[#1D6076] dark:text-[#112d38] shadow-sm"
-                        : "bg-white/10 text-white hover:bg-white/20"
-                    }`}
-                  >
-                    {amount} EGP
-                  </button>
-                ))}
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-emerald-500/20 p-1 text-emerald-400">
+                  <CheckCircle2 size={14} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Automated Credits</h4>
+                  <p className="mt-0.5 text-xs text-white/70">Any refunds are credited to this wallet automatically and tracked under the activities tab.</p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-full bg-emerald-500/20 p-1 text-emerald-400">
+                  <CheckCircle2 size={14} />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-white">Refund Balance</h4>
+                  <p className="mt-0.5 text-xs text-white/70">Wallet balance is updated instantly and can be reviewed at any time.</p>
+                </div>
               </div>
             </div>
           </div>

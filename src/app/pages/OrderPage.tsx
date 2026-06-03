@@ -1193,35 +1193,6 @@ export default function OrderPage() {
                 automatically.
               </p>
             </button>
-
-            {!selectedBundle ? (
-              <button
-                type="button"
-                onClick={() =>
-                  walletCanCoverRegularOrder && setPaymentMethod("wallet")
-                }
-                disabled={!walletCanCoverRegularOrder}
-                className={`text-left rounded-xl border px-4 py-3.5 transition-all ${
-                  paymentMethod === "wallet"
-                    ? "border-[#1D6076] bg-[#1D6076]/5"
-                    : "border-gray-200 bg-gray-50 hover:bg-gray-100"
-                } ${walletCanCoverRegularOrder ? "" : "cursor-not-allowed opacity-60"}`}
-              >
-                <div className="flex items-center gap-2.5 mb-1.5">
-                  <Wallet
-                    size={16}
-                    className="text-[#1D6076]"
-                    strokeWidth={2}
-                  />
-                  <p className="text-sm text-gray-900 font-medium">Wallet</p>
-                </div>
-                <p className="text-xs text-gray-500">
-                  {walletCanCoverRegularOrder
-                    ? "If you place the order now, it will be paid automatically from your wallet."
-                    : `Wallet payment for normal orders needs the full amount. Short by ${(total + deliveryFee - walletBalance).toFixed(2)} EGP.`}
-                </p>
-              </button>
-            ) : null}
           </div>
 
           {selectedBundle ? (
@@ -1250,13 +1221,6 @@ export default function OrderPage() {
                   {useWalletBalance ? "Enabled" : "Enable"}
                 </button>
               </div>
-            </div>
-          ) : null}
-
-          {!selectedBundle && paymentMethod === "wallet" ? (
-            <div className="mt-4 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
-              This order will be created first, then paid automatically from
-              your wallet balance.
             </div>
           ) : null}
         </div>
