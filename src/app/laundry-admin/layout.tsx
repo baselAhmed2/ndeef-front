@@ -1,6 +1,7 @@
 import { LaundryAdminLayout } from "@/app/components/layout/LaundryAdminLayout";
 import { DashboardAccessGuard } from "@/app/components/auth/DashboardAccessGuard";
 import { VerificationGuard } from "@/app/components/auth/VerificationGuard";
+import { LaundryNotificationProvider } from "@/app/context/LaundryNotificationContext";
 import type { ReactNode } from "react";
 
 export default function LaundrySectionLayout({
@@ -11,7 +12,9 @@ export default function LaundrySectionLayout({
   return (
     <DashboardAccessGuard allowedRoles={["laundryadmin", "3"]} loginRoleHint="LaundryAdmin">
       <VerificationGuard>
-        <LaundryAdminLayout>{children}</LaundryAdminLayout>
+        <LaundryNotificationProvider>
+          <LaundryAdminLayout>{children}</LaundryAdminLayout>
+        </LaundryNotificationProvider>
       </VerificationGuard>
     </DashboardAccessGuard>
   );

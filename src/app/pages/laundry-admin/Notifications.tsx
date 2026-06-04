@@ -1,14 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import {
-  clearReadLaundryNotifications,
-  deleteLaundryNotification,
-  getLaundryNotifications,
-  markAllLaundryNotificationsRead,
-  markLaundryNotificationRead,
-} from "@/app/lib/laundry-admin-client";
-import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
+import { useState } from "react";
+import { useLaundryNotifications } from "@/app/context/LaundryNotificationContext";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Bell,
@@ -27,15 +20,6 @@ import {
 type NotifType = "order" | "payment" | "review" | "alert" | "system";
 type NotifFilter = "All" | "Unread" | "order" | "payment" | "review" | "alert" | "system";
 
-interface Notification {
-  id: string;
-  type: NotifType;
-  title: string;
-  message: string;
-  time: string;
-  read: boolean;
-}
-
 const typeConfig: Record<NotifType, { icon: React.ElementType; color: string; bg: string; label: string }> = {
   order: { icon: ShoppingBag, color: "#1D5B70", bg: "#f0f9ff", label: "Order" },
   payment: { icon: CreditCard, color: "#22c55e", bg: "#f0fdf4", label: "Payment" },
@@ -47,95 +31,23 @@ const typeConfig: Record<NotifType, { icon: React.ElementType; color: string; bg
 const filterOptions: NotifFilter[] = ["All", "Unread", "order", "payment", "review", "alert", "system"];
 
 export function Notifications() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    error,
+    markRead,
+    markAllRead,
+    dismiss,
+    clearRead,
+  } = useLaundryNotifications();
   const [activeFilter, setActiveFilter] = useState<NotifFilter>("All");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadNotifications = async (silent = false) => {
-    try {
-      if (!silent) setLoading(true);
-      setError(null);
-      const data = await getLaundryNotifications();
-      setNotifications(data as Notification[]);
-    } catch (error) {
-      console.error("Failed to load notifications", error);
-      setNotifications([]);
-      setError("Failed to load notifications right now.");
-    } finally {
-      if (!silent) {
-        setLoading(false);
-      }
-    }
-  };
-
-  useEffect(() => {
-    void loadNotifications();
-  }, []);
-
-  useAutoRefresh(() => loadNotifications(true), { intervalMs: 10000 });
 
   const filtered = notifications.filter((n) => {
     if (activeFilter === "All") return true;
     if (activeFilter === "Unread") return !n.read;
     return n.type === activeFilter;
   });
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  const markAllRead = async () => {
-    try {
-      setError(null);
-      await markAllLaundryNotificationsRead();
-    } catch (error) {
-      console.error(error);
-      setError("Failed to mark notifications as read.");
-      return;
-    }
-
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const markRead = async (id: string) => {
-    const notification = notifications.find((n) => n.id === id);
-    if (notification?.read) return;
-
-    setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n)));
-    try {
-      setError(null);
-      await markLaundryNotificationRead(id);
-    } catch (error) {
-      console.error(error);
-      setError("Failed to mark notification as read.");
-      setNotifications((prev) => prev.map((n) => (n.id === id ? { ...n, read: false } : n)));
-    }
-  };
-
-  const dismiss = async (id: string) => {
-    const previousNotifications = notifications;
-    setNotifications((prev) => prev.filter((n) => n.id !== id));
-    try {
-      setError(null);
-      await deleteLaundryNotification(id);
-    } catch (error) {
-      console.error(error);
-      setError("Failed to delete notification.");
-      setNotifications(previousNotifications);
-    }
-  };
-
-  const clearRead = async () => {
-    const previousNotifications = notifications;
-    setNotifications((prev) => prev.filter((n) => !n.read));
-    try {
-      setError(null);
-      await clearReadLaundryNotifications();
-    } catch (error) {
-      console.error(error);
-      setError("Failed to clear read notifications.");
-      setNotifications(previousNotifications);
-    }
-  };
 
   
   return (

@@ -6,8 +6,7 @@ import { Bell, Search, ChevronDown, User, Settings, LogOut, AlertTriangle, X } f
 import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "@/app/context/AuthContext";
 import { usePreferences } from "@/app/context/PreferencesContext";
-import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
-import { getLaundryUnreadNotificationCount } from "@/app/lib/laundry-admin-client";
+import { useLaundryNotifications } from "@/app/context/LaundryNotificationContext";
 
 const LOCAL_PROFILE_PHOTO_KEY = "nadeef_laundry_profile_photo";
 
@@ -42,44 +41,12 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { isDark } = usePreferences();
-  const [unreadCount, setUnreadCount] = useState(notificationCount);
+  const { unreadCount } = useLaundryNotifications();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showSearch, setShowSearch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [profilePhoto, setProfilePhoto] = useState("");
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadUnreadCount() {
-      try {
-        const count = await getLaundryUnreadNotificationCount();
-        if (active) setUnreadCount(count);
-      } catch (error) {
-        console.error("Failed to load laundry notification count", error);
-        if (active) setUnreadCount(0);
-      }
-    }
-
-    void loadUnreadCount();
-
-    return () => {
-      active = false;
-    };
-  }, [pathname]);
-
-  useAutoRefresh(
-    async () => {
-      try {
-        const count = await getLaundryUnreadNotificationCount();
-        setUnreadCount(count);
-      } catch {
-        setUnreadCount(0);
-      }
-    },
-    { enabled: Boolean(pathname), intervalMs: 10000 },
-  );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
