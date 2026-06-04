@@ -120,11 +120,13 @@ function buildVoiceWebSocketCandidates(token: string): string[] {
     urls.push(`${fromEnv.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`);
   }
 
-  urls.push(`${LEGACY_VOICE_WS_ORIGIN}/api/voice/socket?access_token=${encodeURIComponent(token)}`);
-
+  // Prioritize current active backend derived from BACKEND_ORIGIN
   const httpBase = BACKEND_ORIGIN;
   const wsBase = httpBase.replace(/^http:\/\//i, "ws://").replace(/^https:\/\//i, "wss://");
   urls.push(`${wsBase.replace(/\/$/, "")}/api/voice/socket?access_token=${encodeURIComponent(token)}`);
+
+  // Legacy fallback
+  urls.push(`${LEGACY_VOICE_WS_ORIGIN}/api/voice/socket?access_token=${encodeURIComponent(token)}`);
 
   return Array.from(new Set(urls));
 }

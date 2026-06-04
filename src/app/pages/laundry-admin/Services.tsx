@@ -330,7 +330,9 @@ export function Services() {
     try {
       setBundleBusyId(bundleId);
       await deactivateLaundryBundle(bundleId);
-      await loadServices();
+      // Remove the bundle immediately from the UI so it disappears right away.
+      // If the backend still returns it as "Inactive" on next load it will be filtered below.
+      setBundles((prev) => prev.filter((b) => b.id !== bundleId));
     } catch (bundleError) {
       console.error(bundleError);
       setError(bundleError instanceof Error ? bundleError.message : "Could not deactivate bundle.");
@@ -511,13 +513,13 @@ export function Services() {
           </div>
         </div>
 
-        {bundles.length === 0 ? (
+        {bundles.filter((b) => b.status.toLowerCase() === "active").length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
             No bundles available for this laundry yet.
           </div>
         ) : (
           <div className="space-y-3">
-            {bundles.map((bundle) => (
+            {bundles.filter((b) => b.status.toLowerCase() === "active").map((bundle) => (
               <div key={bundle.id} className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">

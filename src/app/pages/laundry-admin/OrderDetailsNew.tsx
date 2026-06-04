@@ -106,7 +106,27 @@ const statusConfig: Record<string, { color: string; bg: string; icon: React.Elem
   Cancelled: { color: "#ef4444", bg: "#fef2f2", icon: XCircle },
 };
 
-const statusActions = ["Processing", "Ready", "Cancelled"];
+// Order of statuses — each status can only advance forward, never go back.
+// Delivered and Cancelled are terminal states: no further changes allowed.
+const STATUS_ORDER = ["Pending", "Processing", "Ready", "Delivered", "Cancelled"] as const;
+
+function getAllowedStatusActions(currentStatus: string): string[] {
+  // Terminal states — nothing can be changed
+  if (currentStatus === "Delivered" || currentStatus === "Cancelled") return [];
+
+  const currentIndex = STATUS_ORDER.indexOf(currentStatus as (typeof STATUS_ORDER)[number]);
+
+  // Allow only statuses that come AFTER the current one (forward only),
+  // excluding Delivered (set automatically by courier) but always including Cancelled.
+  const forward = STATUS_ORDER.slice(currentIndex + 1).filter(
+    (s) => s !== "Delivered",
+  );
+
+  // Always show Cancelled as an option (unless already terminal, handled above)
+  if (!forward.includes("Cancelled")) forward.push("Cancelled");
+
+  return forward;
+}
 
 function getStatusLabel(status: string) {
   switch (status) {
@@ -411,25 +431,31 @@ export function OrderDetailsNew() {
 
         <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-gray-50 pt-4">
           <span className="mr-1 text-xs font-medium text-gray-500">Update Status:</span>
-          {statusActions.map((status) => (
-            <button
-              key={status}
-              disabled={updating || order.status === status}
-              onClick={() => handleStatusChange(status)}
-              className={`rounded-lg border px-3 py-1 text-xs font-medium transition disabled:opacity-50 ${
-                order.status === status
-                  ? "border-transparent text-white"
-                  : "border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"
-              }`}
-              style={
-                order.status === status
-                  ? { backgroundColor: statusConfig[status]?.color ?? "#1D5B70" }
-                  : {}
-              }
-            >
-              {updating && order.status !== status ? "Updating..." : getStatusLabel(status)}
-            </button>
-          ))}
+          {getAllowedStatusActions(order.status).length === 0 ? (
+            <span className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-400">
+              {order.status === "Delivered" ? "Order delivered — no further changes" : "Order cancelled"}
+            </span>
+          ) : (
+            getAllowedStatusActions(order.status).map((status) => (
+              <button
+                key={status}
+                disabled={updating || order.status === status}
+                onClick={() => handleStatusChange(status)}
+                className={`rounded-lg border px-3 py-1 text-xs font-medium transition disabled:opacity-50 ${
+                  order.status === status
+                    ? "border-transparent text-white"
+                    : "border-gray-200 text-gray-500 hover:border-gray-300 hover:bg-gray-50"
+                }`}
+                style={
+                  order.status === status
+                    ? { backgroundColor: statusConfig[status]?.color ?? "#1D5B70" }
+                    : {}
+                }
+              >
+                {updating && order.status !== status ? "Updating..." : getStatusLabel(status)}
+              </button>
+            ))
+          )}
         </div>
       </motion.section>
 
@@ -632,32 +658,40 @@ export function OrderDetailsNew() {
               <h3 className="font-semibold text-gray-900">Update Order Status</h3>
             </div>
             <div className="grid grid-cols-2 gap-2">
-              {statusActions.map((status) => {
-                const actionCfg = statusConfig[status] ?? statusConfig.Pending;
-                const ActionIcon = actionCfg.icon;
-                const isCurrent = order.status === status;
+              {getAllowedStatusActions(order.status).length === 0 ? (
+                <div className="col-span-2 rounded-xl border border-gray-100 bg-gray-50 px-4 py-4 text-center text-sm text-gray-400">
+                  {order.status === "Delivered"
+                    ? "✅ Order delivered — status is locked"
+                    : "❌ Order cancelled — status is locked"}
+                </div>
+              ) : (
+                getAllowedStatusActions(order.status).map((status) => {
+                  const actionCfg = statusConfig[status] ?? statusConfig.Pending;
+                  const ActionIcon = actionCfg.icon;
+                  const isCurrent = order.status === status;
 
-                return (
-                  <button
-                    key={status}
-                    onClick={() => handleStatusChange(status)}
-                    disabled={updating || isCurrent}
-                    className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition disabled:opacity-50 ${
-                      isCurrent
-                        ? "border-transparent text-white"
-                        : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
-                    }`}
-                    style={isCurrent ? { backgroundColor: actionCfg.color } : {}}
-                  >
-                    {updating && !isCurrent ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <ActionIcon className="h-4 w-4" />
-                    )}
-                    {getStatusLabel(status)}
-                  </button>
-                );
-              })}
+                  return (
+                    <button
+                      key={status}
+                      onClick={() => handleStatusChange(status)}
+                      disabled={updating || isCurrent}
+                      className={`flex items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-semibold transition disabled:opacity-50 ${
+                        isCurrent
+                          ? "border-transparent text-white"
+                          : "border-gray-200 text-gray-600 hover:border-gray-300 hover:bg-gray-50"
+                      }`}
+                      style={isCurrent ? { backgroundColor: actionCfg.color } : {}}
+                    >
+                      {updating && !isCurrent ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <ActionIcon className="h-4 w-4" />
+                      )}
+                      {getStatusLabel(status)}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </aside>
