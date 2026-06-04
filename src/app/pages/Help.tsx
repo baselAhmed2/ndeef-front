@@ -68,6 +68,23 @@ const faqItems = [
 export default function Help() {
   const [chatOpen, setChatOpen] = useState(false);
   const [voiceCallOpen, setVoiceCallOpen] = useState(false);
+  const [sharedAudioCtx, setSharedAudioCtx] = useState<AudioContext | null>(null);
+
+  const handleStartVoiceCall = () => {
+    try {
+      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      if (AudioContextClass) {
+        const ctx = new AudioContextClass();
+        if (ctx.state === "suspended") {
+          void ctx.resume();
+        }
+        setSharedAudioCtx(ctx);
+      }
+    } catch (err) {
+      console.error("Failed to initialize AudioContext in gesture:", err);
+    }
+    setVoiceCallOpen(true);
+  };
 
   return (
     <div
@@ -109,7 +126,7 @@ export default function Help() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setVoiceCallOpen(true)}
+                  onClick={handleStartVoiceCall}
                   className="inline-flex items-center gap-2 rounded-2xl border-2 border-[#1D6076] bg-white px-5 py-3 text-sm font-semibold text-[#1D6076] transition-all hover:-translate-y-0.5 hover:bg-[#1D6076]/5 relative overflow-hidden group shadow-sm shadow-[#1D6076]/5 hover:shadow-lg"
                 >
                   <Phone size={18} strokeWidth={2} className="group-hover:animate-bounce" />
@@ -194,7 +211,7 @@ export default function Help() {
 
             <button
               type="button"
-              onClick={() => setVoiceCallOpen(true)}
+              onClick={handleStartVoiceCall}
               className="ndeef-help-card group flex w-full items-center gap-4 rounded-[28px] border border-slate-200 bg-white p-5 text-left shadow-[0_14px_34px_rgba(15,23,42,0.05)] transition-all hover:-translate-y-0.5 hover:border-[#1D6076]/20 hover:shadow-[0_20px_45px_rgba(29,96,118,0.12)] relative overflow-hidden"
             >
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#1D6076]/10 text-[#1D6076] relative">
@@ -284,7 +301,15 @@ export default function Help() {
       </div>
 
       {chatOpen && <ChatWidget onClose={() => setChatOpen(false)} />}
-      {voiceCallOpen && <VoiceCallWidget onClose={() => setVoiceCallOpen(false)} />}
+      {voiceCallOpen && (
+        <VoiceCallWidget
+          sharedAudioCtx={sharedAudioCtx}
+          onClose={() => {
+            setVoiceCallOpen(false);
+            setSharedAudioCtx(null);
+          }}
+        />
+      )}
     </div>
   );
 }

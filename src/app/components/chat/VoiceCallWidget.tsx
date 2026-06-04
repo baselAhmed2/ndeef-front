@@ -33,11 +33,14 @@ function float32ToPcm16(input: Float32Array, inputRate: number): Int16Array {
 }
 
 class PCMPlayer {
-  private ctx: AudioContext | null = null;
+  private ctx: AudioContext;
   private nextTime = 0;
 
+  constructor(ctx: AudioContext) {
+    this.ctx = ctx;
+  }
+
   async start() {
-    this.ctx = new AudioContext({ sampleRate: OUTPUT_RATE });
     if (this.ctx.state === "suspended") await this.ctx.resume();
     this.nextTime = this.ctx.currentTime;
   }
@@ -67,21 +70,22 @@ class PCMPlayer {
   }
 
   stop() {
-    void this.ctx?.close();
-    this.ctx = null;
     this.nextTime = 0;
   }
 }
 
 class PCMRecorder {
-  private ctx: AudioContext | null = null;
+  private ctx: AudioContext;
   private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
   private silentGain: GainNode | null = null;
   private inputRate = INPUT_RATE;
 
+  constructor(ctx: AudioContext) {
+    this.ctx = ctx;
+  }
+
   async start(stream: MediaStream, onPcm: (pcm: Int16Array) => void) {
-    this.ctx = new AudioContext();
     this.inputRate = this.ctx.sampleRate;
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
@@ -104,11 +108,9 @@ class PCMRecorder {
     this.processor?.disconnect();
     this.source?.disconnect();
     this.silentGain?.disconnect();
-    void this.ctx?.close();
     this.processor = null;
     this.source = null;
     this.silentGain = null;
-    this.ctx = null;
   }
 }
 
@@ -178,7 +180,13 @@ type VoiceMsg = {
   outputSampleRate?: number;
 };
 
-export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
+export function VoiceCallWidget({
+  sharedAudioCtx,
+  onClose,
+}: {
+  sharedAudioCtx?: AudioContext | null;
+  onClose: () => void;
+}) {
   const { user, isAuthReady, isLoggedIn } = useAuth();
 
   const [status, setStatus] = useState<"connecting" | "active" | "error" | "ended">("connecting");
@@ -203,6 +211,7 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const micStartedRef = useRef(false);
+  const audioCtxRef = useRef<AudioContext | null>(null);
 
   const token = user?.token;
 
@@ -214,6 +223,10 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
     if (timerRef.current) clearInterval(timerRef.current);
     recorderRef.current?.stop();
     playerRef.current?.stop();
+    if (audioCtxRef.current) {
+      void audioCtxRef.current.close();
+      audioCtxRef.current = null;
+    }
     micStreamRef.current?.getTracks().forEach((track) => track.stop());
     micStreamRef.current = null;
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.close();
@@ -221,13 +234,13 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
     micStartedRef.current = false;
   }, []);
 
-  const startMicStreaming = useCallback((ws: WebSocket, stream: MediaStream) => {
+  const startMicStreaming = useCallback((ws: WebSocket, stream: MediaStream, audioContext: AudioContext) => {
     if (micStartedRef.current) return;
     micStartedRef.current = true;
-    recorderRef.current = new PCMRecorder();
+    recorderRef.current = new PCMRecorder(audioContext);
     void recorderRef.current.start(stream, (pcm) => {
       if (ws.readyState !== WebSocket.OPEN || isMutedRef.current) return;
-      ws.send(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + pcm.byteLength));
+      ws.send(pcm.buffer);
     });
   }, []);
 
@@ -241,7 +254,9 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
           statusRef.current = "active";
           setStatus("active");
           setIsListening(true);
-          if (micStreamRef.current) startMicStreaming(ws, micStreamRef.current);
+          if (micStreamRef.current && audioCtxRef.current) {
+            startMicStreaming(ws, micStreamRef.current, audioCtxRef.current);
+          }
           break;
         case "connecting_to_ai":
           statusRef.current = "active";
@@ -288,8 +303,10 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
           break;
         case "interrupted":
           playerRef.current?.stop();
-          playerRef.current = new PCMPlayer();
-          void playerRef.current.start();
+          if (audioCtxRef.current) {
+            playerRef.current = new PCMPlayer(audioCtxRef.current);
+            void playerRef.current.start();
+          }
           setIsAssistantSpeaking(false);
           setIsListening(true);
           break;
@@ -307,7 +324,17 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
   const startCall = useCallback(
     async (authToken: string) => {
       try {
-        playerRef.current = new PCMPlayer();
+        let audioCtx = sharedAudioCtx;
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+          audioCtx = new AudioContextClass();
+        }
+        audioCtxRef.current = audioCtx;
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
+
+        playerRef.current = new PCMPlayer(audioCtx);
         await playerRef.current.start();
 
         const [micStream, ws] = await Promise.all([
@@ -375,7 +402,7 @@ export function VoiceCallWidget({ onClose }: { onClose: () => void }) {
         cleanup();
       }
     },
-    [cleanup, handleServerMessage, onClose],
+    [cleanup, handleServerMessage, onClose, sharedAudioCtx],
   );
 
   useEffect(() => {
