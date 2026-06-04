@@ -94,8 +94,18 @@ class PCMRecorder {
     this.silentGain = this.ctx.createGain();
     this.silentGain.gain.value = 0;
 
+    let frameCount = 0;
     this.processor.onaudioprocess = (e) => {
+      frameCount++;
       const channel = e.inputBuffer.getChannelData(0);
+      let maxVal = 0;
+      for (let i = 0; i < channel.length; i++) {
+        const val = Math.abs(channel[i]);
+        if (val > maxVal) maxVal = val;
+      }
+      if (frameCount % 10 === 0) {
+        console.log(`[PCMRecorder] Fired onaudioprocess. frame: ${frameCount}, samples: ${channel.length}, maxAmp: ${maxVal.toFixed(4)}`);
+      }
       onPcm(float32ToPcm16(channel, this.inputRate));
     };
 
@@ -188,6 +198,8 @@ export function VoiceCallWidget({
   onClose: () => void;
 }) {
   const { user, isAuthReady, isLoggedIn } = useAuth();
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   const [status, setStatus] = useState<"connecting" | "active" | "error" | "ended">("connecting");
   const statusRef = useRef(status);
@@ -224,7 +236,11 @@ export function VoiceCallWidget({
     recorderRef.current?.stop();
     playerRef.current?.stop();
     if (audioCtxRef.current) {
-      void audioCtxRef.current.close();
+      if (!sharedAudioCtx) {
+        void audioCtxRef.current.close();
+      } else {
+        void audioCtxRef.current.suspend();
+      }
       audioCtxRef.current = null;
     }
     micStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -232,14 +248,25 @@ export function VoiceCallWidget({
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.close();
     wsRef.current = null;
     micStartedRef.current = false;
-  }, []);
+  }, [sharedAudioCtx]);
 
   const startMicStreaming = useCallback((ws: WebSocket, stream: MediaStream, audioContext: AudioContext) => {
-    if (micStartedRef.current) return;
+    if (micStartedRef.current) {
+      console.log("[Voice] startMicStreaming called but micStartedRef is already true. Skipping initialization.");
+      return;
+    }
+    console.log("[Voice] startMicStreaming - Initializing PCMRecorder with sampleRate:", audioContext.sampleRate, "state:", audioContext.state);
     micStartedRef.current = true;
     recorderRef.current = new PCMRecorder(audioContext);
     void recorderRef.current.start(stream, (pcm) => {
-      if (ws.readyState !== WebSocket.OPEN || isMutedRef.current) return;
+      if (ws.readyState !== WebSocket.OPEN) {
+        console.warn("[Voice] WebSocket not open. State:", ws.readyState);
+        return;
+      }
+      if (isMutedRef.current) return;
+      if (Math.random() < 0.05) {
+        console.log(`[Voice] Sending PCM chunk to backend: ${pcm.length} samples, bytes: ${pcm.byteLength}`);
+      }
       ws.send(pcm.buffer);
     });
   }, []);
@@ -322,20 +349,34 @@ export function VoiceCallWidget({
   );
 
   const startCall = useCallback(
-    async (authToken: string) => {
+    async (authToken: string, checkActive: () => boolean) => {
       try {
         let audioCtx = sharedAudioCtx;
-        if (!audioCtx) {
+        if (!audioCtx || audioCtx.state === "closed") {
           const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
           audioCtx = new AudioContextClass();
         }
+
+        if (!checkActive()) return;
+
         audioCtxRef.current = audioCtx;
         if (audioCtx.state === "suspended") {
           await audioCtx.resume();
         }
 
+        if (!checkActive()) {
+          if (!sharedAudioCtx) void audioCtx.close();
+          return;
+        }
+
         playerRef.current = new PCMPlayer(audioCtx);
         await playerRef.current.start();
+
+        if (!checkActive()) {
+          playerRef.current?.stop();
+          if (!sharedAudioCtx) void audioCtx.close();
+          return;
+        }
 
         const [micStream, ws] = await Promise.all([
           navigator.mediaDevices.getUserMedia({
@@ -349,6 +390,14 @@ export function VoiceCallWidget({
           openVoiceSocketWithFallback(authToken),
         ]);
 
+        if (!checkActive()) {
+          ws.close();
+          micStream.getTracks().forEach((track) => track.stop());
+          playerRef.current?.stop();
+          if (!sharedAudioCtx) void audioCtx.close();
+          return;
+        }
+
         micStreamRef.current = micStream;
         wsRef.current = ws;
         statusRef.current = "active";
@@ -360,6 +409,7 @@ export function VoiceCallWidget({
             return;
           }
           if (typeof event.data !== "string") return;
+          console.log("[Voice] Received websocket text message from backend:", event.data);
           try {
             handleServerMessage(JSON.parse(event.data) as VoiceMsg, ws);
           } catch {
@@ -386,7 +436,7 @@ export function VoiceCallWidget({
           } else {
             statusRef.current = "ended";
             setStatus("ended");
-            setTimeout(onClose, 1200);
+            setTimeout(() => onCloseRef.current(), 1200);
           }
           cleanup();
         };
@@ -402,7 +452,7 @@ export function VoiceCallWidget({
         cleanup();
       }
     },
-    [cleanup, handleServerMessage, onClose, sharedAudioCtx],
+    [cleanup, handleServerMessage, sharedAudioCtx],
   );
 
   useEffect(() => {
@@ -413,9 +463,14 @@ export function VoiceCallWidget({
       return;
     }
 
-    void startCall(token);
+    let isEffectActive = true;
+
+    void startCall(token, () => isEffectActive);
     timerRef.current = setInterval(() => setCallDuration((previous) => previous + 1), 1000);
-    return () => cleanup();
+    return () => {
+      isEffectActive = false;
+      cleanup();
+    };
   }, [isAuthReady, isLoggedIn, token, startCall, cleanup]);
 
   const endCall = () => {
@@ -423,7 +478,7 @@ export function VoiceCallWidget({
     setStatus("ended");
     wsRef.current?.close(1000, "User ended");
     cleanup();
-    setTimeout(onClose, 800);
+    setTimeout(() => onCloseRef.current(), 800);
   };
 
   const toggleMute = () => {

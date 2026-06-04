@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   ArrowLeft,
   ChevronRight,
@@ -85,6 +85,11 @@ export default function Help() {
     }
     setVoiceCallOpen(true);
   };
+
+  const handleCloseVoiceCall = useCallback(() => {
+    setVoiceCallOpen(false);
+    setSharedAudioCtx(null);
+  }, []);
 
   return (
     <div
@@ -304,10 +309,7 @@ export default function Help() {
       {voiceCallOpen && (
         <VoiceCallWidget
           sharedAudioCtx={sharedAudioCtx}
-          onClose={() => {
-            setVoiceCallOpen(false);
-            setSharedAudioCtx(null);
-          }}
+          onClose={handleCloseVoiceCall}
         />
       )}
     </div>
