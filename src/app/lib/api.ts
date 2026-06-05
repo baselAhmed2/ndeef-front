@@ -1682,7 +1682,6 @@ export async function placeBundleOrderRequest(
   payload: {
     bundleId: string;
     laundryId: number;
-    userAddressId?: number | null;
     pickupLocation?: string | null;
     deliveryLocation?: string | null;
     selectedItems: Array<{ bundleItemId: string; serviceId: number; quantity: number }>;
@@ -1698,7 +1697,6 @@ export async function placeBundleOrderRequest(
       body: JSON.stringify({
         bundleId: payload.bundleId,
         laundryId: Number(payload.laundryId),
-        userAddressId: payload.userAddressId ? Number(payload.userAddressId) : null,
         pickupLocation: payload.pickupLocation?.trim() || null,
         deliveryLocation: payload.deliveryLocation?.trim() || null,
         selectedItems: payload.selectedItems.map((item) => ({

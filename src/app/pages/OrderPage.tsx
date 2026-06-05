@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import {
   ApiError,
-  BackendAddressDto,
   UiBundle,
   UiLaundry,
   UiServiceItem,
@@ -145,10 +144,7 @@ export default function OrderPage() {
   const [laundry, setLaundry] = useState<UiLaundry | null>(null);
   const [selectedBundle, setSelectedBundle] = useState<UiBundle | null>(null);
   const [selectedServices, setSelectedServices] = useState<UiServiceItem[]>([]);
-  const [savedAddresses, setSavedAddresses] = useState<BackendAddressDto[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
-    null,
-  );
+
   const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
@@ -260,8 +256,6 @@ export default function OrderPage() {
         setLaundry(mappedLaundry);
         setSelectedBundle(bundleResponse);
         setSelectedServices(nextSelectedServices);
-        setSavedAddresses(addressResponse);
-        setSelectedAddressId(primaryAddress?.id ?? null);
         setWalletBalance(Number(walletInfo?.balance ?? 0));
         if (primaryAddress) {
           const formattedAddress = [
@@ -293,7 +287,6 @@ export default function OrderPage() {
         setLaundry(null);
         setSelectedBundle(null);
         setSelectedServices([]);
-        setSavedAddresses([]);
       } finally {
         setLoading(false);
       }
@@ -571,7 +564,6 @@ export default function OrderPage() {
         ? await placeBundleOrderRequest(user.token, {
             bundleId: selectedBundle.id,
             laundryId: Number(laundryId),
-            userAddressId: selectedAddressId ? Number(selectedAddressId) : null,
             pickupLocation: pickupAddress.trim(),
             deliveryLocation: finalDelivery.trim(),
             selectedItems: selectedBundle.items.map((item) => ({
@@ -993,49 +985,7 @@ export default function OrderPage() {
               PICKUP ADDRESS
             </p>
           </div>
-          <div className="mb-4 space-y-2">
-            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-              Select from saved addresses (Optional)
-            </label>
-            <select
-              value={selectedAddressId ?? ""}
-              onChange={(event) => {
-                const nextId = Number(event.target.value);
-                const nextAddress =
-                  savedAddresses.find((address) => address.id === nextId) ??
-                  null;
-                setSelectedAddressId(nextAddress?.id ?? null);
-                const formattedAddress = nextAddress
-                  ? [nextAddress.street, nextAddress.area, nextAddress.city]
-                      .filter(Boolean)
-                      .join(", ")
-                  : "";
-                setPickupAddress(formattedAddress);
-                if (sameAddress) setDeliveryAddress(formattedAddress);
-                setErrors((current) => ({
-                  ...current,
-                  pickup: "",
-                  delivery: "",
-                }));
-              }}
-              className="w-full rounded-xl border bg-gray-50 px-4 py-3.5 text-sm focus:outline-none focus:ring-1 border-gray-200 focus:ring-[#1D6076]/20 focus:border-[#1D6076]"
-            >
-              <option value="">Select a saved address</option>
-              {savedAddresses.map((address) => (
-                <option key={address.id} value={address.id}>
-                  {[address.label, address.street, address.area, address.city]
-                    .filter(Boolean)
-                    .join(" - ")}
-                </option>
-              ))}
-            </select>
-            {savedAddresses.length === 0 && (
-              <p className="text-xs text-gray-400">
-                No saved addresses found. You can add saved addresses in your profile settings.
-              </p>
-            )}
-          </div>
-          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04]p-3">
+          <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04] p-3">
             <div>
               <p className="text-sm font-medium text-gray-800">
                 Choose your location from the map
