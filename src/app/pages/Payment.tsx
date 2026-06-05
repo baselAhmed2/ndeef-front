@@ -97,7 +97,7 @@ export default function Payment() {
 
         if (!active) return;
 
-        setOrderTotal(Number(order.totalPrice ?? 0));
+        setOrderTotal(Number(order.payment?.amount ?? order.totalPrice ?? 0));
         setWalletBalance(Number(walletInfo.balance ?? 0));
         setFlowState(status === "failed" ? "failed" : "ready");
       } catch (error) {
