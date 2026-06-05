@@ -379,12 +379,13 @@ export default function OrderPage() {
     );
   }, [itemCounts, selectedBundle, selectedServices]);
 
-  const deliveryFee = 0;
+  const deliveryFee = 18;
+  const serviceFee = Number((total * 0.05).toFixed(2));
   const finalDelivery = sameAddress ? pickupAddress : deliveryAddress;
   const walletCanCoverRegularOrder =
     !selectedBundle &&
-    walletBalance >= total + deliveryFee &&
-    total + deliveryFee > 0;
+    walletBalance >= total + serviceFee + deliveryFee &&
+    total + serviceFee + deliveryFee > 0;
   const mapPreviewSrc = useMemo(
     () =>
       `https://www.openstreetmap.org/export/embed.html?bbox=${mapLongitude - 0.01}%2C${mapLatitude - 0.01}%2C${mapLongitude + 0.01}%2C${mapLatitude + 0.01}&layer=mapnik&marker=${mapLatitude}%2C${mapLongitude}`,
@@ -588,7 +589,7 @@ export default function OrderPage() {
             couponCode: appliedCoupon,
           });
 
-      const finalTotal = total + deliveryFee;
+      const finalTotal = total + serviceFee + deliveryFee;
       const walletCoversAll = walletBalance >= finalTotal;
 
       if (paymentMethod === "cash") {
@@ -1239,6 +1240,12 @@ export default function OrderPage() {
               <span>-{discountAmount} EGP</span>
             </div>
           )}
+          {serviceFee > 0 && (
+            <div className="flex items-center justify-between text-sm mb-1.5 text-gray-500">
+              <span>Service fee (5%)</span>
+              <span className="text-gray-700 font-medium">{serviceFee.toFixed(2)} EGP</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm mb-3">
             <span className="text-gray-500">Delivery fee</span>
             <span className="text-gray-700 font-medium">{deliveryFee} EGP</span>
@@ -1246,7 +1253,7 @@ export default function OrderPage() {
           <div className="flex items-center justify-between mb-4 pt-2 border-t border-gray-100">
             <span className="text-gray-900 font-medium">Total</span>
             <span className="text-xl font-semibold text-[#1D6076]">
-              {total + deliveryFee} EGP
+              {(total + serviceFee + deliveryFee).toFixed(2)} EGP
             </span>
           </div>
           <button
