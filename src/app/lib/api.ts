@@ -1682,7 +1682,9 @@ export async function placeBundleOrderRequest(
   payload: {
     bundleId: string;
     laundryId: number;
-    userAddressId: number;
+    userAddressId?: number | null;
+    pickupLocation?: string | null;
+    deliveryLocation?: string | null;
     selectedItems: Array<{ bundleItemId: string; serviceId: number; quantity: number }>;
     useWalletBalance?: boolean;
     redeemPoints?: number | null;
@@ -1696,7 +1698,9 @@ export async function placeBundleOrderRequest(
       body: JSON.stringify({
         bundleId: payload.bundleId,
         laundryId: Number(payload.laundryId),
-        userAddressId: Number(payload.userAddressId),
+        userAddressId: payload.userAddressId ? Number(payload.userAddressId) : null,
+        pickupLocation: payload.pickupLocation?.trim() || null,
+        deliveryLocation: payload.deliveryLocation?.trim() || null,
         selectedItems: payload.selectedItems.map((item) => ({
           bundleItemId: item.bundleItemId,
           serviceId: Number(item.serviceId),
@@ -1744,7 +1748,7 @@ export async function calculatePriceRequest(
     couponCode: payload.couponCode?.trim() || null,
   };
 
-  return request<{ totalPrice: number; items: BackendOrderItemDto[] }>(
+  return request<{ totalPrice: number; discountAmount?: number; finalPrice?: number; items: BackendOrderItemDto[] }>(
     "/Orders/calculate-price",
     {
       method: "POST",

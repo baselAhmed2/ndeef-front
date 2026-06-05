@@ -20,6 +20,7 @@ import {
   Trash2,
   Navigation,
   X,
+  Ticket,
 } from "lucide-react";
 import {
   ApiError,
@@ -35,6 +36,7 @@ import {
   mapLaundryDtoToUiLaundry,
   placeBundleOrderRequest,
   placeOrderRequest,
+  processPaymentRequest,
 } from "@/app/lib/api";
 import { useAuth } from "../context/AuthContext";
 import {
@@ -172,6 +174,11 @@ export default function OrderPage() {
   const [mapError, setMapError] = useState("");
   const [mapLoadingLocation, setMapLoadingLocation] = useState(false);
   const [orderRedirecting, setOrderRedirecting] = useState(false);
+  const [couponCode, setCouponCode] = useState("");
+  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+  const [couponError, setCouponError] = useState("");
+  const [applyingCoupon, setApplyingCoupon] = useState(false);
   const orderSubmissionLockRef = useRef(false);
 
   const availableTimeSlots = useMemo(() => {
@@ -313,9 +320,11 @@ export default function OrderPage() {
             serviceId: Number(service.id),
             quantity: itemCounts[service.id] ?? 1,
           })),
+          couponCode: appliedCoupon,
         });
 
-        setCalculatedTotal(Number(response.totalPrice));
+        setCalculatedTotal(Number(response.finalPrice ?? response.totalPrice));
+        setDiscountAmount(Number(response.discountAmount ?? 0));
       } catch (error) {
         const message =
           error instanceof ApiError
@@ -329,17 +338,15 @@ export default function OrderPage() {
             0,
           ),
         );
+        setDiscountAmount(0);
       }
     };
 
     refreshPrice();
-  }, [itemCounts, laundryId, selectedBundle, selectedServices, user?.token]);
+  }, [itemCounts, laundryId, selectedBundle, selectedServices, user?.token, appliedCoupon]);
 
   const validate = () => {
     const nextErrors: Record<string, string> = {};
-    if (selectedBundle && !selectedAddressId) {
-      nextErrors.address = "A saved address is required for bundle orders";
-    }
     if (!pickupAddress.trim()) nextErrors.pickup = "Pickup address is required";
     if (!sameAddress && !deliveryAddress.trim()) {
       nextErrors.delivery = "Delivery address is required";
@@ -351,15 +358,20 @@ export default function OrderPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const total = useMemo(() => {
+  const subtotal = useMemo(() => {
     if (selectedBundle) return Number(selectedBundle.price ?? 0);
-    if (calculatedTotal !== null) return calculatedTotal;
     return selectedServices.reduce(
       (sum, service) =>
         sum + Number(service.price) * (itemCounts[service.id] ?? 1),
       0,
     );
-  }, [calculatedTotal, itemCounts, selectedBundle, selectedServices]);
+  }, [itemCounts, selectedBundle, selectedServices]);
+
+  const total = useMemo(() => {
+    if (selectedBundle) return Number(selectedBundle.price ?? 0);
+    if (calculatedTotal !== null) return calculatedTotal;
+    return subtotal;
+  }, [calculatedTotal, selectedBundle, subtotal]);
 
   const totalItems = useMemo(() => {
     if (selectedBundle) {
@@ -496,6 +508,39 @@ export default function OrderPage() {
     closeMapPicker();
   };
 
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim() || !user?.token || !laundryId) return;
+    setApplyingCoupon(true);
+    setCouponError("");
+    try {
+      const response = await calculatePriceRequest(user.token, {
+        laundryId: Number(laundryId),
+        items: selectedServices.map((service) => ({
+          serviceId: Number(service.id),
+          quantity: itemCounts[service.id] ?? 1,
+        })),
+        couponCode: couponCode.trim(),
+      });
+      
+      setAppliedCoupon(couponCode.trim());
+      setDiscountAmount(Number(response.discountAmount ?? 0));
+      setCouponError("");
+    } catch (error) {
+      setCouponError(error instanceof ApiError ? error.message : "Invalid promo code.");
+      setAppliedCoupon(null);
+      setDiscountAmount(0);
+    } finally {
+      setApplyingCoupon(false);
+    }
+  };
+
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponCode("");
+    setDiscountAmount(0);
+    setCouponError("");
+  };
+
   const handlePlaceOrder = async () => {
     if (orderSubmissionLockRef.current || validating || orderRedirecting)
       return;
@@ -526,7 +571,9 @@ export default function OrderPage() {
         ? await placeBundleOrderRequest(user.token, {
             bundleId: selectedBundle.id,
             laundryId: Number(laundryId),
-            userAddressId: Number(selectedAddressId),
+            userAddressId: selectedAddressId ? Number(selectedAddressId) : null,
+            pickupLocation: pickupAddress.trim(),
+            deliveryLocation: finalDelivery.trim(),
             selectedItems: selectedBundle.items.map((item) => ({
               bundleItemId: item.id,
               serviceId: item.serviceId,
@@ -546,13 +593,33 @@ export default function OrderPage() {
             pickupLocation: pickupAddress.trim(),
             deliveryLocation: finalDelivery.trim(),
             notes: null,
+            couponCode: appliedCoupon,
           });
+
+      const finalTotal = total + deliveryFee;
+      const walletCoversAll = walletBalance >= finalTotal;
 
       if (paymentMethod === "cash") {
         shouldKeepLockedAfterSubmit = true;
         setOrderRedirecting(true);
         router.push(`/track-order/${order.id}?notice=placed`);
         return;
+      }
+
+      if (walletCoversAll || finalTotal <= 0) {
+        try {
+          await processPaymentRequest(user.token, {
+            orderId: Number(order.id),
+            amount: finalTotal,
+            paymentMethod: "CreditCard",
+          });
+          shouldKeepLockedAfterSubmit = true;
+          setOrderRedirecting(true);
+          router.push(`/track-order/${order.id}?notice=paid`);
+          return;
+        } catch (paymentErr) {
+          console.error("Auto wallet payment failed, falling back to payment page", paymentErr);
+        }
       }
 
       // كرت أو أي طريقة أخرى → روح لصفحة الدفع (المحفظة هتتخصم تلقائياً هناك)
@@ -926,62 +993,48 @@ export default function OrderPage() {
               PICKUP ADDRESS
             </p>
           </div>
-          {selectedBundle && (
-            <div className="mb-4 space-y-2">
-              <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                Saved address required for bundle orders
-              </label>
-              <select
-                value={selectedAddressId ?? ""}
-                onChange={(event) => {
-                  const nextId = Number(event.target.value);
-                  const nextAddress =
-                    savedAddresses.find((address) => address.id === nextId) ??
-                    null;
-                  setSelectedAddressId(nextAddress?.id ?? null);
-                  const formattedAddress = nextAddress
-                    ? [nextAddress.street, nextAddress.area, nextAddress.city]
-                        .filter(Boolean)
-                        .join(", ")
-                    : "";
-                  setPickupAddress(formattedAddress);
-                  if (sameAddress) setDeliveryAddress(formattedAddress);
-                  setErrors((current) => ({
-                    ...current,
-                    address: "",
-                    pickup: "",
-                    delivery: "",
-                  }));
-                }}
-                className={`w-full rounded-xl border bg-gray-50 px-4 py-3.5 text-sm focus:outline-none focus:ring-1 ${
-                  errors.address
-                    ? "border-red-300 focus:ring-red-200 focus:border-red-400"
-                    : "border-gray-200 focus:ring-[#1D6076]/20 focus:border-[#1D6076]"
-                }`}
-              >
-                <option value="">Select a saved address</option>
-                {savedAddresses.map((address) => (
-                  <option key={address.id} value={address.id}>
-                    {[address.label, address.street, address.area, address.city]
+          <div className="mb-4 space-y-2">
+            <label className="block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Select from saved addresses (Optional)
+            </label>
+            <select
+              value={selectedAddressId ?? ""}
+              onChange={(event) => {
+                const nextId = Number(event.target.value);
+                const nextAddress =
+                  savedAddresses.find((address) => address.id === nextId) ??
+                  null;
+                setSelectedAddressId(nextAddress?.id ?? null);
+                const formattedAddress = nextAddress
+                  ? [nextAddress.street, nextAddress.area, nextAddress.city]
                       .filter(Boolean)
-                      .join(" - ")}
-                  </option>
-                ))}
-              </select>
-              {savedAddresses.length === 0 && (
-                <p className="text-xs text-amber-600">
-                  No saved addresses found. Add one in your profile before
-                  ordering a bundle.
-                </p>
-              )}
-              {errors.address && (
-                <p className="text-red-500 text-xs mt-1 flex items-center gap-1">
-                  <AlertCircle size={12} />
-                  {errors.address}
-                </p>
-              )}
-            </div>
-          )}
+                      .join(", ")
+                  : "";
+                setPickupAddress(formattedAddress);
+                if (sameAddress) setDeliveryAddress(formattedAddress);
+                setErrors((current) => ({
+                  ...current,
+                  pickup: "",
+                  delivery: "",
+                }));
+              }}
+              className="w-full rounded-xl border bg-gray-50 px-4 py-3.5 text-sm focus:outline-none focus:ring-1 border-gray-200 focus:ring-[#1D6076]/20 focus:border-[#1D6076]"
+            >
+              <option value="">Select a saved address</option>
+              {savedAddresses.map((address) => (
+                <option key={address.id} value={address.id}>
+                  {[address.label, address.street, address.area, address.city]
+                    .filter(Boolean)
+                    .join(" - ")}
+                </option>
+              ))}
+            </select>
+            {savedAddresses.length === 0 && (
+              <p className="text-xs text-gray-400">
+                No saved addresses found. You can add saved addresses in your profile settings.
+              </p>
+            )}
+          </div>
           <div className="mb-3 flex items-center justify-between gap-3 rounded-2xl border border-[#1D6076]/10 bg-[#1D6076]/[0.04]p-3">
             <div>
               <p className="text-sm font-medium text-gray-800">
@@ -1091,6 +1144,64 @@ export default function OrderPage() {
             )}
           </div>
         )}
+        {/* Promo Code section */}
+        {!selectedBundle && (
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Ticket size={16} className="text-[#1D6076]" strokeWidth={2} />
+              <p className="text-xs font-semibold text-gray-400 tracking-wider">
+                PROMO CODE
+              </p>
+            </div>
+            
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Enter promo code..."
+                value={couponCode}
+                onChange={(e) => setCouponCode(e.target.value)}
+                disabled={Boolean(appliedCoupon) || applyingCoupon}
+                className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-4 py-3 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-[#1D6076]/20 focus:border-[#1D6076] transition-all disabled:opacity-60"
+              />
+              {appliedCoupon ? (
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-600 transition hover:bg-red-100 active:scale-95"
+                >
+                  Remove
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleApplyCoupon}
+                  disabled={applyingCoupon || !couponCode.trim()}
+                  className="rounded-xl bg-[#1D6076] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#2a7a94] active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center min-w-[80px]"
+                >
+                  {applyingCoupon ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    "Apply"
+                  )}
+                </button>
+              )}
+            </div>
+
+            {couponError && (
+              <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
+                <AlertCircle size={12} />
+                {couponError}
+              </p>
+            )}
+
+            {appliedCoupon && (
+              <p className="text-emerald-600 text-xs mt-2 flex items-center gap-1 font-medium font-sans">
+                <Check size={14} strokeWidth={3} />
+                Promo code &quot;{appliedCoupon}&quot; applied successfully! Saved {discountAmount} EGP
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <p className="text-xs font-semibold text-gray-400 tracking-wider mb-4">
@@ -1170,8 +1281,14 @@ export default function OrderPage() {
               {selectedServices.length} service
               {selectedServices.length !== 1 ? "s" : ""}
             </span>
-            <span className="text-gray-700 font-medium">{total} EGP</span>
+            <span className="text-gray-700 font-medium">{subtotal} EGP</span>
           </div>
+          {discountAmount > 0 && (
+            <div className="flex items-center justify-between text-sm mb-1.5 text-emerald-600 font-medium">
+              <span>Promo discount</span>
+              <span>-{discountAmount} EGP</span>
+            </div>
+          )}
           <div className="flex items-center justify-between text-sm mb-3">
             <span className="text-gray-500">Delivery fee</span>
             <span className="text-gray-700 font-medium">{deliveryFee} EGP</span>
@@ -1217,7 +1334,7 @@ export default function OrderPage() {
         open={Boolean(mapTarget)}
         onOpenChange={(open) => !open && closeMapPicker()}
       >
-        <DialogContent className="max-w-3xl rounded-[28px] border border-slate-200 bg-white p-0 shadow-2xl">
+        <DialogContent className="w-[95vw] sm:w-[90vw] md:max-w-3xl max-h-[95vh] overflow-y-auto rounded-[28px] border border-slate-200 bg-white p-0 shadow-2xl">
           <div className="overflow-hidden rounded-[28px]">
             <div className="bg-gradient-to-r from-[#1D6076] via-[#2b7d93] to-[#EBA050] px-6 py-5 text-white">
               <DialogHeader className="text-left">
