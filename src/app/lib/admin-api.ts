@@ -283,3 +283,38 @@ export async function sendPaymentReminder(laundryId: string): Promise<{ success:
     501,
   );
 }
+
+export interface LaundryBillingInfo {
+  laundryId: number;
+  laundryName: string;
+  adminName: string;
+  adminEmail: string;
+  
+  // Payout Profile details
+  transferMethod: string;
+  transferType?: string | null;
+  recipientFullName: string;
+  recipientMobileNumber?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  cardNumber?: string | null;
+  nationalId?: string | null;
+
+  // Wallet details
+  totalEarnings: number;
+  availableBalance: number;
+  pendingCommission: number;
+  debtCeiling: number;
+  walletStatus: string;
+  lastPayoutDate?: string | null;
+}
+
+// Super Admin: Get laundry billing profile and wallet details
+export async function getLaundryBillingInfo(laundryId: number | string): Promise<LaundryBillingInfo> {
+  return await apiRequest<LaundryBillingInfo>(`/admin/laundries/${laundryId}/billing`);
+}
+
+// Super Admin: Get user's laundry billing profile and wallet details (for LaundryAdmin users)
+export async function getUserLaundryBillingInfo(userId: string): Promise<LaundryBillingInfo> {
+  return await apiRequest<LaundryBillingInfo>(`/admin/users/${userId}/laundry-billing`);
+}

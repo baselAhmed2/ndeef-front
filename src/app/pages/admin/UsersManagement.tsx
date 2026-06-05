@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "motion/react";
-import { Download, LoaderCircle, Search, ShieldCheck, UserX, Users } from "lucide-react";
+import { Download, LoaderCircle, Search, ShieldCheck, UserX, Users, Wallet } from "lucide-react";
 import clsx from "clsx";
 import { apiRequest, ApiError } from "../../lib/admin-api";
+import { LaundryBillingModal } from "../../components/LaundryBillingModal";
 import type { UserRecord } from "../../types/admin";
 
 function formatDate(date: string) {
@@ -23,6 +24,7 @@ export function UsersManagement() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingId, setIsUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [billingAdminId, setBillingAdminId] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -221,17 +223,28 @@ export function UsersManagement() {
                     </td>
                     <td className="py-3 px-3 text-xs text-slate-400">{formatDate(user.createdAt)}</td>
                     <td className="py-3 px-3">
-                      <button
-                        onClick={() => handleStatusChange(user)}
-                        disabled={isUpdatingId === user.id}
-                        className={clsx(
-                          "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
-                          user.isActive ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+                      <div className="flex items-center gap-2">
+                        {user.role === "LaundryAdmin" && (
+                          <button
+                            onClick={() => setBillingAdminId(user.id)}
+                            className="inline-flex items-center gap-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 text-xs font-semibold transition-colors"
+                          >
+                            <Wallet size={14} />
+                            Billing
+                          </button>
                         )}
-                      >
-                        {isUpdatingId === user.id ? <LoaderCircle size={14} className="animate-spin" /> : null}
-                        {user.isActive ? "Suspend" : "Activate"}
-                      </button>
+                        <button
+                          onClick={() => handleStatusChange(user)}
+                          disabled={isUpdatingId === user.id}
+                          className={clsx(
+                            "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+                            user.isActive ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+                          )}
+                        >
+                          {isUpdatingId === user.id ? <LoaderCircle size={14} className="animate-spin" /> : null}
+                          {user.isActive ? "Suspend" : "Activate"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -240,6 +253,12 @@ export function UsersManagement() {
           </div>
         )}
       </div>
+
+      <LaundryBillingModal
+        isOpen={billingAdminId !== null}
+        onClose={() => setBillingAdminId(null)}
+        adminId={billingAdminId}
+      />
     </motion.div>
   );
 }

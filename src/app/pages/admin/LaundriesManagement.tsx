@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   Store,
+  Wallet,
   XCircle,
 } from "lucide-react";
 import clsx from "clsx";
@@ -24,6 +25,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
+import { LaundryBillingModal } from "../../components/LaundryBillingModal";
 import { apiRequest, ApiError } from "../../lib/admin-api";
 import type {
   CreateLaundryRequest,
@@ -152,6 +154,7 @@ export function LaundriesManagement() {
   const [suspensionTarget, setSuspensionTarget] = useState<LaundryRecord | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
   const [suspensionReasonError, setSuspensionReasonError] = useState<string | null>(null);
+  const [billingTargetId, setBillingTargetId] = useState<number | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -559,26 +562,35 @@ export function LaundriesManagement() {
                         <td className="py-3 px-3 text-xs font-medium text-slate-600">{laundry.averageRating.toFixed(1)}</td>
                         <td className="py-3 px-3 text-xs text-slate-500">{formatDate(laundry.createdAt)}</td>
                         <td className="py-3 px-3">
-                          <button
-                            onClick={() => {
-                              if (laundry.status === "Active") {
-                                openSuspensionDialog(laundry);
-                                return;
-                              }
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setBillingTargetId(laundry.id)}
+                              className="inline-flex items-center gap-2 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 text-xs font-semibold transition-colors"
+                            >
+                              <Wallet size={14} />
+                              Billing
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (laundry.status === "Active") {
+                                  openSuspensionDialog(laundry);
+                                  return;
+                                }
 
-                              void handleStatusChange(laundry);
-                            }}
-                            disabled={isUpdatingId === laundry.id}
-                            className={clsx(
-                              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
-                              laundry.status === "Active"
-                                ? "bg-red-50 text-red-700 hover:bg-red-100"
-                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-                            )}
-                          >
-                            {isUpdatingId === laundry.id ? <LoaderCircle size={14} className="animate-spin" /> : <Clock3 size={14} />}
-                            {laundry.status === "Active" ? "Suspend" : "Activate"}
-                          </button>
+                                void handleStatusChange(laundry);
+                              }}
+                              disabled={isUpdatingId === laundry.id}
+                              className={clsx(
+                                "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+                                laundry.status === "Active"
+                                  ? "bg-red-50 text-red-700 hover:bg-red-100"
+                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+                              )}
+                            >
+                              {isUpdatingId === laundry.id ? <LoaderCircle size={14} className="animate-spin" /> : <Clock3 size={14} />}
+                              {laundry.status === "Active" ? "Suspend" : "Activate"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -675,6 +687,12 @@ export function LaundriesManagement() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <LaundryBillingModal
+        isOpen={billingTargetId !== null}
+        onClose={() => setBillingTargetId(null)}
+        laundryId={billingTargetId}
+      />
     </motion.div>
   );
 }
