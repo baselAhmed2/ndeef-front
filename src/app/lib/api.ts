@@ -679,10 +679,6 @@ function getErrorMessage(data: unknown, fallback = "Request failed.") {
   if (typeof data === "object") {
     const record = data as Record<string, unknown>;
 
-    if (typeof record.message === "string") return sanitizeUserMessage(record.message);
-    if (typeof record.Message === "string") return sanitizeUserMessage(record.Message);
-    if (typeof record.title === "string") return sanitizeUserMessage(record.title);
-
     const errors = record.errors;
     if (errors && typeof errors === "object") {
       const first = Object.values(errors as Record<string, unknown>)[0];
@@ -690,6 +686,10 @@ function getErrorMessage(data: unknown, fallback = "Request failed.") {
         return first[0];
       }
     }
+
+    if (typeof record.message === "string") return sanitizeUserMessage(record.message);
+    if (typeof record.Message === "string") return sanitizeUserMessage(record.Message);
+    if (typeof record.title === "string") return sanitizeUserMessage(record.title);
   }
 
   return fallback;
