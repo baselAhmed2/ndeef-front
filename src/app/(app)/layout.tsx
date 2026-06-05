@@ -62,7 +62,13 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
       }
       return;
     }
-  }, [currentPath, fromParam, isAuthReady, isCourier, isLaundryAdmin, isPaymentCallbackPage, isWalletChargeReturnPage, router]);
+
+    // Redirect logged-in customers if they try to access login/signup pages
+    if (isLoggedIn && !isLaundryAdmin && !isCourier && isAuthPage) {
+      router.replace("/");
+      return;
+    }
+  }, [currentPath, fromParam, isAuthReady, isCourier, isLaundryAdmin, isLoggedIn, isAuthPage, isPaymentCallbackPage, isWalletChargeReturnPage, router]);
 
   if (!isAuthReady) {
     return <AuthPageLoader />;

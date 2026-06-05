@@ -123,11 +123,10 @@ function SegmentedControl({
   );
 }
 
-function resolvePostLoginPath(role?: string, from?: string) {
+function resolvePostLoginPath(role?: string, _from?: string) {
   if (isCourierRole(role)) return "/courier";
   if (isLaundryAdminRole(role)) return "/laundry-admin";
   if (isAdminRole(role)) return "/admin";
-  if (from && from !== "/") return from;
   return "/";
 }
 
