@@ -148,6 +148,12 @@ function openVoiceSocket(url: string, timeoutMs = 8000): Promise<WebSocket> {
     const socket = new WebSocket(url);
     socket.binaryType = "arraybuffer";
 
+    // Buffer early messages to avoid race conditions during getUserMedia wait
+    const earlyMessages: MessageEvent[] = [];
+    socket.onmessage = (event) => {
+      earlyMessages.push(event);
+    };
+
     const timeout = window.setTimeout(() => {
       socket.close();
       reject(new Error("WebSocket timeout"));
@@ -155,6 +161,7 @@ function openVoiceSocket(url: string, timeoutMs = 8000): Promise<WebSocket> {
 
     socket.onopen = () => {
       window.clearTimeout(timeout);
+      (socket as any)._earlyMessages = earlyMessages;
       resolve(socket);
     };
     socket.onerror = () => {
@@ -378,17 +385,22 @@ export function VoiceCallWidget({
           return;
         }
 
-        const [micStream, ws] = await Promise.all([
-          navigator.mediaDevices.getUserMedia({
-            audio: {
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: true,
-              channelCount: 1,
-            },
-          }),
-          openVoiceSocketWithFallback(authToken),
-        ]);
+        const micStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            channelCount: 1,
+          },
+        });
+
+        if (!checkActive()) {
+          micStream.getTracks().forEach((track) => track.stop());
+          if (!sharedAudioCtx) void audioCtx.close();
+          return;
+        }
+
+        const ws = await openVoiceSocketWithFallback(authToken);
 
         if (!checkActive()) {
           ws.close();
@@ -416,6 +428,15 @@ export function VoiceCallWidget({
             // ignore malformed message
           }
         };
+
+        // Flush any early messages that were buffered on the socket
+        const early = (ws as any)._earlyMessages as MessageEvent[];
+        if (early && early.length > 0) {
+          console.log(`[Voice] Flushing ${early.length} early buffered messages`);
+          for (const msgEvent of early) {
+            ws.onmessage?.(msgEvent);
+          }
+        }
 
         ws.onerror = () => {
           setStatus("error");
