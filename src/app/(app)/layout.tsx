@@ -39,6 +39,7 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
   const role = user?.role || "";
   const isLaundryAdmin = isLoggedIn && role.toLowerCase().includes("laundryadmin");
   const isCourier = isLoggedIn && role.toLowerCase().includes("courier");
+  const isAdmin = isLoggedIn && (role.toLowerCase().includes("admin") && !role.toLowerCase().includes("laundryadmin"));
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -63,12 +64,22 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
       return;
     }
 
+    // Redirect admins/superadmins
+    if (isAdmin) {
+      if (!currentPath.startsWith("/admin") && !isPaymentCallbackPage && !isWalletChargeReturnPage) {
+        if (!fromParam || fromParam === "/" || fromParam === currentPath) {
+          router.replace("/admin");
+        }
+      }
+      return;
+    }
+
     // Redirect logged-in customers if they try to access login/signup pages
-    if (isLoggedIn && !isLaundryAdmin && !isCourier && isAuthPage) {
+    if (isLoggedIn && !isLaundryAdmin && !isCourier && !isAdmin && isAuthPage) {
       router.replace("/");
       return;
     }
-  }, [currentPath, fromParam, isAuthReady, isCourier, isLaundryAdmin, isLoggedIn, isAuthPage, isPaymentCallbackPage, isWalletChargeReturnPage, router]);
+  }, [currentPath, fromParam, isAuthReady, isCourier, isLaundryAdmin, isAdmin, isLoggedIn, isAuthPage, isPaymentCallbackPage, isWalletChargeReturnPage, router]);
 
   if (!isAuthReady) {
     return <AuthPageLoader />;
@@ -98,10 +109,22 @@ function AppLayoutInner({ children }: { children: ReactNode }) {
     );
   }
 
+  if (isAdmin && !currentPath.startsWith("/admin") && !isPaymentCallbackPage && !isWalletChargeReturnPage) {
+    return (
+      <div className="fixed inset-0 bg-white z-[99999] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-[3px] border-gray-100 border-t-[#1D5B70] rounded-full animate-spin" />
+          <p className="text-xs font-semibold text-[#1D5B70] tracking-widest uppercase opacity-80">Nazeef Super Admin</p>
+        </div>
+      </div>
+    );
+  }
+
   const shouldShowTopNav =
     (!isAuthPage || !!fromParam) &&
     !isLaundryAdmin &&
     !isCourier &&
+    !isAdmin &&
     !isPaymentCallbackPage;
 
   return (
