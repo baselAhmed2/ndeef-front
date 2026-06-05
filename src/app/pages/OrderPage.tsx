@@ -189,7 +189,7 @@ export default function OrderPage() {
   const [selectedPickupDate, setSelectedPickupDate] = useState("Today");
   const [selectedPickupTime, setSelectedPickupTime] = useState("10:00 - 12:00");
   const [selectedDeliveryDate, setSelectedDeliveryDate] = useState("Tomorrow");
-  const [selectedDeliveryTime, setSelectedDeliveryTime] = useState("10:00 - 12:00");
+  const [selectedDeliveryTime, setSelectedDeliveryTime] = useState("12:00 - 14:00");
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [sameAddress, setSameAddress] = useState(true);
@@ -224,7 +224,6 @@ export default function OrderPage() {
       return getSlotStartDate(selectedPickupDate, slot).getTime() > now.getTime();
     });
   }, [selectedPickupDate]);
-
   const availableDeliveryTimeSlots = useMemo(() => {
     const now = new Date();
     return timeSlots.filter((slot) => {
@@ -279,6 +278,26 @@ export default function OrderPage() {
     selectedDeliveryDate,
     selectedDeliveryTime,
   ]);
+
+  const availableDeliveryDates = useMemo(() => {
+    if (selectedPickupDate === "Tomorrow") {
+      return ["Tomorrow", "Day After"];
+    }
+    if (selectedPickupDate === "Day After") {
+      return ["Day After"];
+    }
+    return dates.filter((date) =>
+      timeSlots.some((slot) =>
+        isDeliveryAfterPickup(selectedPickupDate, selectedPickupTime, date, slot),
+      ),
+    );
+  }, [selectedPickupDate, selectedPickupTime]);
+
+  useEffect(() => {
+    if (!availableDeliveryDates.includes(selectedDeliveryDate)) {
+      setSelectedDeliveryDate(availableDeliveryDates[0] ?? "Tomorrow");
+    }
+  }, [availableDeliveryDates, selectedDeliveryDate]);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -431,18 +450,12 @@ export default function OrderPage() {
     }
     if (!availableDeliveryTimeSlots.includes(selectedDeliveryTime)) {
       nextErrors.deliveryTime = "Please choose a valid delivery time";
-    }
-    if (
-      availablePickupTimeSlots.includes(selectedPickupTime) &&
-      availableDeliveryTimeSlots.includes(selectedDeliveryTime) &&
-      !isDeliveryAfterPickup(
-        selectedPickupDate,
-        selectedPickupTime,
-        selectedDeliveryDate,
-        selectedDeliveryTime,
-      )
-    ) {
-      nextErrors.deliveryTime = "Delivery must be scheduled after pickup";
+    } else {
+      const pickupDateObj = getSlotStartDate(selectedPickupDate, selectedPickupTime);
+      const deliveryDateObj = getSlotStartDate(selectedDeliveryDate, selectedDeliveryTime);
+      if (deliveryDateObj <= pickupDateObj) {
+        nextErrors.deliveryTime = "Delivery must be scheduled after pickup";
+      }
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -690,14 +703,8 @@ export default function OrderPage() {
             deliveryLocation: finalDelivery.trim(),
             selectedItems: bundleSelectedItems,
             useWalletBalance: false, // المحفظة بتتخصم تلقائياً في صفحة الدفع
-            scheduledPickupTime: toPickupDateTime(
-              selectedPickupDate,
-              selectedPickupTime,
-            ),
-            scheduledDeliveryTime: toPickupDateTime(
-              selectedDeliveryDate,
-              selectedDeliveryTime,
-            ),
+            scheduledPickupTime: toPickupDateTime(selectedPickupDate, selectedPickupTime),
+            scheduledDeliveryTime: toPickupDateTime(selectedDeliveryDate, selectedDeliveryTime),
           })
         : await placeOrderRequest(user.token, {
             laundryId: Number(laundryId),
@@ -705,14 +712,8 @@ export default function OrderPage() {
               serviceId: Number(service.id),
               quantity: itemCounts[service.id] ?? 1,
             })),
-            pickupTime: toPickupDateTime(
-              selectedPickupDate,
-              selectedPickupTime,
-            ),
-            deliveryTime: toPickupDateTime(
-              selectedDeliveryDate,
-              selectedDeliveryTime,
-            ),
+            pickupTime: toPickupDateTime(selectedPickupDate, selectedPickupTime),
+            deliveryTime: toPickupDateTime(selectedDeliveryDate, selectedDeliveryTime),
             pickupLocation: pickupAddress.trim(),
             deliveryLocation: finalDelivery.trim(),
             notes: null,
@@ -1040,6 +1041,7 @@ export default function OrderPage() {
             {dates.map((date) => (
               <button
                 key={date}
+                type="button"
                 onClick={() => setSelectedPickupDate(date)}
                 className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.98] ${
                   selectedPickupDate === date
@@ -1117,9 +1119,10 @@ export default function OrderPage() {
             </p>
           </div>
           <div className="flex gap-2.5">
-            {dates.map((date) => (
+            {availableDeliveryDates.map((date) => (
               <button
                 key={date}
+                type="button"
                 onClick={() => setSelectedDeliveryDate(date)}
                 className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.98] ${
                   selectedDeliveryDate === date

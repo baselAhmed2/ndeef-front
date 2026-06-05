@@ -284,82 +284,37 @@ export async function sendPaymentReminder(laundryId: string): Promise<{ success:
   );
 }
 
-export type AdminLaundryScheduleDay = {
-  dayOfWeek: number;
-  isOpen: boolean;
-};
+export interface LaundryBillingInfo {
+  laundryId: number;
+  laundryName: string;
+  adminName: string;
+  adminEmail: string;
+  
+  // Payout Profile details
+  transferMethod: string;
+  transferType?: string | null;
+  recipientFullName: string;
+  recipientMobileNumber?: string | null;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  cardNumber?: string | null;
+  nationalId?: string | null;
 
-export type AdminLaundryClosedDate = {
-  id: number;
-  date: string;
-  reason?: string | null;
-};
-
-export async function getAdminLaundrySchedule(laundryId: number) {
-  return apiRequest<{ days: AdminLaundryScheduleDay[] }>(
-    `/admin/laundries/${laundryId}/availability/schedule`,
-  );
+  // Wallet details
+  totalEarnings: number;
+  availableBalance: number;
+  pendingCommission: number;
+  debtCeiling: number;
+  walletStatus: string;
+  lastPayoutDate?: string | null;
 }
 
-export async function updateAdminLaundrySchedule(
-  laundryId: number,
-  days: AdminLaundryScheduleDay[],
-) {
-  return apiRequest<{ message: string }>(
-    `/admin/laundries/${laundryId}/availability/schedule`,
-    {
-      method: "PUT",
-      body: JSON.stringify({ days }),
-    },
-  );
+// Super Admin: Get laundry billing profile and wallet details
+export async function getLaundryBillingInfo(laundryId: number | string): Promise<LaundryBillingInfo> {
+  return await apiRequest<LaundryBillingInfo>(`/admin/laundries/${laundryId}/billing`);
 }
 
-export async function getAdminLaundryCapacity(laundryId: number) {
-  return apiRequest<{ maxOrdersPerDay: number; leadTimeHours: number }>(
-    `/admin/laundries/${laundryId}/availability/capacity`,
-  );
-}
-
-export async function updateAdminLaundryCapacity(
-  laundryId: number,
-  payload: { maxOrdersPerDay: number; leadTimeHours: number },
-) {
-  return apiRequest<{ message: string }>(
-    `/admin/laundries/${laundryId}/availability/capacity`,
-    {
-      method: "PUT",
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export async function getAdminLaundryClosedDates(laundryId: number) {
-  return apiRequest<AdminLaundryClosedDate[]>(
-    `/admin/laundries/${laundryId}/availability/closed-dates`,
-  );
-}
-
-export async function addAdminLaundryClosedDate(
-  laundryId: number,
-  payload: { date: string; reason?: string | null },
-) {
-  return apiRequest<{ message: string; id: number }>(
-    `/admin/laundries/${laundryId}/availability/closed-dates`,
-    {
-      method: "POST",
-      body: JSON.stringify(payload),
-    },
-  );
-}
-
-export async function removeAdminLaundryClosedDate(
-  laundryId: number,
-  closedDateId: number,
-) {
-  return apiRequest<{ message: string }>(
-    `/admin/laundries/${laundryId}/availability/closed-dates/${closedDateId}`,
-    {
-      method: "DELETE",
-    },
-  );
+// Super Admin: Get user's laundry billing profile and wallet details (for LaundryAdmin users)
+export async function getUserLaundryBillingInfo(userId: string): Promise<LaundryBillingInfo> {
+  return await apiRequest<LaundryBillingInfo>(`/admin/users/${userId}/laundry-billing`);
 }
