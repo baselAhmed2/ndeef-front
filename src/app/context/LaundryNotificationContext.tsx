@@ -119,7 +119,7 @@ export function LaundryNotificationProvider({ children }: { children: ReactNode 
     const hubUrl = `${BACKEND_ORIGIN}/notifications-hub`;
     const conn = new HubConnectionBuilder()
       .withUrl(hubUrl, {
-        accessTokenFactory: () => user.token,
+        accessTokenFactory: () => user.token ?? "",
       })
       .withAutomaticReconnect()
       .configureLogging(LogLevel.Warning)

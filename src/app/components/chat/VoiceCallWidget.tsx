@@ -228,6 +228,7 @@ export function VoiceCallWidget({
   const recorderRef = useRef<PCMRecorder | null>(null);
   const playerRef = useRef<PCMPlayer | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const micStartedRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -240,6 +241,7 @@ export function VoiceCallWidget({
 
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
+    if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
     recorderRef.current?.stop();
     playerRef.current?.stop();
     if (audioCtxRef.current) {
@@ -414,6 +416,14 @@ export function VoiceCallWidget({
         wsRef.current = ws;
         statusRef.current = "active";
         setStatus("active");
+
+        // Start keep-alive ping loop every 25 seconds to prevent Azure Container App TCP idle timeout
+        pingIntervalRef.current = setInterval(() => {
+          if (wsRef.current?.readyState === WebSocket.OPEN) {
+            console.log("[Voice] Sending keep-alive ping to server.");
+            wsRef.current.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 25000);
 
         ws.onmessage = (event) => {
           if (event.data instanceof ArrayBuffer) {
