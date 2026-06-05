@@ -557,14 +557,16 @@ export function Services() {
                     <p className="mt-1 text-xs font-medium text-emerald-600">
                       Save {bundle.savingsAmount.toFixed(2)} EGP
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeactivateBundle(bundle.id)}
-                      disabled={bundleBusyId === bundle.id || bundle.status.toLowerCase() !== "active"}
-                      className="mt-3 w-full rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {bundleBusyId === bundle.id ? "Updating..." : "Deactivate"}
-                    </button>
+                    {bundle.laundryId !== null && (
+                      <button
+                        type="button"
+                        onClick={() => void handleDeactivateBundle(bundle.id)}
+                        disabled={bundleBusyId === bundle.id || bundle.status.toLowerCase() !== "active"}
+                        className="mt-3 w-full rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {bundleBusyId === bundle.id ? "Updating..." : "Deactivate"}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
