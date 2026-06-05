@@ -79,6 +79,17 @@ export default function MapPicker({
   const [showResults, setShowResults] = useState(false);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reverseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const reverseAbortRef = useRef<AbortController | null>(null);
+
+  const buildCoordinateFallback = useCallback(
+    (latitude: number, longitude: number) => {
+      if (address.trim()) {
+        return address.trim();
+      }
+      return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+    },
+    [address],
+  );
 
   // Generate OpenStreetMap iframe URL
   const mapPreviewSrc = useMemo(() => {
@@ -117,9 +128,9 @@ export default function MapPicker({
       const data: NominatimResult[] = await response.json();
       setSearchResults(data);
       setShowResults(data.length > 0);
-    } catch (error) {
-      console.error("Address search error:", error);
+    } catch {
       setSearchResults([]);
+      setShowResults(false);
     } finally {
       setIsSearching(false);
     }
@@ -175,8 +186,24 @@ export default function MapPicker({
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
+      if (reverseTimeoutRef.current) {
+        clearTimeout(reverseTimeoutRef.current);
+      }
+      reverseAbortRef.current?.abort();
     };
   }, []);
+
+  useEffect(() => {
+    setLat(initialLat ?? defaultCenter.lat);
+  }, [initialLat]);
+
+  useEffect(() => {
+    setLng(initialLng ?? defaultCenter.lng);
+  }, [initialLng]);
+
+  useEffect(() => {
+    setAddress(initialAddress ?? "");
+  }, [initialAddress]);
 
   const handleUseCurrentLocation = () => {
     setIsLocating(true);
@@ -227,11 +254,21 @@ export default function MapPicker({
   // Reverse geocode to human readable address (short form)
   const reverseGeocode = useCallback(
     async (latitude: number, longitude: number) => {
+      let timeoutId: number | null = null;
       try {
+        reverseAbortRef.current?.abort();
+        const controller = new AbortController();
+        reverseAbortRef.current = controller;
+        timeoutId = window.setTimeout(() => controller.abort(), 6000);
+
         setIsReverseLoading(true);
+        setLocationError(null);
         const resp = await fetch(
           `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1&accept-language=en`,
-          { headers: { Accept: "application/json" } },
+          {
+            headers: { Accept: "application/json" },
+            signal: controller.signal,
+          },
         );
         if (!resp.ok) throw new Error("Reverse geocode failed");
         const data: NominatimReverse = await resp.json();
@@ -256,39 +293,25 @@ export default function MapPicker({
           setAddress(data.display_name);
           onLocationSelect({ address: data.display_name, latitude, longitude });
         }
-      } catch (err) {
-        console.error("Reverse geocode error", err);
+      } catch {
         setReverseResult(null);
+        const fallbackAddress = buildCoordinateFallback(latitude, longitude);
+        setAddress(fallbackAddress);
+        onLocationSelect({
+          address: fallbackAddress,
+          latitude,
+          longitude,
+        });
       } finally {
+        if (timeoutId !== null) {
+          window.clearTimeout(timeoutId);
+        }
+        reverseAbortRef.current = null;
         setIsReverseLoading(false);
       }
     },
-    [onLocationSelect],
+    [buildCoordinateFallback, onLocationSelect],
   );
-
-  const handleLatChange = (value: string) => {
-    const newLat = parseFloat(value);
-    if (!isNaN(newLat)) {
-      setLat(newLat);
-      onLocationSelect({
-        address,
-        latitude: newLat,
-        longitude: lng,
-      });
-    }
-  };
-
-  const handleLngChange = (value: string) => {
-    const newLng = parseFloat(value);
-    if (!isNaN(newLng)) {
-      setLng(newLng);
-      onLocationSelect({
-        address,
-        latitude: lat,
-        longitude: newLng,
-      });
-    }
-  };
 
   // Trigger reverse geocode when coordinates change (debounced)
   useEffect(() => {
@@ -469,7 +492,7 @@ export default function MapPicker({
           className="flex items-center justify-center gap-2 px-4 py-3 border-2 border-[#0f4c5c]/20 text-[#0f4c5c] rounded-xl text-sm font-semibold hover:bg-[#0f4c5c]/5 transition-colors"
         >
           <MapPin size={16} />
-          Pick on Full Map
+          Open Full Map
         </a>
       </div>
 
@@ -538,8 +561,8 @@ export default function MapPicker({
       {/* Hint */}
       <p className="text-xs text-gray-500 leading-relaxed">
         <span className="font-medium text-[#0f4c5c]">Tip:</span> You can enter
-        the address manually above, use your current location, or adjust the
-        coordinates directly. The map will update automatically.
+        the address manually above, use your current location, or search and
+        choose a result. The embedded map is a preview that updates automatically.
       </p>
     </motion.div>
   );

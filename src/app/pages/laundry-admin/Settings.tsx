@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { usePreferences } from "@/app/context/PreferencesContext";
 import { useAuth } from "@/app/context/AuthContext";
@@ -14,7 +14,13 @@ import {
   clearPendingLaundryOnboarding,
   readPendingLaundryOnboarding,
 } from "@/app/lib/laundry-onboarding";
-import { getUserProfileRequest, updateUserProfileRequest, changePasswordRequest } from "@/app/lib/api";
+import {
+  getUserProfileRequest,
+  getUserSettingsRequest,
+  updateUserProfileRequest,
+  updateUserSettingsRequest,
+  changePasswordRequest,
+} from "@/app/lib/api";
 import { motion, AnimatePresence } from "motion/react";
 import {
   User,
@@ -22,9 +28,6 @@ import {
   Phone,
   Lock,
   Bell,
-  ShoppingBag,
-  CreditCard,
-  Star,
   Globe,
   Moon,
   Save,
@@ -77,7 +80,19 @@ function readFileAsDataUrl(file: File) {
   });
 }
 
-export function Settings() {
+interface SettingsProps {
+  initialTab?: "profile" | "notifications" | "preferences";
+  pageTitle?: string;
+  pageSubtitle?: string;
+  visibleTabs?: Array<"profile" | "notifications" | "preferences">;
+}
+
+export function Settings({
+  initialTab = "profile",
+  pageTitle = "Settings",
+  pageSubtitle = "Manage your account and preferences",
+  visibleTabs = ["profile", "notifications", "preferences"],
+}: SettingsProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { language, setLanguage, theme, setTheme } = usePreferences();
@@ -87,7 +102,7 @@ export function Settings() {
   const [showPassword, setShowPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<"profile" | "notifications" | "preferences">(
-    "profile"
+    initialTab
   );
 
   const [profile, setProfile] = useState({
@@ -108,22 +123,16 @@ export function Settings() {
   });
 
   const [notifications, setNotifications] = useState({
-    newOrder: true,
-    orderReady: true,
-    paymentReceived: true,
-    newReview: true,
-    systemAlerts: false,
-    promotions: false,
-    smsAlerts: true,
-    emailDigest: false,
+    pushNotifications: true,
+    emailNotifications: true,
+    smsNotifications: true,
+    whatsappNotifications: true,
   });
 
   const [preferences, setPreferences] = useState({
     language: "English",
     currency: "EGP",
     darkMode: false,
-    compactView: false,
-    autoConfirmOrders: false,
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -139,7 +148,10 @@ export function Settings() {
         const laundryProfile = await getProfile().catch(() => null);
         const userProfilePromise =
           user?.token ? getUserProfileRequest(user.token).catch(() => null) : Promise.resolve(null);
+        const userSettingsPromise =
+          user?.token ? getUserSettingsRequest(user.token).catch(() => null) : Promise.resolve(null);
         const userProfile = await userProfilePromise;
+        const userSettings = await userSettingsPromise;
 
         if (!active) return;
 
@@ -163,6 +175,29 @@ export function Settings() {
           longitude: laundryProfile?.longitude ?? pendingLaundry?.longitude ?? prev.longitude,
           imageUrl: laundryProfile?.imageUrl ?? localPhoto ?? prev.imageUrl,
         }));
+
+        if (userSettings) {
+          const normalizedLanguage =
+            String(userSettings.language).toLowerCase() === "arabic" || String(userSettings.language) === "1"
+              ? "ar"
+              : "en";
+          const normalizedCurrency = String(userSettings.currency || "EGP").toUpperCase();
+
+          setNotifications((prev) => ({
+            ...prev,
+            pushNotifications: userSettings.pushNotifications,
+            emailNotifications: userSettings.emailNotifications,
+            smsNotifications: userSettings.smsNotifications,
+            whatsappNotifications: userSettings.whatsappNotifications,
+          }));
+
+          setPreferences((prev) => ({
+            ...prev,
+            language: normalizedLanguage === "ar" ? "Arabic" : "English",
+            currency: normalizedCurrency,
+          }));
+        }
+
       } catch (err) {
         console.error("Failed to load profile", err);
       }
@@ -182,6 +217,32 @@ export function Settings() {
     }));
   }, [language, theme]);
 
+  useEffect(() => {
+    setActiveTab(initialTab);
+  }, [initialTab]);
+
+  const handleLocationSelect = useCallback(
+    (location: { address: string; latitude: number; longitude: number }) => {
+      setProfile((prev) => {
+        if (
+          prev.address === location.address &&
+          prev.latitude === location.latitude &&
+          prev.longitude === location.longitude
+        ) {
+          return prev;
+        }
+
+        return {
+          ...prev,
+          address: location.address,
+          latitude: location.latitude,
+          longitude: location.longitude,
+        };
+      });
+    },
+    [],
+  );
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
@@ -198,6 +259,15 @@ export function Settings() {
           lastName,
           email: profile.email.trim(),
           phone: profile.phone.trim(),
+        });
+
+        await updateUserSettingsRequest(user.token, {
+          language: language === "ar" ? "Arabic" : "English",
+          currency: preferences.currency,
+          pushNotifications: notifications.pushNotifications,
+          emailNotifications: notifications.emailNotifications,
+          smsNotifications: notifications.smsNotifications,
+          whatsappNotifications: notifications.whatsappNotifications,
         });
       }
 
@@ -339,7 +409,7 @@ export function Settings() {
     { id: "profile" as const, label: "Profile", icon: User },
     { id: "notifications" as const, label: "Notifications", icon: Bell },
     { id: "preferences" as const, label: "Preferences", icon: Globe },
-  ];
+  ].filter((tab) => visibleTabs.includes(tab.id));
 
   return (
     <div className="p-6 space-y-5 w-full">
@@ -357,8 +427,8 @@ export function Settings() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h2 className="text-gray-900 font-semibold">Settings</h2>
-          <p className="text-gray-400 text-xs mt-0.5">Manage your account and preferences</p>
+          <h2 className="text-gray-900 font-semibold">{pageTitle}</h2>
+          <p className="text-gray-400 text-xs mt-0.5">{pageSubtitle}</p>
         </div>
         <motion.button
           onClick={handleSave}
@@ -383,26 +453,27 @@ export function Settings() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="flex gap-1 bg-gray-100 p-1 rounded-2xl">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                activeTab === tab.id
-                  ? "bg-white text-gray-900 shadow-sm"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
+      {tabs.length > 1 && (
+        <div className="flex gap-1 bg-gray-100 p-1 rounded-2xl">
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  activeTab === tab.id
+                    ? "bg-white text-gray-900 shadow-sm"
+                    : "text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <AnimatePresence mode="wait">
         {/* Profile Tab */}
@@ -528,14 +599,7 @@ export function Settings() {
                 </div>
                 <div className="sm:col-span-2">
                   <MapPicker
-                    onLocationSelect={(location) => {
-                      setProfile((prev) => ({
-                        ...prev,
-                        address: location.address,
-                        latitude: location.latitude,
-                        longitude: location.longitude,
-                      }));
-                    }}
+                    onLocationSelect={handleLocationSelect}
                     initialAddress={profile.address}
                     initialLat={profile.latitude}
                     initialLng={profile.longitude}
@@ -697,54 +761,38 @@ export function Settings() {
             className="space-y-4"
           >
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <h3 className="font-semibold text-gray-900 mb-1">Push Notifications</h3>
-              <p className="text-xs text-gray-400 mb-5">Choose what updates you want to receive</p>
+              <h3 className="font-semibold text-gray-900 mb-1">Notification Settings</h3>
+              <p className="text-xs text-gray-400 mb-5">Manage the notification channels supported by your account settings.</p>
               <div className="space-y-4">
                 {[
                   {
-                    key: "newOrder" as const,
-                    label: "New Order Received",
-                    desc: "Get notified when a customer places a new order",
-                    icon: ShoppingBag,
+                    key: "pushNotifications" as const,
+                    label: "Push Notifications",
+                    desc: "Receive in-app push notifications",
+                    icon: Bell,
                     color: "#1D5B70",
                     bg: "#f0f9ff",
                   },
                   {
-                    key: "orderReady" as const,
-                    label: "Order Ready",
-                    desc: "When an order is ready for delivery",
-                    icon: CheckCircle2,
+                    key: "emailNotifications" as const,
+                    label: "Email Notifications",
+                    desc: "Receive account updates by email",
+                    icon: Mail,
                     color: "#22c55e",
                     bg: "#f0fdf4",
                   },
                   {
-                    key: "paymentReceived" as const,
-                    label: "Payment Received",
-                    desc: "When a customer completes a payment",
-                    icon: CreditCard,
-                    color: "#22c55e",
-                    bg: "#f0fdf4",
-                  },
-                  {
-                    key: "newReview" as const,
-                    label: "New Review",
-                    desc: "When a customer leaves a review",
-                    icon: Star,
+                    key: "smsNotifications" as const,
+                    label: "SMS Notifications",
+                    desc: "Receive important updates by SMS",
+                    icon: Phone,
                     color: "#EBA050",
                     bg: "#fff7ed",
                   },
                   {
-                    key: "systemAlerts" as const,
-                    label: "System Alerts",
-                    desc: "Important system and maintenance updates",
-                    icon: AlertCircle,
-                    color: "#ef4444",
-                    bg: "#fef2f2",
-                  },
-                  {
-                    key: "promotions" as const,
-                    label: "Platform Promotions",
-                    desc: "Offers and updates from Ndeef platform",
+                    key: "whatsappNotifications" as const,
+                    label: "WhatsApp Notifications",
+                    desc: "Receive updates through WhatsApp",
                     icon: Bell,
                     color: "#8b5cf6",
                     bg: "#f5f3ff",
@@ -762,49 +810,6 @@ export function Settings() {
                           style={{ backgroundColor: item.bg }}
                         >
                           <Icon className="w-4 h-4" style={{ color: item.color }} />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-800">{item.label}</p>
-                          <p className="text-xs text-gray-400 mt-0.5">{item.desc}</p>
-                        </div>
-                      </div>
-                      <Toggle
-                        value={notifications[item.key]}
-                        onChange={(v) => setNotifications((prev) => ({ ...prev, [item.key]: v }))}
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-2xl border border-gray-100 p-6">
-              <h3 className="font-semibold text-gray-900 mb-1">Other Channels</h3>
-              <p className="text-xs text-gray-400 mb-5">Receive notifications via other methods</p>
-              <div className="space-y-4">
-                {[
-                  {
-                    key: "smsAlerts" as const,
-                    label: "SMS Alerts",
-                    desc: "Receive critical notifications via SMS",
-                    icon: Phone,
-                  },
-                  {
-                    key: "emailDigest" as const,
-                    label: "Weekly Email Digest",
-                    desc: "Get a weekly summary of your orders and revenue",
-                    icon: Mail,
-                  },
-                ].map((item) => {
-                  const Icon = item.icon;
-                  return (
-                    <div
-                      key={item.key}
-                      className="flex items-center justify-between gap-4 py-3 border-b border-gray-50 last:border-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-                          <Icon className="w-4 h-4 text-gray-500" />
                         </div>
                         <div>
                           <p className="text-sm font-medium text-gray-800">{item.label}</p>
@@ -869,7 +874,7 @@ export function Settings() {
 
             <div className="bg-white rounded-2xl border border-gray-100 p-6">
               <h3 className="font-semibold text-gray-900 mb-1">Display & Behavior</h3>
-              <p className="text-xs text-gray-400 mb-5">Customize how the app looks and works</p>
+              <p className="text-xs text-gray-400 mb-5">Customize the supported display behavior.</p>
               <div className="space-y-4">
                 {[
                   {
@@ -877,18 +882,6 @@ export function Settings() {
                     label: "Dark Mode",
                     desc: "Switch to a darker color theme",
                     icon: Moon,
-                  },
-                  {
-                    key: "compactView" as const,
-                    label: "Compact View",
-                    desc: "Show more items with reduced spacing",
-                    icon: Globe,
-                  },
-                  {
-                    key: "autoConfirmOrders" as const,
-                    label: "Auto-Confirm Orders",
-                    desc: "Automatically accept incoming orders",
-                    icon: CheckCircle2,
                   },
                 ].map((item) => {
                   const Icon = item.icon;
@@ -909,32 +902,13 @@ export function Settings() {
                       <Toggle
                         value={preferences[item.key]}
                         onChange={(v) => {
-                          if (item.key === "darkMode") {
-                            setTheme(v ? "dark" : "light");
-                          }
-
+                          setTheme(v ? "dark" : "light");
                           setPreferences((prev) => ({ ...prev, [item.key]: v }));
                         }}
                       />
                     </div>
                   );
                 })}
-              </div>
-            </div>
-
-            {/* Danger Zone */}
-            <div className="bg-white rounded-2xl border border-red-100 p-6">
-              <h3 className="font-semibold text-red-600 mb-1">Danger Zone</h3>
-              <p className="text-xs text-gray-400 mb-4">These actions are irreversible</p>
-              <div className="space-y-2">
-                <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-red-100 text-sm text-red-500 hover:bg-red-50 transition-all">
-                  <span>Delete All Order History</span>
-                  <AlertCircle className="w-4 h-4" />
-                </button>
-                <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl border border-red-100 text-sm text-red-600 font-medium hover:bg-red-50 transition-all">
-                  <span>Delete Account</span>
-                  <AlertCircle className="w-4 h-4" />
-                </button>
               </div>
             </div>
           </motion.div>

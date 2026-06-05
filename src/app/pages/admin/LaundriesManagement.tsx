@@ -24,7 +24,19 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
-import { apiRequest, ApiError } from "../../lib/admin-api";
+import {
+  addAdminLaundryClosedDate,
+  AdminLaundryClosedDate,
+  AdminLaundryScheduleDay,
+  apiRequest,
+  ApiError,
+  getAdminLaundryCapacity,
+  getAdminLaundryClosedDates,
+  getAdminLaundrySchedule,
+  removeAdminLaundryClosedDate,
+  updateAdminLaundryCapacity,
+  updateAdminLaundrySchedule,
+} from "../../lib/admin-api";
 import type {
   CreateLaundryRequest,
   CreateLaundryResponse,
@@ -49,6 +61,16 @@ const availabilityConfig = {
   Busy: "bg-amber-50 text-amber-700",
   Closed: "bg-slate-100 text-slate-600",
 } as const;
+
+const weekDays = [
+  { dayOfWeek: 0, label: "Sunday" },
+  { dayOfWeek: 1, label: "Monday" },
+  { dayOfWeek: 2, label: "Tuesday" },
+  { dayOfWeek: 3, label: "Wednesday" },
+  { dayOfWeek: 4, label: "Thursday" },
+  { dayOfWeek: 5, label: "Friday" },
+  { dayOfWeek: 6, label: "Saturday" },
+] as const;
 
 function formatDate(date: string) {
   return new Intl.DateTimeFormat("en-GB", {
@@ -152,6 +174,15 @@ export function LaundriesManagement() {
   const [suspensionTarget, setSuspensionTarget] = useState<LaundryRecord | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
   const [suspensionReasonError, setSuspensionReasonError] = useState<string | null>(null);
+  const [availabilityTarget, setAvailabilityTarget] = useState<LaundryRecord | null>(null);
+  const [availabilitySchedule, setAvailabilitySchedule] = useState<AdminLaundryScheduleDay[]>([]);
+  const [capacityForm, setCapacityForm] = useState({ maxOrdersPerDay: 30, leadTimeHours: 2 });
+  const [closedDates, setClosedDates] = useState<AdminLaundryClosedDate[]>([]);
+  const [newClosedDate, setNewClosedDate] = useState("");
+  const [newClosedDateReason, setNewClosedDateReason] = useState("");
+  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilitySaving, setAvailabilitySaving] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -220,6 +251,115 @@ export function LaundriesManagement() {
     setSuspensionTarget(null);
     setSuspensionReason("");
     setSuspensionReasonError(null);
+  }
+
+  async function openAvailabilityDialog(laundry: LaundryRecord) {
+    setAvailabilityTarget(laundry);
+    setAvailabilityLoading(true);
+    setAvailabilityError(null);
+    setNewClosedDate("");
+    setNewClosedDateReason("");
+
+    try {
+      const [scheduleResponse, capacityResponse, closedDatesResponse] =
+        await Promise.all([
+          getAdminLaundrySchedule(laundry.id),
+          getAdminLaundryCapacity(laundry.id),
+          getAdminLaundryClosedDates(laundry.id),
+        ]);
+
+      setAvailabilitySchedule(
+        weekDays.map((day) => {
+          const existing = scheduleResponse.days.find(
+            (item) => item.dayOfWeek === day.dayOfWeek,
+          );
+
+          return {
+            dayOfWeek: day.dayOfWeek,
+            isOpen: existing?.isOpen ?? true,
+          };
+        }),
+      );
+      setCapacityForm({
+        maxOrdersPerDay: Number(capacityResponse.maxOrdersPerDay ?? 30),
+        leadTimeHours: Number(capacityResponse.leadTimeHours ?? 2),
+      });
+      setClosedDates(closedDatesResponse);
+    } catch (err) {
+      setAvailabilityError(
+        err instanceof ApiError ? err.message : "Failed to load availability controls.",
+      );
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  }
+
+  function closeAvailabilityDialog() {
+    if (availabilitySaving) return;
+    setAvailabilityTarget(null);
+    setAvailabilitySchedule([]);
+    setClosedDates([]);
+    setAvailabilityError(null);
+    setNewClosedDate("");
+    setNewClosedDateReason("");
+  }
+
+  async function handleSaveAvailability() {
+    if (!availabilityTarget) return;
+
+    setAvailabilitySaving(true);
+    setAvailabilityError(null);
+    try {
+      await Promise.all([
+        updateAdminLaundrySchedule(availabilityTarget.id, availabilitySchedule),
+        updateAdminLaundryCapacity(availabilityTarget.id, {
+          maxOrdersPerDay: Number(capacityForm.maxOrdersPerDay),
+          leadTimeHours: Number(capacityForm.leadTimeHours),
+        }),
+      ]);
+      toast.success("Laundry availability updated successfully.");
+      closeAvailabilityDialog();
+    } catch (err) {
+      setAvailabilityError(
+        err instanceof ApiError ? err.message : "Failed to save availability settings.",
+      );
+    } finally {
+      setAvailabilitySaving(false);
+    }
+  }
+
+  async function handleAddClosedDate() {
+    if (!availabilityTarget || !newClosedDate) return;
+
+    try {
+      const response = await addAdminLaundryClosedDate(availabilityTarget.id, {
+        date: newClosedDate,
+        reason: newClosedDateReason.trim() || null,
+      });
+      setClosedDates((current) => [
+        ...current,
+        { id: response.id, date: newClosedDate, reason: newClosedDateReason.trim() || null },
+      ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()));
+      setNewClosedDate("");
+      setNewClosedDateReason("");
+    } catch (err) {
+      setAvailabilityError(
+        err instanceof ApiError ? err.message : "Failed to add closed date.",
+      );
+    }
+  }
+
+  async function handleRemoveClosedDate(closedDateId: number) {
+    if (!availabilityTarget) return;
+
+    try {
+      await removeAdminLaundryClosedDate(availabilityTarget.id, closedDateId);
+      setClosedDates((current) => current.filter((item) => item.id !== closedDateId));
+    } catch (err) {
+      setAvailabilityError(
+        err instanceof ApiError ? err.message : "Failed to remove closed date.",
+      );
+    }
   }
 
   async function handleStatusChange(laundry: LaundryRecord) {
@@ -559,26 +699,35 @@ export function LaundriesManagement() {
                         <td className="py-3 px-3 text-xs font-medium text-slate-600">{laundry.averageRating.toFixed(1)}</td>
                         <td className="py-3 px-3 text-xs text-slate-500">{formatDate(laundry.createdAt)}</td>
                         <td className="py-3 px-3">
-                          <button
-                            onClick={() => {
-                              if (laundry.status === "Active") {
-                                openSuspensionDialog(laundry);
-                                return;
-                              }
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              onClick={() => void openAvailabilityDialog(laundry)}
+                              className="inline-flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+                            >
+                              <Clock3 size={14} />
+                              Manage Availability
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (laundry.status === "Active") {
+                                  openSuspensionDialog(laundry);
+                                  return;
+                                }
 
-                              void handleStatusChange(laundry);
-                            }}
-                            disabled={isUpdatingId === laundry.id}
-                            className={clsx(
-                              "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
-                              laundry.status === "Active"
-                                ? "bg-red-50 text-red-700 hover:bg-red-100"
-                                : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
-                            )}
-                          >
-                            {isUpdatingId === laundry.id ? <LoaderCircle size={14} className="animate-spin" /> : <Clock3 size={14} />}
-                            {laundry.status === "Active" ? "Suspend" : "Activate"}
-                          </button>
+                                void handleStatusChange(laundry);
+                              }}
+                              disabled={isUpdatingId === laundry.id}
+                              className={clsx(
+                                "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+                                laundry.status === "Active"
+                                  ? "bg-red-50 text-red-700 hover:bg-red-100"
+                                  : "bg-emerald-50 text-emerald-700 hover:bg-emerald-100",
+                              )}
+                            >
+                              {isUpdatingId === laundry.id ? <LoaderCircle size={14} className="animate-spin" /> : <Clock3 size={14} />}
+                              {laundry.status === "Active" ? "Suspend" : "Activate"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     );
@@ -673,6 +822,188 @@ export function LaundriesManagement() {
               </DialogFooter>
             </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(availabilityTarget)}
+        onOpenChange={(open) => {
+          if (!open) {
+            closeAvailabilityDialog();
+          }
+        }}
+      >
+        <DialogContent className="max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Manage Laundry Availability</DialogTitle>
+            <DialogDescription>
+              Update schedule, daily capacity, and closed dates for {availabilityTarget?.name}.
+            </DialogDescription>
+          </DialogHeader>
+
+          {availabilityError ? (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {availabilityError}
+            </div>
+          ) : null}
+
+          {availabilityLoading ? (
+            <div className="flex min-h-[240px] items-center justify-center text-sm text-slate-500">
+              <LoaderCircle size={18} className="mr-2 animate-spin" />
+              Loading availability settings...
+            </div>
+          ) : (
+            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Weekly Schedule</h3>
+                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                    {weekDays.map((day) => {
+                      const currentDay =
+                        availabilitySchedule.find((item) => item.dayOfWeek === day.dayOfWeek) ??
+                        { dayOfWeek: day.dayOfWeek, isOpen: true };
+
+                      return (
+                        <label
+                          key={day.dayOfWeek}
+                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3"
+                        >
+                          <span className="text-sm font-medium text-slate-700">{day.label}</span>
+                          <input
+                            type="checkbox"
+                            checked={currentDay.isOpen}
+                            onChange={(event) =>
+                              setAvailabilitySchedule((current) =>
+                                current.map((item) =>
+                                  item.dayOfWeek === day.dayOfWeek
+                                    ? { ...item, isOpen: event.target.checked }
+                                    : item,
+                                ),
+                              )
+                            }
+                            className="h-4 w-4 rounded border-slate-300 text-[#1D6076] focus:ring-[#1D6076]"
+                          />
+                        </label>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Closed Dates</h3>
+                  <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                    <input
+                      type="date"
+                      value={newClosedDate}
+                      onChange={(event) => setNewClosedDate(event.target.value)}
+                      className="flex-1 rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700"
+                    />
+                    <input
+                      value={newClosedDateReason}
+                      onChange={(event) => setNewClosedDateReason(event.target.value)}
+                      placeholder="Reason"
+                      className="flex-[1.4] rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void handleAddClosedDate()}
+                      disabled={!newClosedDate}
+                      className="rounded-xl bg-[#1D6076] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      Add
+                    </button>
+                  </div>
+
+                  <div className="mt-4 space-y-2">
+                    {closedDates.length === 0 ? (
+                      <p className="text-sm text-slate-500">No closed dates configured.</p>
+                    ) : (
+                      closedDates.map((item) => (
+                        <div
+                          key={item.id}
+                          className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-slate-800">{formatDate(item.date)}</p>
+                            <p className="text-xs text-slate-500">{item.reason || "No reason provided"}</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void handleRemoveClosedDate(item.id)}
+                            className="rounded-lg bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50/80 p-4">
+                  <h3 className="text-sm font-semibold text-slate-900">Capacity Controls</h3>
+                  <div className="mt-4 space-y-4">
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Max Orders Per Day
+                      </span>
+                      <input
+                        type="number"
+                        min={1}
+                        value={capacityForm.maxOrdersPerDay}
+                        onChange={(event) =>
+                          setCapacityForm((current) => ({
+                            ...current,
+                            maxOrdersPerDay: Number(event.target.value),
+                          }))
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        Lead Time Hours
+                      </span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={capacityForm.leadTimeHours}
+                        onChange={(event) =>
+                          setCapacityForm((current) => ({
+                            ...current,
+                            leadTimeHours: Number(event.target.value),
+                          }))
+                        }
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700"
+                      />
+                    </label>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={closeAvailabilityDialog}
+              disabled={availabilitySaving}
+              className="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={() => void handleSaveAvailability()}
+              disabled={availabilityLoading || availabilitySaving}
+              className="inline-flex items-center gap-2 rounded-xl bg-[#1D6076] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {availabilitySaving ? <LoaderCircle size={16} className="animate-spin" /> : null}
+              Save Availability
+            </button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </motion.div>

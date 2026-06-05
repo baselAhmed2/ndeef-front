@@ -113,7 +113,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = async (email: string, password: string): Promise<AuthResult> => {
     try {
-      const response = await loginRequest(email, password);
+      let response;
+
+      try {
+        response = await loginRequest(email, password);
+      } catch (error) {
+        if (!(error instanceof ApiError) || error.status !== 0) {
+          throw error;
+        }
+
+        await new Promise((resolve) => window.setTimeout(resolve, 900));
+        response = await loginRequest(email, password);
+      }
+
       const nextUser = mapUserDtoToAuthUser(response);
 
       setUser(nextUser);

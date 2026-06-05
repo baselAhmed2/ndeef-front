@@ -326,7 +326,10 @@ export default function Login() {
     let errorMessage = result.message ?? "Invalid email or password. Please try again.";
 
     // Normalize common backend error messages
-    if (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("incorrect")) {
+    if (errorMessage.toLowerCase().includes("unable to reach the server")) {
+      errorMessage =
+        "We could not reach the server just now. Please wait a few seconds and try again.";
+    } else if (errorMessage.toLowerCase().includes("invalid") || errorMessage.toLowerCase().includes("incorrect")) {
       errorMessage = "The email or password you entered is incorrect. Please check your credentials and try again.";
     } else if (errorMessage.toLowerCase().includes("not found") || errorMessage.toLowerCase().includes("no user")) {
       errorMessage = "No account found with this email. Would you like to create a new account?";
@@ -396,6 +399,9 @@ export default function Login() {
             </h1>
             <p className="ndeef-auth-subheading text-[15px] mb-8">
               Sign in to your Nazeef account
+            </p>
+            <p className="text-xs text-gray-400 -mt-5 mb-6">
+              If sign-in fails before checking your password, the server may be temporarily unavailable.
             </p>
           </motion.div>
 

@@ -29,6 +29,7 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/laundry-admin/payments": { title: "Payments", subtitle: "Track revenue and payment history" },
   "/laundry-admin/analytics": { title: "Analytics", subtitle: "Revenue, order insights, and demand forecast" },
   "/laundry-admin/support": { title: "Support", subtitle: "Review customer complaints" },
+  "/laundry-admin/profile": { title: "Profile", subtitle: "Manage your personal and laundry profile information" },
   "/laundry-admin/settings": { title: "Settings", subtitle: "Manage your account and preferences" },
 };
 
@@ -87,6 +88,7 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
     currentPath === "/laundry-admin"
       ? `Welcome back, ${displayName}`
       : pageInfo.subtitle;
+  const displayedNotificationCount = Math.max(unreadCount, notificationCount);
 
   return (
     <>
@@ -136,12 +138,12 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
             className="relative w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-all"
           >
             <Bell className="w-4 h-4" />
-            {unreadCount > 0 && (
+            {displayedNotificationCount > 0 && (
               <span
                 className="absolute top-1 right-1 w-4 h-4 text-[10px] font-bold rounded-full flex items-center justify-center text-white"
                 style={{ backgroundColor: "#EBA050" }}
               >
-                {unreadCount > 9 ? "9+" : unreadCount}
+                {displayedNotificationCount > 9 ? "9+" : displayedNotificationCount}
               </span>
             )}
           </button>
@@ -195,7 +197,7 @@ export function LaundryHeader({ notificationCount = 0 }: LaundryHeaderProps) {
                     </div>
                     <div className="p-1.5">
                       <button
-                        onClick={() => { setShowUserMenu(false); router.push("/laundry-admin/settings"); }}
+                        onClick={() => { setShowUserMenu(false); router.push("/laundry-admin/profile"); }}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
                       >
                         <User className="w-4 h-4" /> Profile

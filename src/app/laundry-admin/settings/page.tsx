@@ -7,7 +7,12 @@ export const dynamic = 'force-dynamic';
 export default function LaundrySettingsPage() {
   return (
     <Suspense fallback={<div>Loading settings...</div>}>
-      <Settings />
+      <Settings
+        initialTab="notifications"
+        pageTitle="Settings"
+        pageSubtitle="Manage your account preferences and notification channels"
+        visibleTabs={["notifications", "preferences"]}
+      />
     </Suspense>
   );
 }

@@ -91,6 +91,18 @@ function toPickupDateTime(dateLabel: string, timeSlot: string) {
   return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
 }
 
+function isDeliveryAfterPickup(
+  pickupDateLabel: string,
+  pickupTimeSlot: string,
+  deliveryDateLabel: string,
+  deliveryTimeSlot: string,
+) {
+  return (
+    getSlotStartDate(deliveryDateLabel, deliveryTimeSlot).getTime() >
+    getSlotStartDate(pickupDateLabel, pickupTimeSlot).getTime()
+  );
+}
+
 function formatMapAddress(latitude: number, longitude: number) {
   return `Location selected from map (${latitude.toFixed(6)}, ${longitude.toFixed(6)})`;
 }
@@ -118,6 +130,32 @@ async function resolveMapAddress(latitude: number, longitude: number) {
     console.error("resolveMapAddress error", err);
     return formatMapAddress(latitude, longitude);
   }
+}
+
+function buildBundleSelectedItems(
+  bundle: UiBundle,
+  laundry: UiLaundry | null,
+) {
+  return bundle.items.map((item) => {
+    const matchedLaundryService =
+      !bundle.laundryId || bundle.ownerType.toLowerCase() === "platform"
+        ? laundry?.services.find((service) => {
+            const serviceCategory = service.category.trim().toLowerCase();
+            const expectedCategory = (
+              item.allowedCategory?.trim() ||
+              item.category.trim()
+            ).toLowerCase();
+
+            return service.available && serviceCategory === expectedCategory;
+          })
+        : null;
+
+    return {
+      bundleItemId: item.id,
+      serviceId: Number(matchedLaundryService?.id ?? item.serviceId),
+      quantity: item.quantity,
+    };
+  });
 }
 
 export default function OrderPage() {
@@ -148,8 +186,10 @@ export default function OrderPage() {
   const [walletBalance, setWalletBalance] = useState(0);
   const [loading, setLoading] = useState(true);
   const [itemCounts, setItemCounts] = useState<Record<string, number>>({});
-  const [selectedDate, setSelectedDate] = useState("Today");
-  const [selectedTime, setSelectedTime] = useState("10:00 - 12:00");
+  const [selectedPickupDate, setSelectedPickupDate] = useState("Today");
+  const [selectedPickupTime, setSelectedPickupTime] = useState("10:00 - 12:00");
+  const [selectedDeliveryDate, setSelectedDeliveryDate] = useState("Tomorrow");
+  const [selectedDeliveryTime, setSelectedDeliveryTime] = useState("10:00 - 12:00");
   const [pickupAddress, setPickupAddress] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [sameAddress, setSameAddress] = useState(true);
@@ -177,26 +217,68 @@ export default function OrderPage() {
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const orderSubmissionLockRef = useRef(false);
 
-  const availableTimeSlots = useMemo(() => {
+  const availablePickupTimeSlots = useMemo(() => {
     const now = new Date();
     return timeSlots.filter((slot) => {
-      if (selectedDate !== "Today") return true;
-      return getSlotStartDate(selectedDate, slot).getTime() > now.getTime();
+      if (selectedPickupDate !== "Today") return true;
+      return getSlotStartDate(selectedPickupDate, slot).getTime() > now.getTime();
     });
-  }, [selectedDate]);
+  }, [selectedPickupDate]);
+
+  const availableDeliveryTimeSlots = useMemo(() => {
+    const now = new Date();
+    return timeSlots.filter((slot) => {
+      const deliveryStart = getSlotStartDate(selectedDeliveryDate, slot).getTime();
+      if (selectedDeliveryDate === "Today" && deliveryStart <= now.getTime()) {
+        return false;
+      }
+
+      return isDeliveryAfterPickup(
+        selectedPickupDate,
+        selectedPickupTime,
+        selectedDeliveryDate,
+        slot,
+      );
+    });
+  }, [
+    selectedDeliveryDate,
+    selectedPickupDate,
+    selectedPickupTime,
+  ]);
 
   useEffect(() => {
-    if (availableTimeSlots.length === 0) {
-      if (selectedDate === "Today") {
-        setSelectedDate("Tomorrow");
+    if (availablePickupTimeSlots.length === 0) {
+      if (selectedPickupDate === "Today") {
+        setSelectedPickupDate("Tomorrow");
       }
       return;
     }
 
-    if (!availableTimeSlots.includes(selectedTime)) {
-      setSelectedTime(availableTimeSlots[0]);
+    if (!availablePickupTimeSlots.includes(selectedPickupTime)) {
+      setSelectedPickupTime(availablePickupTimeSlots[0]);
     }
-  }, [availableTimeSlots, selectedDate, selectedTime]);
+  }, [availablePickupTimeSlots, selectedPickupDate, selectedPickupTime]);
+
+  useEffect(() => {
+    if (availableDeliveryTimeSlots.length === 0) {
+      const currentDeliveryDateIndex = dates.indexOf(selectedDeliveryDate);
+      if (
+        currentDeliveryDateIndex >= 0 &&
+        currentDeliveryDateIndex < dates.length - 1
+      ) {
+        setSelectedDeliveryDate(dates[currentDeliveryDateIndex + 1]);
+      }
+      return;
+    }
+
+    if (!availableDeliveryTimeSlots.includes(selectedDeliveryTime)) {
+      setSelectedDeliveryTime(availableDeliveryTimeSlots[0]);
+    }
+  }, [
+    availableDeliveryTimeSlots,
+    selectedDeliveryDate,
+    selectedDeliveryTime,
+  ]);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -344,8 +426,23 @@ export default function OrderPage() {
     if (!sameAddress && !deliveryAddress.trim()) {
       nextErrors.delivery = "Delivery address is required";
     }
-    if (!availableTimeSlots.includes(selectedTime)) {
-      nextErrors.time = "Please choose an upcoming pickup time";
+    if (!availablePickupTimeSlots.includes(selectedPickupTime)) {
+      nextErrors.pickupTime = "Please choose an upcoming pickup time";
+    }
+    if (!availableDeliveryTimeSlots.includes(selectedDeliveryTime)) {
+      nextErrors.deliveryTime = "Please choose a valid delivery time";
+    }
+    if (
+      availablePickupTimeSlots.includes(selectedPickupTime) &&
+      availableDeliveryTimeSlots.includes(selectedDeliveryTime) &&
+      !isDeliveryAfterPickup(
+        selectedPickupDate,
+        selectedPickupTime,
+        selectedDeliveryDate,
+        selectedDeliveryTime,
+      )
+    ) {
+      nextErrors.deliveryTime = "Delivery must be scheduled after pickup";
     }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -561,19 +658,46 @@ export default function OrderPage() {
 
     try {
       setValidating(true);
+      const bundleSelectedItems = selectedBundle
+        ? buildBundleSelectedItems(selectedBundle, laundry)
+        : [];
+
+      if (selectedBundle) {
+        if (bundleSelectedItems.length === 0) {
+          setSubmitError("This bundle does not contain any orderable items.");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+
+        const hasInvalidBundleService = bundleSelectedItems.some(
+          (item) => !Number.isFinite(item.serviceId) || item.serviceId <= 0,
+        );
+
+        if (hasInvalidBundleService) {
+          setSubmitError(
+            "This bundle has no matching service at the selected laundry.",
+          );
+          window.scrollTo({ top: 0, behavior: "smooth" });
+          return;
+        }
+      }
+
       const order = selectedBundle
         ? await placeBundleOrderRequest(user.token, {
             bundleId: selectedBundle.id,
             laundryId: Number(laundryId),
             pickupLocation: pickupAddress.trim(),
             deliveryLocation: finalDelivery.trim(),
-            selectedItems: selectedBundle.items.map((item) => ({
-              bundleItemId: item.id,
-              serviceId: item.serviceId,
-              quantity: item.quantity,
-            })),
+            selectedItems: bundleSelectedItems,
             useWalletBalance: false, // المحفظة بتتخصم تلقائياً في صفحة الدفع
-            scheduledPickupTime: toPickupDateTime(selectedDate, selectedTime),
+            scheduledPickupTime: toPickupDateTime(
+              selectedPickupDate,
+              selectedPickupTime,
+            ),
+            scheduledDeliveryTime: toPickupDateTime(
+              selectedDeliveryDate,
+              selectedDeliveryTime,
+            ),
           })
         : await placeOrderRequest(user.token, {
             laundryId: Number(laundryId),
@@ -581,8 +705,14 @@ export default function OrderPage() {
               serviceId: Number(service.id),
               quantity: itemCounts[service.id] ?? 1,
             })),
-            pickupTime: toPickupDateTime(selectedDate, selectedTime),
-            deliveryTime: null,
+            pickupTime: toPickupDateTime(
+              selectedPickupDate,
+              selectedPickupTime,
+            ),
+            deliveryTime: toPickupDateTime(
+              selectedDeliveryDate,
+              selectedDeliveryTime,
+            ),
             pickupLocation: pickupAddress.trim(),
             deliveryLocation: finalDelivery.trim(),
             notes: null,
@@ -910,9 +1040,9 @@ export default function OrderPage() {
             {dates.map((date) => (
               <button
                 key={date}
-                onClick={() => setSelectedDate(date)}
+                onClick={() => setSelectedPickupDate(date)}
                 className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.98] ${
-                  selectedDate === date
+                  selectedPickupDate === date
                     ? "bg-[#1D6076] text-white shadow-sm"
                     : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100"
                 }`}
@@ -930,8 +1060,8 @@ export default function OrderPage() {
               PICKUP TIME
             </p>
           </div>
-          {selectedDate === "Today" &&
-            availableTimeSlots.length !== timeSlots.length && (
+          {selectedPickupDate === "Today" &&
+            availablePickupTimeSlots.length !== timeSlots.length && (
               <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
                 Past pickup windows for today are unavailable.
               </div>
@@ -939,13 +1069,13 @@ export default function OrderPage() {
           <div className="grid grid-cols-2 gap-2.5">
             {timeSlots.map((slot) =>
               (() => {
-                const isDisabled = !availableTimeSlots.includes(slot);
-                const isSelected = selectedTime === slot;
+                const isDisabled = !availablePickupTimeSlots.includes(slot);
+                const isSelected = selectedPickupTime === slot;
                 return (
                   <button
                     key={slot}
                     type="button"
-                    onClick={() => !isDisabled && setSelectedTime(slot)}
+                    onClick={() => !isDisabled && setSelectedPickupTime(slot)}
                     disabled={isDisabled}
                     className={`relative rounded-xl border py-3 text-sm font-medium transition-all ${
                       isDisabled
@@ -971,10 +1101,91 @@ export default function OrderPage() {
               })(),
             )}
           </div>
-          {errors.time && (
+          {errors.pickupTime && (
             <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
               <AlertCircle size={12} />
-              {errors.time}
+              {errors.pickupTime}
+            </p>
+          )}
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar size={16} className="text-[#EBA050]" strokeWidth={2} />
+            <p className="text-xs font-semibold text-gray-400 tracking-wider">
+              DELIVERY DATE
+            </p>
+          </div>
+          <div className="flex gap-2.5">
+            {dates.map((date) => (
+              <button
+                key={date}
+                onClick={() => setSelectedDeliveryDate(date)}
+                className={`flex-1 py-3 rounded-xl text-sm font-medium transition-all active:scale-[0.98] ${
+                  selectedDeliveryDate === date
+                    ? "bg-[#1D6076] text-white shadow-sm"
+                    : "bg-gray-50 text-gray-700 hover:bg-gray-100 border border-gray-100"
+                }`}
+              >
+                {date}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          <div className="flex items-center gap-2 mb-4">
+            <Clock size={16} className="text-[#1D6076]" strokeWidth={2} />
+            <p className="text-xs font-semibold text-gray-400 tracking-wider">
+              DELIVERY TIME
+            </p>
+          </div>
+          {(selectedDeliveryDate === "Today" ||
+            selectedDeliveryDate === selectedPickupDate) &&
+            availableDeliveryTimeSlots.length !== timeSlots.length && (
+              <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                Delivery windows are limited to times after pickup.
+              </div>
+            )}
+          <div className="grid grid-cols-2 gap-2.5">
+            {timeSlots.map((slot) =>
+              (() => {
+                const isDisabled = !availableDeliveryTimeSlots.includes(slot);
+                const isSelected = selectedDeliveryTime === slot;
+                return (
+                  <button
+                    key={slot}
+                    type="button"
+                    onClick={() => !isDisabled && setSelectedDeliveryTime(slot)}
+                    disabled={isDisabled}
+                    className={`relative rounded-xl border py-3 text-sm font-medium transition-all ${
+                      isDisabled
+                        ? "cursor-not-allowed border-gray-100 bg-gray-50 text-gray-300 opacity-60"
+                        : isSelected
+                          ? "bg-[#1D6076] text-white shadow-sm border-[#1D6076]"
+                          : "border-gray-100 bg-gray-50 text-gray-700 hover:bg-gray-100 active:scale-[0.98]"
+                    }`}
+                  >
+                    {slot}
+                    {isSelected && !isDisabled && (
+                      <span className="absolute top-2 right-2 w-4 h-4 rounded-full bg-white/25 flex items-center justify-center">
+                        <Check size={10} strokeWidth={3} />
+                      </span>
+                    )}
+                    {isDisabled && (
+                      <span className="absolute right-2 top-2 text-[10px] font-semibold text-gray-300">
+                        Unavailable
+                      </span>
+                    )}
+                  </button>
+                );
+              })(),
+            )}
+          </div>
+          {errors.deliveryTime && (
+            <p className="text-red-500 text-xs mt-2 flex items-center gap-1">
+              <AlertCircle size={12} />
+              {errors.deliveryTime}
             </p>
           )}
         </div>

@@ -142,10 +142,6 @@ export default function LaundryDriversPage() {
   const sectionClass = isDark
     ? "rounded-[2rem] border border-white/10 bg-[#102231] p-6 shadow-none"
     : "rounded-[2rem] border border-gray-100 bg-white p-6 shadow-sm";
-  const surfaceClass = isDark
-    ? "rounded-2xl border border-white/10 bg-[#102231] p-5 shadow-none"
-    : "rounded-2xl border border-gray-100 bg-white p-5 shadow-sm";
-
   return (
     <div className={pageClass}>
       <div className="mx-auto max-w-7xl space-y-6">

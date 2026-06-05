@@ -43,6 +43,30 @@ import { useAutoRefresh } from "@/app/hooks/useAutoRefresh";
 import { useAuth } from "@/app/context/AuthContext";
 import { DashboardAccessGuard } from "@/app/components/auth/DashboardAccessGuard";
 import { usePreferences } from "@/app/context/PreferencesContext";
+import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
+import { toast } from "sonner";
+
+type HubConnectionLike = {
+  on: (eventName: string, callback: (payload: unknown) => void) => void;
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+};
+
+type SignalRModuleLike = {
+  HubConnectionBuilder: new () => {
+    withUrl: (
+      url: string,
+      options: { accessTokenFactory: () => string },
+    ) => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
+    withAutomaticReconnect: () => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
+    configureLogging: (level: unknown) => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
+    build: () => HubConnectionLike;
+  };
+  LogLevel: {
+    None: unknown;
+    Warning: unknown;
+  };
+};
 
 const NAV_ITEMS = [
   {
@@ -139,6 +163,74 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
     });
     return unsubscribe;
   }, []);
+
+  useEffect(() => {
+    if (!isAuthReady || !isLoggedIn || !isCourier || !user?.token) {
+      return;
+    }
+
+    let isCancelled = false;
+    let connection: HubConnectionLike | null = null;
+
+    const startRealtimeNotifications = async () => {
+      try {
+        const signalR = (await import("@microsoft/signalr")) as SignalRModuleLike;
+        if (isCancelled) return;
+
+        const hubUrl = `${BACKEND_ORIGIN}/notifications-hub`;
+        const builtConnection = new signalR.HubConnectionBuilder()
+          .withUrl(hubUrl, {
+            accessTokenFactory: () => user.token ?? "",
+          })
+          .withAutomaticReconnect()
+          .configureLogging(signalR.LogLevel.None)
+          .build();
+
+        connection = builtConnection;
+
+        builtConnection.on("ReceiveNotification", (newNotif: unknown) => {
+          const payload = (newNotif ?? {}) as Record<string, unknown>;
+          const formattedNotif: CourierNotificationDto = {
+            id: Number(payload.id ?? payload.Id ?? Date.now()),
+            title: String(payload.title ?? payload.Title ?? "New Notification"),
+            message: String(payload.message ?? payload.Message ?? ""),
+            isRead: Boolean(payload.isRead ?? payload.IsRead ?? false),
+            orderId: Number(payload.orderId ?? payload.OrderId ?? 0) || null,
+            createdAt: String(
+              payload.createdAt ?? payload.CreatedAt ?? new Date().toISOString(),
+            ),
+          };
+
+          setNotifications((prev) => [formattedNotif, ...prev]);
+          setUnreadNotifications((count) => {
+            const nextCount = count + 1;
+            announceCourierNotificationCountUpdated(nextCount);
+            return nextCount;
+          });
+
+          toast.info(formattedNotif.title, {
+            description: formattedNotif.message,
+          });
+        });
+
+        await builtConnection.start();
+        if (isCancelled) {
+          await builtConnection.stop();
+        }
+      } catch (error) {
+        return;
+      }
+    };
+
+    void startRealtimeNotifications();
+
+    return () => {
+      isCancelled = true;
+      if (connection) {
+        void connection.stop();
+      }
+    };
+  }, [isAuthReady, isCourier, isLoggedIn, user?.token]);
 
   useEffect(() => {
     if (!notificationsOpen) return;

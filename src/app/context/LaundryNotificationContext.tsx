@@ -9,11 +9,6 @@ import {
   useMemo,
   ReactNode,
 } from "react";
-import {
-  HubConnectionBuilder,
-  HubConnection,
-  LogLevel,
-} from "@microsoft/signalr";
 import { useAuth } from "@/app/context/AuthContext";
 import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
 import { toast } from "sonner";
@@ -27,6 +22,25 @@ import {
 } from "@/app/lib/laundry-admin-client";
 
 type NotifType = "order" | "payment" | "review" | "alert" | "system";
+type HubConnectionLike = {
+  on: (eventName: string, callback: (payload: unknown) => void) => void;
+  start: () => Promise<void>;
+  stop: () => Promise<void>;
+};
+type SignalRModuleLike = {
+  HubConnectionBuilder: new () => {
+    withUrl: (
+      url: string,
+      options: { accessTokenFactory: () => string },
+    ) => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
+    withAutomaticReconnect: () => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
+    configureLogging: (level: unknown) => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
+    build: () => HubConnectionLike;
+  };
+  LogLevel: {
+    Warning: unknown;
+  };
+};
 
 export interface LaundryNotification {
   id: string;
@@ -72,7 +86,7 @@ export function LaundryNotificationProvider({ children }: { children: ReactNode 
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [connection, setConnection] = useState<HubConnection | null>(null);
+  const [connection, setConnection] = useState<HubConnectionLike | null>(null);
 
   const loadNotifications = useCallback(async (silent = false) => {
     if (!isLoggedIn || !user?.token) return;
@@ -116,63 +130,77 @@ export function LaundryNotificationProvider({ children }: { children: ReactNode 
       return;
     }
 
-    const hubUrl = `${BACKEND_ORIGIN}/notifications-hub`;
-    const conn = new HubConnectionBuilder()
-      .withUrl(hubUrl, {
-        accessTokenFactory: () => user.token ?? "",
-      })
-      .withAutomaticReconnect()
-      .configureLogging(LogLevel.Warning)
-      .build();
+    let isCancelled = false;
+    let conn: HubConnectionLike | null = null;
 
-    conn.on("ReceiveNotification", (newNotif: any) => {
-      // Format backend notification object to frontend structure
-      const formattedNotif: LaundryNotification = {
-        id: String(newNotif.id ?? newNotif.Id ?? Math.random()),
-        title: newNotif.title ?? newNotif.Title ?? "New Alert",
-        message: newNotif.message ?? newNotif.Message ?? "",
-        type: toFrontendNotificationType(newNotif.type ?? newNotif.Type),
-        time: "now",
-        read: Boolean(newNotif.isRead ?? newNotif.IsRead ?? false),
-        createdAt: newNotif.createdAt ?? newNotif.CreatedAt ?? new Date().toISOString(),
-        orderId: newNotif.orderId ?? newNotif.OrderId ?? null,
-      };
-
-      setNotifications((prev) => [formattedNotif, ...prev]);
-      setUnreadCount((c) => c + 1);
-
-      // Play soft sound notification (optional, catching play failure in case of user gesture policy)
+    const startRealtimeNotifications = async () => {
       try {
-        const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav");
-        audio.volume = 0.3;
-        void audio.play();
-      } catch (err) {
-        // Ignore audio playback error
-      }
+        const signalR = (await import("@microsoft/signalr")) as SignalRModuleLike;
+        if (isCancelled) return;
 
-      // Display premium live alert toast
-      toast.info(formattedNotif.title, {
-        description: formattedNotif.message,
-        action: {
-          label: "View",
-          onClick: () => {
-            window.location.href = "/laundry-admin/notifications";
-          },
-        },
-      });
-    });
+        const hubUrl = `${BACKEND_ORIGIN}/notifications-hub`;
+        const builtConnection = new signalR.HubConnectionBuilder()
+          .withUrl(hubUrl, {
+            accessTokenFactory: () => user.token ?? "",
+          })
+          .withAutomaticReconnect()
+          .configureLogging(signalR.LogLevel.Warning)
+          .build();
+        conn = builtConnection;
 
-    conn
-      .start()
-      .then(() => {
+        builtConnection.on("ReceiveNotification", (newNotif: unknown) => {
+          const payload = (newNotif ?? {}) as Record<string, unknown>;
+
+          const formattedNotif: LaundryNotification = {
+            id: String(payload.id ?? payload.Id ?? Math.random()),
+            title: String(payload.title ?? payload.Title ?? "New Alert"),
+            message: String(payload.message ?? payload.Message ?? ""),
+            type: toFrontendNotificationType((payload.type ?? payload.Type) as string | number | null | undefined),
+            time: "now",
+            read: Boolean(payload.isRead ?? payload.IsRead ?? false),
+            createdAt: String(payload.createdAt ?? payload.CreatedAt ?? new Date().toISOString()),
+            orderId: Number(payload.orderId ?? payload.OrderId ?? 0) || null,
+          };
+
+          setNotifications((prev) => [formattedNotif, ...prev]);
+          setUnreadCount((c) => c + 1);
+
+          try {
+            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-500.wav");
+            audio.volume = 0.3;
+            void audio.play();
+          } catch {
+            // Ignore audio playback error
+          }
+
+          toast.info(formattedNotif.title, {
+            description: formattedNotif.message,
+            action: {
+              label: "View",
+              onClick: () => {
+                window.location.href = "/laundry-admin/notifications";
+              },
+            },
+          });
+        });
+
+        await builtConnection.start();
+        if (isCancelled) {
+          await builtConnection.stop();
+          return;
+        }
+
         console.log("SignalR Connection established for Laundry Notifications");
         setConnection(conn);
-      })
-      .catch((err) => {
-        console.error("SignalR Connection failed: ", err);
-      });
+      } catch (err: unknown) {
+        console.warn("Realtime notifications unavailable, falling back to polling.", err);
+      }
+    };
+
+    void startRealtimeNotifications();
 
     return () => {
+      isCancelled = true;
       if (conn) {
         void conn.stop();
       }

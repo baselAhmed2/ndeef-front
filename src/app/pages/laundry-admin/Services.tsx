@@ -10,6 +10,8 @@ import {
   type LaundryBundleApprovalDTO,
   type LaundryBundleDTO,
   getServiceCatalog,
+  proposeLaundryBundle,
+  proposeLaundryBundleEdit,
   type ServiceCatalogDTO,
   updateService,
 } from "@/app/lib/laundry-admin-client";
@@ -58,10 +60,270 @@ function normalizeCatalogItem(item: ServiceCatalogDTO): ServiceCard {
   };
 }
 
+function isLaundryOwnedBundle(bundle: LaundryBundleDTO) {
+  return bundle.laundryId !== null;
+}
+
 interface ServiceModalProps {
   service?: ServiceCard;
   onClose: () => void;
   onSave: (data: { price: number; active: boolean }) => Promise<void>;
+}
+
+type BundleComposerState = {
+  name: string;
+  description: string;
+  bundlePrice: string;
+  originalPrice: string;
+  requestNote: string;
+  items: Array<{
+    serviceId: string;
+    quantity: string;
+  }>;
+};
+
+interface BundleModalProps {
+  mode: "create" | "edit";
+  services: ServiceCard[];
+  bundle?: LaundryBundleDTO;
+  onClose: () => void;
+  onSave: (payload: BundleComposerState) => Promise<void>;
+}
+
+function BundleModal({ mode, services, bundle, onClose, onSave }: BundleModalProps) {
+  const [form, setForm] = useState<BundleComposerState>(() => ({
+    name: bundle?.name ?? "",
+    description: bundle?.description ?? "",
+    bundlePrice: bundle ? String(bundle.bundlePrice) : "",
+    originalPrice: bundle ? String(bundle.originalPrice) : "",
+    requestNote: "",
+    items:
+      bundle?.items.map((item) => ({
+        serviceId: String(item.serviceId),
+        quantity: String(item.quantity),
+      })) ?? [{ serviceId: "", quantity: "1" }],
+  }));
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+
+  const availableServices = services.filter((service) => service.isAdded && service.existingServiceId);
+
+  const submit = async () => {
+    if (!form.name.trim()) {
+      setError("Bundle name is required.");
+      return;
+    }
+    if (form.items.some((item) => !item.serviceId || Number(item.quantity) <= 0)) {
+      setError("Each bundle item needs a service and a quantity.");
+      return;
+    }
+    if (Number(form.bundlePrice) <= 0 || Number(form.originalPrice) <= 0) {
+      setError("Prices must be greater than zero.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      await onSave(form);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Could not save bundle.");
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.96, opacity: 0, y: 16 }}
+        animate={{ scale: 1, opacity: 1, y: 0 }}
+        exit={{ scale: 0.96, opacity: 0, y: 16 }}
+        className="w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-2xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              {mode === "create" ? "Propose New Bundle" : "Propose Bundle Edit"}
+            </h3>
+            <p className="mt-0.5 text-xs text-gray-400">
+              {mode === "create"
+                ? "Send a bundle proposal for super admin approval."
+                : "Submit edits without taking the active bundle offline."}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-8 w-8 items-center justify-center rounded-xl text-gray-400 transition-all hover:bg-gray-100"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="grid gap-4 p-6 md:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Bundle Name
+            </span>
+            <input
+              value={form.name}
+              onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))}
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Request Note
+            </span>
+            <input
+              value={form.requestNote}
+              onChange={(event) => setForm((current) => ({ ...current, requestNote: event.target.value }))}
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
+            />
+          </label>
+          <label className="block md:col-span-2">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Description
+            </span>
+            <textarea
+              value={form.description}
+              onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
+              rows={3}
+              className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Bundle Price
+            </span>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={form.bundlePrice}
+              onChange={(event) => setForm((current) => ({ ...current, bundlePrice: event.target.value }))}
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-gray-500">
+              Original Price
+            </span>
+            <input
+              type="number"
+              min="0.01"
+              step="0.01"
+              value={form.originalPrice}
+              onChange={(event) => setForm((current) => ({ ...current, originalPrice: event.target.value }))}
+              className="h-11 w-full rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
+            />
+          </label>
+        </div>
+
+        <div className="border-t border-gray-100 px-6 py-5">
+          <div className="mb-3 flex items-center justify-between">
+            <p className="text-sm font-semibold text-gray-900">Bundle Items</p>
+            <button
+              type="button"
+              onClick={() =>
+                setForm((current) => ({
+                  ...current,
+                  items: [...current.items, { serviceId: "", quantity: "1" }],
+                }))
+              }
+              className="rounded-xl border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 transition-all hover:bg-gray-50"
+            >
+              Add Item
+            </button>
+          </div>
+          <div className="space-y-3">
+            {form.items.map((item, index) => (
+              <div key={`${index}-${item.serviceId}`} className="grid gap-3 md:grid-cols-[1fr_120px_44px]">
+                <select
+                  value={item.serviceId}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      items: current.items.map((entry, entryIndex) =>
+                        entryIndex === index ? { ...entry, serviceId: event.target.value } : entry,
+                      ),
+                    }))
+                  }
+                  className="h-11 rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
+                >
+                  <option value="">Select service</option>
+                  {availableServices.map((service) => (
+                    <option key={service.id} value={service.existingServiceId ?? ""}>
+                      {service.name}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="number"
+                  min="1"
+                  value={item.quantity}
+                  onChange={(event) =>
+                    setForm((current) => ({
+                      ...current,
+                      items: current.items.map((entry, entryIndex) =>
+                        entryIndex === index ? { ...entry, quantity: event.target.value } : entry,
+                      ),
+                    }))
+                  }
+                  className="h-11 rounded-xl border border-gray-200 px-3 text-sm focus:border-[#1D5B70] focus:outline-none focus:ring-2 focus:ring-[#1D5B70]/20"
+                />
+                <button
+                  type="button"
+                  onClick={() =>
+                    setForm((current) => ({
+                      ...current,
+                      items:
+                        current.items.length === 1
+                          ? current.items
+                          : current.items.filter((_, entryIndex) => entryIndex !== index),
+                    }))
+                  }
+                  className="flex h-11 w-11 items-center justify-center rounded-xl text-gray-400 transition-all hover:bg-red-50 hover:text-red-500"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+
+          {error && (
+            <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs text-red-600">
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div className="flex items-center justify-end gap-2 border-t border-gray-100 bg-gray-50/60 px-6 py-4">
+          <button
+            onClick={onClose}
+            className="rounded-xl border border-gray-200 px-4 py-2 text-sm font-medium text-gray-600 transition-all hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void submit()}
+            disabled={submitting}
+            className="flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white transition-all hover:opacity-90 disabled:opacity-60"
+            style={{ backgroundColor: "#1D5B70" }}
+          >
+            {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            {mode === "create" ? "Submit Proposal" : "Submit Edit Request"}
+          </button>
+        </div>
+      </motion.div>
+    </motion.div>
+  );
 }
 
 function ServiceModal({ service, onClose, onSave }: ServiceModalProps) {
@@ -229,6 +491,9 @@ export function Services() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingService, setEditingService] = useState<ServiceCard | undefined>();
   const [deletingService, setDeletingService] = useState<ServiceCard | undefined>();
+  const [bundleModalOpen, setBundleModalOpen] = useState(false);
+  const [bundleModalMode, setBundleModalMode] = useState<"create" | "edit">("create");
+  const [editingBundle, setEditingBundle] = useState<LaundryBundleDTO | undefined>();
 
   const filtered = useMemo(() => {
     return services.filter((service) => {
@@ -246,6 +511,13 @@ export function Services() {
   const configuredCount = useMemo(
     () => services.filter((service) => service.isAdded).length,
     [services],
+  );
+  const activeBundles = useMemo(
+    () =>
+      bundles.filter(
+        (bundle) => bundle.status.toLowerCase() === "active" && bundle.items.length > 0,
+      ),
+    [bundles],
   );
 
   const loadServices = async () => {
@@ -338,6 +610,63 @@ export function Services() {
       setError(bundleError instanceof Error ? bundleError.message : "Could not deactivate bundle.");
     } finally {
       setBundleBusyId(null);
+    }
+  };
+
+  const openCreateBundleModal = () => {
+    setEditingBundle(undefined);
+    setBundleModalMode("create");
+    setBundleModalOpen(true);
+  };
+
+  const openEditBundleModal = (bundle: LaundryBundleDTO) => {
+    setEditingBundle(bundle);
+    setBundleModalMode("edit");
+    setBundleModalOpen(true);
+  };
+
+  const handleSaveBundle = async (form: BundleComposerState) => {
+    const normalizedItems = form.items.map((item) => ({
+      serviceId: Number(item.serviceId),
+      quantity: Number(item.quantity),
+    }));
+
+    try {
+      setError(null);
+
+      if (bundleModalMode === "create") {
+        await proposeLaundryBundle({
+          name: form.name,
+          description: form.description,
+          bundlePrice: Number(form.bundlePrice),
+          originalPrice: Number(form.originalPrice),
+          requestNote: form.requestNote,
+          bundleItems: normalizedItems,
+        });
+      } else {
+        if (!editingBundle) {
+          throw new Error("No bundle selected for editing.");
+        }
+
+        await proposeLaundryBundleEdit({
+          bundleId: editingBundle.id,
+          name: form.name,
+          description: form.description,
+          bundlePrice: Number(form.bundlePrice),
+          originalPrice: Number(form.originalPrice),
+          requestNote: form.requestNote,
+          bundleItems: normalizedItems,
+        });
+      }
+
+      await loadServices();
+      setBundleModalOpen(false);
+      setEditingBundle(undefined);
+    } catch (saveError) {
+      console.error(saveError);
+      throw saveError instanceof Error
+        ? saveError
+        : new Error("Could not submit bundle request.");
     }
   };
 
@@ -506,6 +835,15 @@ export function Services() {
               These cards show your current bundle options and requests.
             </p>
           </div>
+          <button
+            type="button"
+            onClick={openCreateBundleModal}
+            className="flex items-center justify-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold text-white transition-all hover:opacity-90 sm:ml-auto"
+            style={{ backgroundColor: "#1D5B70" }}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Propose Bundle
+          </button>
           <div className="flex gap-2 text-xs text-gray-500">
             <span>{bundles.length} bundles</span>
             <span>•</span>
@@ -513,13 +851,13 @@ export function Services() {
           </div>
         </div>
 
-        {bundles.filter((b) => b.status.toLowerCase() === "active").length === 0 ? (
+        {activeBundles.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-gray-200 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
             No bundles available for this laundry yet.
           </div>
         ) : (
           <div className="space-y-3">
-            {bundles.filter((b) => b.status.toLowerCase() === "active").map((bundle) => (
+            {activeBundles.map((bundle) => (
               <div key={bundle.id} className="rounded-2xl border border-gray-100 bg-gray-50/80 p-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
                   <div className="min-w-0">
@@ -557,14 +895,31 @@ export function Services() {
                     <p className="mt-1 text-xs font-medium text-emerald-600">
                       Save {bundle.savingsAmount.toFixed(2)} EGP
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => void handleDeactivateBundle(bundle.id)}
-                      disabled={bundleBusyId === bundle.id || bundle.status.toLowerCase() !== "active"}
-                      className="mt-3 w-full rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {bundleBusyId === bundle.id ? "Updating..." : "Deactivate"}
-                    </button>
+                    <div className="mt-3 space-y-2">
+                      {isLaundryOwnedBundle(bundle) ? (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => openEditBundleModal(bundle)}
+                            className="w-full rounded-xl border border-[#1D5B70]/20 px-3 py-2 text-xs font-semibold text-[#1D5B70] transition hover:bg-[#1D5B70]/5"
+                          >
+                            Propose Edit
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => void handleDeactivateBundle(bundle.id)}
+                            disabled={bundleBusyId === bundle.id || bundle.status.toLowerCase() !== "active"}
+                            className="w-full rounded-xl border border-red-200 px-3 py-2 text-xs font-semibold text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {bundleBusyId === bundle.id ? "Updating..." : "Deactivate"}
+                          </button>
+                        </>
+                      ) : (
+                        <div className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] font-medium text-amber-700">
+                          This platform bundle is read-only for laundry admins.
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -626,6 +981,21 @@ export function Services() {
               setEditingService(undefined);
             }}
             onSave={handleSave}
+          />
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {bundleModalOpen && (
+          <BundleModal
+            mode={bundleModalMode}
+            services={services}
+            bundle={editingBundle}
+            onClose={() => {
+              setBundleModalOpen(false);
+              setEditingBundle(undefined);
+            }}
+            onSave={handleSaveBundle}
           />
         )}
       </AnimatePresence>

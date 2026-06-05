@@ -283,3 +283,83 @@ export async function sendPaymentReminder(laundryId: string): Promise<{ success:
     501,
   );
 }
+
+export type AdminLaundryScheduleDay = {
+  dayOfWeek: number;
+  isOpen: boolean;
+};
+
+export type AdminLaundryClosedDate = {
+  id: number;
+  date: string;
+  reason?: string | null;
+};
+
+export async function getAdminLaundrySchedule(laundryId: number) {
+  return apiRequest<{ days: AdminLaundryScheduleDay[] }>(
+    `/admin/laundries/${laundryId}/availability/schedule`,
+  );
+}
+
+export async function updateAdminLaundrySchedule(
+  laundryId: number,
+  days: AdminLaundryScheduleDay[],
+) {
+  return apiRequest<{ message: string }>(
+    `/admin/laundries/${laundryId}/availability/schedule`,
+    {
+      method: "PUT",
+      body: JSON.stringify({ days }),
+    },
+  );
+}
+
+export async function getAdminLaundryCapacity(laundryId: number) {
+  return apiRequest<{ maxOrdersPerDay: number; leadTimeHours: number }>(
+    `/admin/laundries/${laundryId}/availability/capacity`,
+  );
+}
+
+export async function updateAdminLaundryCapacity(
+  laundryId: number,
+  payload: { maxOrdersPerDay: number; leadTimeHours: number },
+) {
+  return apiRequest<{ message: string }>(
+    `/admin/laundries/${laundryId}/availability/capacity`,
+    {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function getAdminLaundryClosedDates(laundryId: number) {
+  return apiRequest<AdminLaundryClosedDate[]>(
+    `/admin/laundries/${laundryId}/availability/closed-dates`,
+  );
+}
+
+export async function addAdminLaundryClosedDate(
+  laundryId: number,
+  payload: { date: string; reason?: string | null },
+) {
+  return apiRequest<{ message: string; id: number }>(
+    `/admin/laundries/${laundryId}/availability/closed-dates`,
+    {
+      method: "POST",
+      body: JSON.stringify(payload),
+    },
+  );
+}
+
+export async function removeAdminLaundryClosedDate(
+  laundryId: number,
+  closedDateId: number,
+) {
+  return apiRequest<{ message: string }>(
+    `/admin/laundries/${laundryId}/availability/closed-dates/${closedDateId}`,
+    {
+      method: "DELETE",
+    },
+  );
+}

@@ -16,9 +16,17 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/app/components/ui/dialog";
+import {
   apiRequest,
   ApiError,
   getAllLaundryCommissions,
+  getLaundryCommissionDetails,
 } from "@/app/lib/admin-api";
 import type {
   LaundryDebtRecord,
@@ -69,6 +77,10 @@ export default function CommissionsPage() {
   const [activeTab, setActiveTab] = useState<"overview" | "laundries" | "transactions">("overview");
   const [searchQuery, setSearchQuery] = useState("");
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedLaundryId, setSelectedLaundryId] = useState<string | null>(null);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+  const [laundryDetails, setLaundryDetails] = useState<Awaited<ReturnType<typeof getLaundryCommissionDetails>> | null>(null);
 
   useEffect(() => {
     void fetchCommissions();
@@ -89,6 +101,24 @@ export default function CommissionsPage() {
     } finally {
       setLoading(false);
       setIsRefreshing(false);
+    }
+  };
+
+  const openLaundryDetails = async (laundryId: string) => {
+    setSelectedLaundryId(laundryId);
+    setDetailsLoading(true);
+    setDetailsError(null);
+    setLaundryDetails(null);
+
+    try {
+      const details = await getLaundryCommissionDetails(laundryId);
+      setLaundryDetails(details);
+    } catch (error) {
+      setDetailsError(
+        error instanceof ApiError ? error.message : "Failed to load commission details.",
+      );
+    } finally {
+      setDetailsLoading(false);
     }
   };
 
@@ -343,6 +373,7 @@ export default function CommissionsPage() {
                       <th className="font-semibold text-slate-500 text-sm py-4 px-6">Paid</th>
                       <th className="font-semibold text-slate-500 text-sm py-4 px-6">Status</th>
                       <th className="font-semibold text-slate-500 text-sm py-4 px-6">Last Payment</th>
+                      <th className="font-semibold text-slate-500 text-sm py-4 px-6">Details</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
@@ -371,10 +402,19 @@ export default function CommissionsPage() {
                         <td className="py-4 px-6 text-slate-400 text-sm">
                           {laundry.lastPaymentDate ? formatDateTime(laundry.lastPaymentDate) : "Unavailable"}
                         </td>
+                        <td className="py-4 px-6">
+                          <button
+                            type="button"
+                            onClick={() => void openLaundryDetails(laundry.laundryId)}
+                            className="rounded-lg bg-slate-100 px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-200"
+                          >
+                            View Details
+                          </button>
+                        </td>
                       </tr>
                     )) : (
                       <tr>
-                        <td colSpan={7} className="py-8 text-center text-slate-500">
+                        <td colSpan={8} className="py-8 text-center text-slate-500">
                           {laundryCommissions === null ? "Loading..." : "No laundries found."}
                         </td>
                       </tr>
@@ -423,6 +463,100 @@ export default function CommissionsPage() {
           )}
         </div>
       </div>
+
+      <Dialog
+        open={Boolean(selectedLaundryId)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setSelectedLaundryId(null);
+            setLaundryDetails(null);
+            setDetailsError(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Commission Details</DialogTitle>
+            <DialogDescription>
+              Review settlement details and outstanding balance for the selected laundry.
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailsLoading ? (
+            <div className="flex min-h-[220px] items-center justify-center text-sm text-slate-500">
+              <LoaderCircle size={18} className="mr-2 animate-spin" />
+              Loading laundry details...
+            </div>
+          ) : detailsError ? (
+            <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {detailsError}
+            </div>
+          ) : laundryDetails ? (
+            <div className="space-y-6">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Laundry</p>
+                  <p className="mt-2 text-lg font-bold text-slate-900">{laundryDetails.laundryName}</p>
+                  <p className="mt-1 text-sm text-slate-500">{laundryDetails.ownerName || "Laundry admin"}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-400">Payment Status</p>
+                  <p className="mt-2 text-lg font-bold text-slate-900">{laundryDetails.paymentStatus}</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Remaining balance: {formatCurrency(laundryDetails.remainingBalance)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                  <p className="text-xs text-slate-400">Revenue</p>
+                  <p className="mt-2 text-xl font-bold text-slate-900">{formatCurrency(laundryDetails.totalRevenue)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                  <p className="text-xs text-slate-400">Commission Due</p>
+                  <p className="mt-2 text-xl font-bold text-amber-600">{formatCurrency(laundryDetails.commissionDue)}</p>
+                </div>
+                <div className="rounded-2xl border border-slate-100 bg-white p-4">
+                  <p className="text-xs text-slate-400">Commission Paid</p>
+                  <p className="mt-2 text-xl font-bold text-emerald-600">{formatCurrency(laundryDetails.commissionPaid)}</p>
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-slate-900">Payment History</h3>
+                  <span className="text-xs text-slate-400">
+                    {laundryDetails.paymentHistory.length} records
+                  </span>
+                </div>
+                {laundryDetails.paymentHistory.length === 0 ? (
+                  <p className="mt-3 text-sm text-slate-500">No payment history is available yet.</p>
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {laundryDetails.paymentHistory.map((payment) => (
+                      <div
+                        key={payment.id}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3"
+                      >
+                        <div>
+                          <p className="text-sm font-semibold text-slate-800">{formatCurrency(payment.amount)}</p>
+                          <p className="text-xs text-slate-500">
+                            {payment.method} • {formatDateTime(payment.date)}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                          {payment.status}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : null}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

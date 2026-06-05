@@ -707,6 +707,10 @@ function summarizeErrorPayload(data: unknown) {
 }
 
 function getSafeErrorMessage(status?: number) {
+  if (status === 0) {
+    return "Unable to reach the server right now. Please try again in a moment.";
+  }
+
   switch (status) {
     case 0:
       return "Unable to connect right now. Please check your connection and try again.";
@@ -1688,6 +1692,7 @@ export async function placeBundleOrderRequest(
     useWalletBalance?: boolean;
     redeemPoints?: number | null;
     scheduledPickupTime?: string | null;
+    scheduledDeliveryTime?: string | null;
   },
 ) {
   return request<BackendOrderDto>(
@@ -1711,6 +1716,9 @@ export async function placeBundleOrderRequest(
             : null,
         scheduledPickupTime: payload.scheduledPickupTime
           ? new Date(payload.scheduledPickupTime).toISOString()
+          : null,
+        scheduledDeliveryTime: payload.scheduledDeliveryTime
+          ? new Date(payload.scheduledDeliveryTime).toISOString()
           : null,
       }),
     },

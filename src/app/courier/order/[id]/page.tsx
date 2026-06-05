@@ -82,13 +82,13 @@ function hasRealLocation(location: { currentLatitude: number; currentLongitude: 
 function StatusStepper({ current }: { current: OrderStatus }) {
   const idx = STEPS.findIndex((s) => s.key === current);
   return (
-    <div className="flex items-center gap-0">
+    <div className="flex items-start gap-0">
       {STEPS.map((step, i) => {
         const done = i < idx;
         const active = i === idx;
         return (
           <div key={step.key} className="flex items-center flex-1 last:flex-none">
-            <div className="flex flex-col items-center min-w-0">
+            <div className="flex min-w-0 flex-1 flex-col items-center text-center">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all"
                 style={{
@@ -98,10 +98,15 @@ function StatusStepper({ current }: { current: OrderStatus }) {
               >
                 {done ? <CheckCircle2 className="w-4 h-4 text-white" /> : <span className="text-xs font-bold" style={{ color: active ? "#1D5B70" : "#94a3b8" }}>{i + 1}</span>}
               </div>
-              <p className="text-[10px] font-bold mt-1 whitespace-nowrap" style={{ color: done || active ? "#1D5B70" : "#94a3b8" }}>
+              <p
+                className="mt-1 min-w-0 max-w-full text-[10px] font-bold leading-tight break-words"
+                style={{ color: done || active ? "#1D5B70" : "#94a3b8" }}
+              >
                 {step.label}
               </p>
-              <p className="text-[9px] text-gray-400 whitespace-nowrap">{step.desc}</p>
+              <p className="mt-0.5 min-w-0 max-w-full text-[9px] leading-tight text-gray-400 break-words">
+                {step.desc}
+              </p>
             </div>
             {i < STEPS.length - 1 && <div className="flex-1 h-0.5 mx-2 mt-[-18px] rounded-full transition-all" style={{ backgroundColor: i < idx ? "#1D5B70" : "#e2e8f0" }} />}
           </div>
