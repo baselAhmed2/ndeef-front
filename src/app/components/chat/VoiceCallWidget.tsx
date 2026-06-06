@@ -300,6 +300,7 @@ export function VoiceCallWidget({
   const playerRef = useRef<PCMPlayer | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const micStartedRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -313,6 +314,7 @@ export function VoiceCallWidget({
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+    if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
     recorderRef.current?.stop();
     playerRef.current?.stop();
     if (audioCtxRef.current) {
@@ -581,8 +583,29 @@ export function VoiceCallWidget({
 
     void startCall(token, () => isEffectActive);
     timerRef.current = setInterval(() => setCallDuration((previous) => previous + 1), 1000);
+
+    // Periodic checker to auto-resume AudioContext if it gets suspended
+    checkIntervalRef.current = setInterval(() => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        console.log("[Voice] AudioContext is suspended. Attempting periodic auto-resume...");
+        audioCtxRef.current.resume().catch((err) => console.warn("[Voice] Periodic auto-resume failed:", err));
+      }
+    }, 5000);
+
+    // Gesture auto-resumer on user click or touch
+    const handleGesture = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        console.log("[Voice] Resuming AudioContext on user gesture (click/touch)");
+        audioCtxRef.current.resume().catch((err) => console.error("[Voice] Gesture auto-resume failed:", err));
+      }
+    };
+    window.addEventListener("click", handleGesture, { passive: true });
+    window.addEventListener("touchstart", handleGesture, { passive: true });
+
     return () => {
       isEffectActive = false;
+      window.removeEventListener("click", handleGesture);
+      window.removeEventListener("touchstart", handleGesture);
       cleanup();
     };
   }, [isAuthReady, isLoggedIn, token, startCall, cleanup]);
