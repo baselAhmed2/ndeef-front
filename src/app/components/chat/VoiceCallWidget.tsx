@@ -74,11 +74,24 @@ class PCMPlayer {
   }
 }
 
+const workletCode = `
+class PCMProcessor extends AudioWorkletProcessor {
+  process(inputs, outputs, parameters) {
+    const input = inputs[0];
+    if (input && input.length > 0) {
+      const channelData = input[0];
+      this.port.postMessage(channelData);
+    }
+    return true;
+  }
+}
+registerProcessor('pcm-processor', PCMProcessor);
+`;
+
 class PCMRecorder {
   private ctx: AudioContext;
-  private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
-  private silentGain: GainNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private inputRate = INPUT_RATE;
 
   constructor(ctx: AudioContext) {
@@ -89,38 +102,57 @@ class PCMRecorder {
     this.inputRate = this.ctx.sampleRate;
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
-    this.source = this.ctx.createMediaStreamSource(stream);
-    this.processor = this.ctx.createScriptProcessor(CHUNK_SAMPLES, 1, 1);
-    this.silentGain = this.ctx.createGain();
-    this.silentGain.gain.value = 0;
+    try {
+      const blob = new Blob([workletCode], { type: "application/javascript" });
+      const url = URL.createObjectURL(blob);
+      await this.ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[PCMRecorder] Failed to load AudioWorklet module:", err);
+    }
 
+    this.source = this.ctx.createMediaStreamSource(stream);
+    this.workletNode = new AudioWorkletNode(this.ctx, "pcm-processor");
+
+    const buffer: number[] = [];
     let frameCount = 0;
-    this.processor.onaudioprocess = (e) => {
-      frameCount++;
-      const channel = e.inputBuffer.getChannelData(0);
-      let maxVal = 0;
-      for (let i = 0; i < channel.length; i++) {
-        const val = Math.abs(channel[i]);
-        if (val > maxVal) maxVal = val;
+
+    this.workletNode.port.onmessage = (event) => {
+      const channelData = event.data as Float32Array;
+      if (!channelData) return;
+
+      for (let i = 0; i < channelData.length; i++) {
+        buffer.push(channelData[i]);
       }
-      if (frameCount % 10 === 0) {
-        console.log(`[PCMRecorder] Fired onaudioprocess. frame: ${frameCount}, samples: ${channel.length}, maxAmp: ${maxVal.toFixed(4)}`);
+
+      while (buffer.length >= CHUNK_SAMPLES) {
+        const chunk = new Float32Array(buffer.splice(0, CHUNK_SAMPLES));
+        frameCount++;
+        let maxVal = 0;
+        for (let i = 0; i < chunk.length; i++) {
+          const val = Math.abs(chunk[i]);
+          if (val > maxVal) maxVal = val;
+        }
+        if (frameCount % 10 === 0) {
+          console.log(
+            `[PCMRecorder] Fired AudioWorklet chunk. frame: ${frameCount}, samples: ${chunk.length}, maxAmp: ${maxVal.toFixed(
+              4,
+            )}`,
+          );
+        }
+        onPcm(float32ToPcm16(chunk, this.inputRate));
       }
-      onPcm(float32ToPcm16(channel, this.inputRate));
     };
 
-    this.source.connect(this.processor);
-    this.processor.connect(this.silentGain);
-    this.silentGain.connect(this.ctx.destination);
+    this.source.connect(this.workletNode);
+    this.workletNode.connect(this.ctx.destination);
   }
 
   stop() {
-    this.processor?.disconnect();
+    this.workletNode?.disconnect();
     this.source?.disconnect();
-    this.silentGain?.disconnect();
-    this.processor = null;
+    this.workletNode = null;
     this.source = null;
-    this.silentGain = null;
   }
 }
 
