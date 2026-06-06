@@ -22,7 +22,7 @@ import {
   Info,
 } from "lucide-react";
 
-type OrderStatus = "All" | "Pending" | "Processing" | "Ready" | "Delivered" | "Cancelled";
+type OrderStatus = "All" | "Pending" | "Accepted" | "Processing" | "Ready" | "Delivered" | "Cancelled";
 
 interface Order {
   id: string;
@@ -38,13 +38,14 @@ interface Order {
 
 const statusConfig: Record<Exclude<OrderStatus, "All">, { color: string; bg: string; icon: React.ElementType; label: string }> = {
   Pending: { color: "#EBA050", bg: "#fff7ed", icon: Clock, label: "Pending" },
+  Accepted: { color: "#2563eb", bg: "#eff6ff", icon: CheckCircle2, label: "Accepted" },
   Processing: { color: "#1D5B70", bg: "#f0f9ff", icon: Loader2, label: "Processing" },
   Ready: { color: "#8b5cf6", bg: "#f5f3ff", icon: Package, label: "Ready for Delivery" },
   Delivered: { color: "#22c55e", bg: "#f0fdf4", icon: CheckCircle2, label: "Delivered" },
   Cancelled: { color: "#ef4444", bg: "#fef2f2", icon: XCircle, label: "Cancelled" },
 };
 
-const tabs: OrderStatus[] = ["All", "Pending", "Processing", "Ready", "Delivered", "Cancelled"];
+const tabs: OrderStatus[] = ["All", "Pending", "Accepted", "Processing", "Ready", "Delivered", "Cancelled"];
 
 const ITEMS_PER_PAGE = 8;
 
