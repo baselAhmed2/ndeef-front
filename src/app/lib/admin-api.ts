@@ -1,4 +1,5 @@
 import { getStoredAuthToken } from "@/app/lib/auth-storage";
+import { type UpsertPayoutProfileRequest } from "@/app/lib/api";
 
 const FALLBACK_API_BASE_URL = "/api/backend";
 const API_BASE_STORAGE_KEY = "nadeef_admin_api_base_url";
@@ -317,4 +318,17 @@ export async function getLaundryBillingInfo(laundryId: number | string): Promise
 // Super Admin: Get user's laundry billing profile and wallet details (for LaundryAdmin users)
 export async function getUserLaundryBillingInfo(userId: string): Promise<LaundryBillingInfo> {
   return await apiRequest<LaundryBillingInfo>(`/admin/users/${userId}/laundry-billing`);
+}
+
+// Super Admin: Get laundry payout profile details
+export async function getLaundryPayoutProfile(laundryId: number | string): Promise<UpsertPayoutProfileRequest> {
+  return await apiRequest<UpsertPayoutProfileRequest>(`/admin/laundries/${laundryId}/payout-profile`);
+}
+
+// Super Admin: Update laundry payout profile details
+export async function upsertLaundryPayoutProfile(laundryId: number | string, payload: UpsertPayoutProfileRequest): Promise<{ message: string }> {
+  return await apiRequest<{ message: string }>(`/admin/laundries/${laundryId}/payout-profile`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
 }
