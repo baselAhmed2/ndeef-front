@@ -489,7 +489,7 @@ export default function OrderPage() {
     );
   }, [itemCounts, selectedBundle, selectedServices]);
 
-  const deliveryFee = 18;
+  const deliveryFee = 20;
   const serviceFee = Number((total * 0.05).toFixed(2));
   const finalDelivery = sameAddress ? pickupAddress : deliveryAddress;
   const walletCanCoverRegularOrder =

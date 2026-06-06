@@ -1,360 +1,232 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAuth } from "@/app/context/AuthContext";
-import { 
-  getPayoutProfile, 
-  upsertPayoutProfile, 
-  PayoutTransferMethod, 
-  PayoutTransferType, 
-  UpsertPayoutProfileRequest 
-} from "@/app/lib/api";
-import { toast } from "sonner";
-import { Save, Loader2, Building2, Smartphone, CreditCard, Wallet } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import {
+  AlertTriangle,
+  Building2,
+  CreditCard,
+  Loader2,
+  Smartphone,
+  User,
+  Wallet,
+} from "lucide-react";
 import { motion } from "motion/react";
+import { toast } from "sonner";
+import {
+  getLaundryBillingInfo,
+  getUserLaundryBillingInfo,
+  type LaundryBillingInfo,
+} from "@/app/lib/admin-api";
+
+function getMethodLabel(method: string) {
+  if (!method) return "Not Configured";
+
+  switch (method.toLowerCase()) {
+    case "bank":
+    case "bankaccount":
+      return "Bank Account";
+    case "mobilewallet":
+      return "Mobile Wallet";
+    case "card":
+      return "Bank Card";
+    case "octocard":
+      return "Octo Card";
+    default:
+      return method;
+  }
+}
+
+function getMethodIcon(method: string) {
+  switch (method.toLowerCase()) {
+    case "bank":
+    case "bankaccount":
+      return <Building2 className="h-4 w-4 text-sky-600" />;
+    case "mobilewallet":
+      return <Smartphone className="h-4 w-4 text-emerald-600" />;
+    case "card":
+    case "octocard":
+      return <CreditCard className="h-4 w-4 text-violet-600" />;
+    default:
+      return <Wallet className="h-4 w-4 text-slate-500" />;
+  }
+}
+
+function Field({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value?: string | number | null;
+  mono?: boolean;
+}) {
+  return (
+    <div className="space-y-1 rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
+      <p className={`text-sm font-semibold text-slate-900 ${mono ? "font-mono tracking-wide" : ""}`}>
+        {value || "Not Configured"}
+      </p>
+    </div>
+  );
+}
 
 export default function AdminPayoutProfilePage() {
-  const { user } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const searchParams = useSearchParams();
+  const laundryId = searchParams?.get("laundryId");
+  const adminId = searchParams?.get("adminId");
 
-  const [formData, setFormData] = useState<UpsertPayoutProfileRequest>({
-    transferMethod: PayoutTransferMethod.BankAccount,
-    transferType: null,
-    recipientFullName: "",
-    recipientMobileNumber: "",
-    bankName: "",
-    bankAccountNumber: "",
-    cardNumber: "",
-    nationalId: "",
-  });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [billingInfo, setBillingInfo] = useState<LaundryBillingInfo | null>(null);
+
+  const targetLabel = useMemo(() => {
+    if (laundryId) return `laundry #${laundryId}`;
+    if (adminId) return `admin ${adminId}`;
+    return null;
+  }, [adminId, laundryId]);
 
   useEffect(() => {
-    async function loadData() {
-      if (!user?.token) return;
-      try {
-        const data = await getPayoutProfile(user.token);
-        setFormData({
-          transferMethod: data.transferMethod || PayoutTransferMethod.BankAccount,
-          transferType:
-            (data.transferMethod || PayoutTransferMethod.BankAccount) === PayoutTransferMethod.MobileWallet
-              ? data.transferType || PayoutTransferType.Standard
-              : null,
-          recipientFullName: data.recipientFullName || "",
-          recipientMobileNumber: data.recipientMobileNumber || "",
-          bankName: data.bankName || "",
-          bankAccountNumber: data.bankAccountNumber || "",
-          cardNumber: data.cardNumber || "",
-          nationalId: data.nationalId || "",
-        });
-      } catch (err: any) {
-        toast.error(err.message || "Failed to load payout profile");
-      } finally {
+    let active = true;
+
+    async function loadBillingInfo() {
+      if (!laundryId && !adminId) {
         setLoading(false);
-      }
-    }
-    loadData();
-  }, [user]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    setFormData((prev) => {
-      if (name === "transferMethod") {
-        const nextMethod = Number(value) as PayoutTransferMethod;
-        return {
-          ...prev,
-          transferMethod: nextMethod,
-          transferType:
-            nextMethod === PayoutTransferMethod.MobileWallet
-              ? prev.transferType || PayoutTransferType.Standard
-              : null,
-          recipientMobileNumber:
-            nextMethod === PayoutTransferMethod.MobileWallet ? prev.recipientMobileNumber : "",
-          bankName:
-            nextMethod === PayoutTransferMethod.BankAccount || nextMethod === PayoutTransferMethod.Card
-              ? prev.bankName
-              : "",
-          bankAccountNumber:
-            nextMethod === PayoutTransferMethod.BankAccount ? prev.bankAccountNumber : "",
-          cardNumber:
-            nextMethod === PayoutTransferMethod.Card || nextMethod === PayoutTransferMethod.OctoCard
-              ? prev.cardNumber
-              : "",
-        };
+        setBillingInfo(null);
+        setError(null);
+        return;
       }
 
-      return {
-        ...prev,
-        [name]: name === "transferType" ? Number(value) : value,
-      };
-    });
-  };
+      try {
+        setLoading(true);
+        setError(null);
 
-  const validateForm = () => {
-    if (!formData.recipientFullName.trim()) {
-      toast.error("Please enter the recipient full name.");
-      return false;
-    }
+        const result = laundryId
+          ? await getLaundryBillingInfo(laundryId)
+          : await getUserLaundryBillingInfo(adminId as string);
 
-    if (!formData.nationalId || formData.nationalId.length !== 14 || !/^\d+$/.test(formData.nationalId)) {
-      toast.error("National ID must be exactly 14 digits.");
-      return false;
-    }
-
-    if (formData.transferMethod === PayoutTransferMethod.BankAccount) {
-      if (!formData.bankName?.trim()) {
-        toast.error("Please enter the Bank Name.");
-        return false;
-      }
-      if (!formData.bankAccountNumber?.trim()) {
-        toast.error("Please enter the Bank Account Number.");
-        return false;
-      }
-    } else if (formData.transferMethod === PayoutTransferMethod.MobileWallet) {
-      if (!formData.recipientMobileNumber?.trim()) {
-        toast.error("Please enter the Mobile Wallet Number.");
-        return false;
-      }
-      if (!formData.transferType) {
-        toast.error("Please select the wallet transfer type.");
-        return false;
-      }
-    } else if (formData.transferMethod === PayoutTransferMethod.Card) {
-      if (!formData.bankName?.trim()) {
-        toast.error("Please enter the Bank Name.");
-        return false;
-      }
-      if (!formData.cardNumber?.trim()) {
-        toast.error("Please enter the Card Number.");
-        return false;
-      }
-    } else if (formData.transferMethod === PayoutTransferMethod.OctoCard) {
-      if (!formData.cardNumber?.trim()) {
-        toast.error("Please enter the Card Number.");
-        return false;
+        if (!active) return;
+        setBillingInfo(result);
+      } catch (loadError: any) {
+        if (!active) return;
+        const message = loadError?.message || "Failed to load payout profile.";
+        setError(message);
+        toast.error(message);
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
       }
     }
 
-    return true;
-  };
+    void loadBillingInfo();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user?.token) return;
-    if (!validateForm()) return;
-
-    setSaving(true);
-    try {
-      await upsertPayoutProfile(user.token, formData);
-      toast.success("Payout profile saved successfully!");
-    } catch (err: any) {
-      toast.error(err.message || "Failed to save payout profile.");
-    } finally {
-      setSaving(false);
-    }
-  };
+    return () => {
+      active = false;
+    };
+  }, [adminId, laundryId]);
 
   if (loading) {
     return (
-      <div className="p-6 md:p-8 flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 text-[#1D5B70] animate-spin" />
+      <div className="flex h-full items-center justify-center p-8">
+        <Loader2 className="h-8 w-8 animate-spin text-[#1D5B70]" />
+      </div>
+    );
+  }
+
+  if (!laundryId && !adminId) {
+    return (
+      <div className="mx-auto max-w-3xl p-6 md:p-8">
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6">
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl bg-amber-100 p-2 text-amber-700">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">Payout Profile</h1>
+              <p className="mt-2 text-sm text-slate-600">
+                This super admin page is read-only and needs a target laundry or laundry admin to load billing data.
+              </p>
+              <p className="mt-2 text-sm text-slate-600">
+                Open billing from the laundries or users pages, or use a link like
+                {" "}
+                <span className="font-mono text-slate-800">/admin/payout-profile?laundryId=12</span>.
+              </p>
+              <div className="mt-4 flex gap-3">
+                <Link
+                  href="/admin/laundries"
+                  className="rounded-xl bg-[#1D5B70] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#2a7a94]"
+                >
+                  Go To Laundries
+                </Link>
+                <Link
+                  href="/admin/users"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                >
+                  Go To Users
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !billingInfo) {
+    return (
+      <div className="mx-auto max-w-3xl p-6 md:p-8">
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6">
+          <h1 className="text-2xl font-bold text-slate-900">Payout Profile</h1>
+          <p className="mt-3 text-sm text-rose-700">{error || "Unable to load billing data."}</p>
+          {targetLabel ? <p className="mt-2 text-sm text-slate-600">Requested target: {targetLabel}</p> : null}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 md:p-8 max-w-4xl mx-auto space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 p-6 md:p-8">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900 mb-2">Payout Profile</h1>
-        <p className="text-gray-500 text-sm">
-          Configure how you want to receive your earnings from Nazeef.
+        <h1 className="text-2xl font-bold text-slate-900">Payout Profile</h1>
+        <p className="mt-2 text-sm text-slate-500">
+          Billing and payout details for <span className="font-semibold text-slate-700">{billingInfo.laundryName}</span>.
+        </p>
+        <p className="mt-1 text-xs text-slate-400">
+          Super admin can view this data from the backend billing endpoint. Editing is handled from the laundry admin side.
         </p>
       </div>
 
       <motion.div
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6"
+        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
       >
-        <form onSubmit={handleSubmit} className="space-y-6">
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-2">
-              <label className="block text-sm font-medium text-gray-700">Transfer Method</label>
-              <div className="relative">
-                <select
-                  name="transferMethod"
-                  value={formData.transferMethod}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all appearance-none text-sm"
-                >
-                  <option value={PayoutTransferMethod.BankAccount}>Bank Account</option>
-                  <option value={PayoutTransferMethod.MobileWallet}>Mobile Wallet</option>
-                  <option value={PayoutTransferMethod.Card}>Bank Card</option>
-                  <option value={PayoutTransferMethod.OctoCard}>Octo Card</option>
-                </select>
-                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                  {formData.transferMethod === PayoutTransferMethod.BankAccount && <Building2 className="w-5 h-5" />}
-                  {formData.transferMethod === PayoutTransferMethod.MobileWallet && <Smartphone className="w-5 h-5" />}
-                  {(formData.transferMethod === PayoutTransferMethod.Card || formData.transferMethod === PayoutTransferMethod.OctoCard) && <CreditCard className="w-5 h-5" />}
-                </div>
-              </div>
-            </div>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <Field label="Laundry" value={billingInfo.laundryName} />
+          <Field label="Admin Name" value={billingInfo.adminName} />
+          <Field label="Available Balance" value={`EGP ${billingInfo.availableBalance.toFixed(2)}`} />
+          <Field label="Pending Commission" value={`EGP ${billingInfo.pendingCommission.toFixed(2)}`} />
+        </div>
 
-            {formData.transferMethod === PayoutTransferMethod.MobileWallet && (
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">Transfer Type</label>
-                <div className="relative">
-                  <select
-                    name="transferType"
-                    value={formData.transferType || PayoutTransferType.Standard}
-                    onChange={handleChange}
-                    className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all appearance-none text-sm"
-                  >
-                    <option value={PayoutTransferType.Standard}>Standard Transfer</option>
-                    <option value={PayoutTransferType.Instant}>Instant Transfer</option>
-                  </select>
-                  <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                </div>
-              </div>
-            )}
+        <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50/60 p-5">
+          <div className="flex items-center gap-2 text-slate-900">
+            {getMethodIcon(billingInfo.transferMethod)}
+            <h2 className="text-sm font-bold uppercase tracking-wide">Payout Destination</h2>
           </div>
 
-          <div className="border-t border-gray-100 pt-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4">Recipient Details</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  Full Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="recipientFullName"
-                  value={formData.recipientFullName}
-                  onChange={handleChange}
-                  placeholder="John Doe"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all text-sm"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-sm font-medium text-gray-700">
-                  National ID (14 Digits) <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  name="nationalId"
-                  value={formData.nationalId || ""}
-                  onChange={handleChange}
-                  maxLength={14}
-                  placeholder="29001010101010"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all text-sm"
-                />
-              </div>
-            </div>
-
-            <motion.div 
-              className="grid grid-cols-1 md:grid-cols-2 gap-6"
-              initial={false}
-              animate={{ opacity: 1 }}
-            >
-              {formData.transferMethod === PayoutTransferMethod.BankAccount && (
-                <>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Bank Name <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="bankName"
-                      value={formData.bankName || ""}
-                      onChange={handleChange}
-                      placeholder="e.g. CIB, NBE"
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Bank Account Number / IBAN <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      name="bankAccountNumber"
-                      value={formData.bankAccountNumber || ""}
-                      onChange={handleChange}
-                      placeholder="EG12000..."
-                      className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all text-sm"
-                    />
-                  </div>
-                </>
-              )}
-
-              {formData.transferMethod === PayoutTransferMethod.MobileWallet && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Mobile Wallet Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                  type="text"
-                  name="recipientMobileNumber"
-                  value={formData.recipientMobileNumber || ""}
-                  onChange={handleChange}
-                  placeholder="010..."
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all text-sm"
-                  />
-                </div>
-              )}
-
-              {(formData.transferMethod === PayoutTransferMethod.Card || formData.transferMethod === PayoutTransferMethod.OctoCard) && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Card Number <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                  type="text"
-                  name="cardNumber"
-                  value={formData.cardNumber || ""}
-                  onChange={handleChange}
-                  placeholder="xxxx-xxxx-xxxx-xxxx"
-                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all text-sm"
-                  />
-              </div>
-            )}
-
-              {formData.transferMethod === PayoutTransferMethod.Card && (
-                <div className="space-y-2">
-                  <label className="block text-sm font-medium text-gray-700">
-                    Bank Name <span className="text-red-500">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    name="bankName"
-                    value={formData.bankName || ""}
-                    onChange={handleChange}
-                    placeholder="e.g. CIB, NBE"
-                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D5B70] focus:border-[#1D5B70] transition-all text-sm"
-                  />
-                </div>
-              )}
-            </motion.div>
-
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            <Field label="Transfer Method" value={getMethodLabel(billingInfo.transferMethod)} />
+            <Field label="Transfer Type" value={billingInfo.transferType} />
+            <Field label="Recipient Name" value={billingInfo.recipientFullName} />
+            <Field label="National ID" value={billingInfo.nationalId} mono />
+            <Field label="Mobile Wallet Number" value={billingInfo.recipientMobileNumber} mono />
+            <Field label="Bank Name" value={billingInfo.bankName} />
+            <Field label="Bank Account / IBAN" value={billingInfo.bankAccountNumber} mono />
+            <Field label="Card Number" value={billingInfo.cardNumber} mono />
           </div>
-
-          <div className="pt-6 flex justify-end">
-            <button
-              type="submit"
-              disabled={saving}
-              className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#1D5B70] text-white text-sm font-medium rounded-xl hover:bg-[#2a7a94] transition-all shadow-sm disabled:opacity-50"
-            >
-              {saving ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              {saving ? "Saving..." : "Save Profile"}
-            </button>
-          </div>
-        </form>
+        </div>
       </motion.div>
     </div>
   );
