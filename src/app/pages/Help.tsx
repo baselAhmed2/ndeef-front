@@ -75,6 +75,18 @@ export default function Help() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContextClass) {
         const ctx = new AudioContextClass();
+        
+        // Play a quick silent buffer to activate the context within the user gesture
+        try {
+          const buffer = ctx.createBuffer(1, 1, 22050);
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          source.start(0);
+        } catch (e) {
+          console.warn("Failed to play silent buffer:", e);
+        }
+
         if (ctx.state === "suspended") {
           void ctx.resume();
         }
