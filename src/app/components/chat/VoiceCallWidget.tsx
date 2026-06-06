@@ -100,6 +100,10 @@ class PCMPlayer {
     }
   }
 
+  getNextTime() {
+    return this.nextTime;
+  }
+
   flush() {
     if (this.ctx) {
       this.nextTime = this.ctx.currentTime;
@@ -408,10 +412,24 @@ export function VoiceCallWidget({
           }
           break;
         case "turnComplete":
-          setIsAssistantSpeaking(false);
-          isAssistantSpeakingRef.current = false;
-          setIsListening(true);
-          playerRef.current?.flush();
+          {
+            const audioCtx = audioCtxRef.current;
+            const player = playerRef.current;
+            const delayMs = audioCtx && player
+              ? Math.max(0, (player.getNextTime() - audioCtx.currentTime) * 1000) + 150
+              : 150;
+
+            console.log(`[Voice] Turn complete. Delaying mic unmute by ${delayMs.toFixed(0)}ms to let final audio play out.`);
+
+            setTimeout(() => {
+              if (statusRef.current === "active") {
+                setIsAssistantSpeaking(false);
+                isAssistantSpeakingRef.current = false;
+                setIsListening(true);
+                playerRef.current?.flush();
+              }
+            }, delayMs);
+          }
           break;
         case "interrupted":
           playerRef.current?.stop();
