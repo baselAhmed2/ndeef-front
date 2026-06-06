@@ -13,7 +13,6 @@ import {
   Clock,
   AlertCircle,
   XCircle,
-  ShieldCheck,
 } from "lucide-react";
 import {
   LineChart,
@@ -77,6 +76,20 @@ function getStatusBadge(status: string) {
   }
 }
 
+function normalizeOrdersByCity(
+  cities: SystemAnalyticsData["ordersByCity"] | null | undefined,
+) {
+  const safeCities = Array.isArray(cities) ? cities : [];
+  const sorted = [...safeCities].sort((left, right) => right.value - left.value);
+  const maxValue = sorted[0]?.value ?? 0;
+
+  return sorted.map((city, index) => ({
+    ...city,
+    rank: index + 1,
+    width: maxValue > 0 ? Math.max((city.value / maxValue) * 100, 8) : 0,
+  }));
+}
+
 export function SuperAdminDashboard() {
   const { isAuthReady, isLoggedIn, user } = useAuth();
   const [data, setData] = useState<SystemAnalyticsData | null>(null);
@@ -84,6 +97,8 @@ export function SuperAdminDashboard() {
   const [error, setError] = useState<string | null>(null);
   const normalizedRole = (user?.role ?? "").toLowerCase();
   const isSuperAdmin = normalizedRole.includes("superadmin");
+  const cityOrders = normalizeOrdersByCity(data?.ordersByCity);
+  const topCity = cityOrders[0] ?? null;
 
   const loadDashboard = useCallback(async () => {
     if (!user?.token) {
@@ -372,16 +387,50 @@ export function SuperAdminDashboard() {
         <div className="flex flex-col gap-6">
           <div className="bg-white border border-slate-100 rounded-[20px] shadow-sm p-5">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-base font-bold text-slate-800">Orders by City</h2>
+              <div>
+                <h2 className="text-base font-bold text-slate-800">Orders by City</h2>
+                <p className="text-xs text-slate-400 mt-1">Where order demand is strongest right now</p>
+              </div>
+              {topCity ? (
+                <div className="rounded-xl bg-slate-50 px-3 py-2 text-right">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Top City</p>
+                  <p className="text-sm font-bold text-slate-800">{topCity.name}</p>
+                </div>
+              ) : null}
             </div>
             <div className="space-y-3">
-              {(data.ordersByCity || []).map((city: any) => (
-                <div key={city.name} className="flex items-center gap-3">
-                  <span className="text-[12px] font-medium text-slate-600 w-16 truncate">{city.name}</span>
-                  <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div className="h-full rounded-full" style={{ width: `${city.value}%`, backgroundColor: city.color }} />
+              {cityOrders.map((city) => (
+                <div
+                  key={city.name}
+                  className="rounded-2xl border border-slate-100 bg-slate-50/70 px-3.5 py-3"
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-[11px] font-bold"
+                      style={{
+                        backgroundColor: city.rank === 1 ? "#dbeafe" : "#f1f5f9",
+                        color: city.rank === 1 ? "#2563eb" : "#64748b",
+                      }}
+                    >
+                      #{city.rank}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <span className="truncate text-[13px] font-semibold text-slate-800">
+                          {city.name}
+                        </span>
+                        <span className="shrink-0 text-[12px] font-bold text-slate-700">
+                          {city.value}%
+                        </span>
+                      </div>
+                      <div className="mt-2 h-2.5 overflow-hidden rounded-full bg-white">
+                        <div
+                          className="h-full rounded-full transition-all"
+                          style={{ width: `${city.width}%`, backgroundColor: city.color }}
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-[12px] font-bold text-slate-800 w-8 text-right">{city.value}%</span>
                 </div>
               ))}
             </div>
@@ -414,32 +463,7 @@ export function SuperAdminDashboard() {
         </div>
       </div>
 
-      {/* Platform Health Score Card */}
-      <div className="bg-gradient-to-r from-[#2A5C66] to-[#1D404A] rounded-[24px] p-6 text-white shadow-xl shadow-[#2A5C66]/20 relative overflow-hidden">
-         <div className="absolute top-0 right-0 p-8 opacity-10">
-            <ShieldCheck size={160} />
-         </div>
-         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-            <div>
-               <h2 className="text-xl font-bold">Platform Health IS OPTIMAL</h2>
-               <p className="text-emerald-100 text-sm mt-1 max-w-md">System is running smoothly with 99.9% uptime and excellent satisfaction ratings locally and regionally.</p>
-            </div>
-            <div className="flex items-center gap-6 divide-x divide-white/20">
-               <div className="px-4">
-                  <p className="text-xs text-emerald-200 font-semibold tracking-wider uppercase mb-1">Health Score</p>
-                  <p className="text-3xl font-bold">{data.healthScore || 94.7}%</p>
-               </div>
-               <div className="px-4">
-                  <p className="text-xs text-emerald-200 font-semibold tracking-wider uppercase mb-1">Uptime</p>
-                  <p className="text-3xl font-bold">{data.uptime || 99.9}%</p>
-               </div>
-               <div className="px-4">
-                  <p className="text-xs text-emerald-200 font-semibold tracking-wider uppercase mb-1">Avg Rating</p>
-                  <p className="text-3xl font-bold flex items-center gap-1">{data.avgRating || 4.7} <span className="text-yellow-400">★</span></p>
-               </div>
-            </div>
-         </div>
-      </div>
     </motion.div>
   );
 }
+
