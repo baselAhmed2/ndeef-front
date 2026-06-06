@@ -100,6 +100,7 @@ function isSameAssignment(
 
 const statusConfig: Record<string, { color: string; bg: string; icon: React.ElementType }> = {
   Delivered: { color: "#22c55e", bg: "#f0fdf4", icon: CheckCircle2 },
+  Accepted: { color: "#2563eb", bg: "#eff6ff", icon: CheckCircle2 },
   Processing: { color: "#1D5B70", bg: "#f0f9ff", icon: Loader2 },
   Pending: { color: "#EBA050", bg: "#fff7ed", icon: Clock },
   Ready: { color: "#8b5cf6", bg: "#f5f3ff", icon: Package },
@@ -108,7 +109,7 @@ const statusConfig: Record<string, { color: string; bg: string; icon: React.Elem
 
 // Order of statuses — each status can only advance forward, never go back.
 // Delivered and Cancelled are terminal states: no further changes allowed.
-const STATUS_ORDER = ["Pending", "Processing", "Ready", "Delivered", "Cancelled"] as const;
+const STATUS_ORDER = ["Pending", "Accepted", "Processing", "Ready", "Delivered", "Cancelled"] as const;
 
 function getAllowedStatusActions(currentStatus: string): string[] {
   // Terminal states — nothing can be changed
@@ -130,6 +131,8 @@ function getAllowedStatusActions(currentStatus: string): string[] {
 
 function getStatusLabel(status: string) {
   switch (status) {
+    case "Accepted":
+      return "Accepted";
     case "Ready":
       return "Ready for Delivery";
     case "Delivered":

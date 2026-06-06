@@ -12,6 +12,7 @@ type BackendOrderStatus =
 
 type FrontendOrderStatus =
   | "Pending"
+  | "Accepted"
   | "Processing"
   | "Ready"
   | "Delivered"
@@ -124,6 +125,7 @@ function formatDateTime(value: string | Date) {
 function toFrontendOrderStatus(status: string): FrontendOrderStatus {
   switch (status) {
     case "Accepted":
+      return "Accepted";
     case "Washing":
     case "PickedUp":
       return "Processing";
@@ -142,6 +144,8 @@ function toBackendOrderStatus(status: string): BackendOrderStatus {
   switch (status) {
     case "Pending":
       return "PendingConfirmation";
+    case "Accepted":
+      return "Accepted";
     case "Processing":
       return "Washing";
     case "Ready":
@@ -397,12 +401,21 @@ export async function getOrderById(id: string): Promise<any> {
         done: true,
       },
       {
-        label: "Processing",
+        label: "Accepted",
         time:
           frontendStatus === "Pending"
             ? "Pending"
             : formatDateTime(order.pickupTime),
         done: frontendStatus !== "Pending",
+        active: frontendStatus === "Accepted",
+      },
+      {
+        label: "Processing",
+        time:
+          frontendStatus === "Processing" || frontendStatus === "Ready" || frontendStatus === "Delivered"
+            ? formatDateTime(order.pickupTime)
+            : "Pending",
+        done: ["Processing", "Ready", "Delivered"].includes(frontendStatus),
         active: frontendStatus === "Processing",
       },
       {
