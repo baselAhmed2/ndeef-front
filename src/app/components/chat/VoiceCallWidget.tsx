@@ -41,44 +41,96 @@ class PCMPlayer {
   }
 
   async start() {
-    if (this.ctx.state === "suspended") await this.ctx.resume();
+    console.log(`[PCMPlayer] Starting player. Context state: ${this.ctx.state}, currentTime: ${this.ctx.currentTime}`);
+    if (this.ctx.state === "suspended") {
+      try {
+        await this.ctx.resume();
+        console.log(`[PCMPlayer] Context resumed successfully. State: ${this.ctx.state}`);
+      } catch (err) {
+        console.error("[PCMPlayer] Failed to resume AudioContext during start:", err);
+      }
+    }
     this.nextTime = this.ctx.currentTime;
   }
 
-  async play(pcm16: Int16Array) {
+  play(pcm16: Int16Array) {
     if (!this.ctx || pcm16.length === 0) return;
-    if (this.ctx.state === "suspended") await this.ctx.resume();
 
-    const floats = new Float32Array(pcm16.length);
-    for (let i = 0; i < pcm16.length; i++) floats[i] = pcm16[i] / 32768;
+    // Trigger resume in background to avoid blocking the synchronous audio scheduling queue calculation
+    if (this.ctx.state === "suspended") {
+      this.ctx.resume()
+        .then(() => console.log(`[PCMPlayer] Background resume completed. State: ${this.ctx.state}`))
+        .catch((err) => console.error("[PCMPlayer] Background resume failed:", err));
+    }
 
-    const buffer = this.ctx.createBuffer(1, floats.length, OUTPUT_RATE);
-    buffer.getChannelData(0).set(floats);
+    try {
+      const floats = new Float32Array(pcm16.length);
+      let maxAmp = 0;
+      for (let i = 0; i < pcm16.length; i++) {
+        floats[i] = pcm16[i] / 32768;
+        const absVal = Math.abs(floats[i]);
+        if (absVal > maxAmp) maxAmp = absVal;
+      }
 
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(this.ctx.destination);
+      if (Math.random() < 0.05) {
+        console.log(
+          `[PCMPlayer] Scheduling audio chunk. Samples: ${pcm16.length}, maxAmp: ${maxAmp.toFixed(
+            4,
+          )}, nextTime: ${this.nextTime.toFixed(4)}, currentTime: ${this.ctx.currentTime.toFixed(4)}, state: ${
+            this.ctx.state
+          }`,
+        );
+      }
 
-    const now = this.ctx.currentTime;
-    if (this.nextTime < now) this.nextTime = now + 0.02;
-    source.start(this.nextTime);
-    this.nextTime += buffer.duration;
+      const buffer = this.ctx.createBuffer(1, floats.length, OUTPUT_RATE);
+      buffer.getChannelData(0).set(floats);
+
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.ctx.destination);
+
+      const now = this.ctx.currentTime;
+      if (this.nextTime < now) {
+        this.nextTime = now + 0.02;
+      }
+      source.start(this.nextTime);
+      this.nextTime += buffer.duration;
+    } catch (err) {
+      console.error("[PCMPlayer] Error playing audio chunk:", err);
+    }
   }
 
   flush() {
-    if (this.ctx) this.nextTime = this.ctx.currentTime;
+    if (this.ctx) {
+      this.nextTime = this.ctx.currentTime;
+      console.log(`[PCMPlayer] Flushed. nextTime reset to: ${this.nextTime}`);
+    }
   }
 
   stop() {
     this.nextTime = 0;
+    console.log("[PCMPlayer] Stopped.");
   }
 }
 
+const workletCode = `
+class PCMProcessor extends AudioWorkletProcessor {
+  process(inputs, outputs, parameters) {
+    const input = inputs[0];
+    if (input && input.length > 0) {
+      const channelData = input[0];
+      this.port.postMessage(channelData);
+    }
+    return true;
+  }
+}
+registerProcessor('pcm-processor', PCMProcessor);
+`;
+
 class PCMRecorder {
   private ctx: AudioContext;
-  private processor: ScriptProcessorNode | null = null;
   private source: MediaStreamAudioSourceNode | null = null;
-  private silentGain: GainNode | null = null;
+  private workletNode: AudioWorkletNode | null = null;
   private inputRate = INPUT_RATE;
 
   constructor(ctx: AudioContext) {
@@ -89,38 +141,57 @@ class PCMRecorder {
     this.inputRate = this.ctx.sampleRate;
     if (this.ctx.state === "suspended") await this.ctx.resume();
 
-    this.source = this.ctx.createMediaStreamSource(stream);
-    this.processor = this.ctx.createScriptProcessor(CHUNK_SAMPLES, 1, 1);
-    this.silentGain = this.ctx.createGain();
-    this.silentGain.gain.value = 0;
+    try {
+      const blob = new Blob([workletCode], { type: "application/javascript" });
+      const url = URL.createObjectURL(blob);
+      await this.ctx.audioWorklet.addModule(url);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("[PCMRecorder] Failed to load AudioWorklet module:", err);
+    }
 
+    this.source = this.ctx.createMediaStreamSource(stream);
+    this.workletNode = new AudioWorkletNode(this.ctx, "pcm-processor");
+
+    const buffer: number[] = [];
     let frameCount = 0;
-    this.processor.onaudioprocess = (e) => {
-      frameCount++;
-      const channel = e.inputBuffer.getChannelData(0);
-      let maxVal = 0;
-      for (let i = 0; i < channel.length; i++) {
-        const val = Math.abs(channel[i]);
-        if (val > maxVal) maxVal = val;
+
+    this.workletNode.port.onmessage = (event) => {
+      const channelData = event.data as Float32Array;
+      if (!channelData) return;
+
+      for (let i = 0; i < channelData.length; i++) {
+        buffer.push(channelData[i]);
       }
-      if (frameCount % 10 === 0) {
-        console.log(`[PCMRecorder] Fired onaudioprocess. frame: ${frameCount}, samples: ${channel.length}, maxAmp: ${maxVal.toFixed(4)}`);
+
+      while (buffer.length >= CHUNK_SAMPLES) {
+        const chunk = new Float32Array(buffer.splice(0, CHUNK_SAMPLES));
+        frameCount++;
+        let maxVal = 0;
+        for (let i = 0; i < chunk.length; i++) {
+          const val = Math.abs(chunk[i]);
+          if (val > maxVal) maxVal = val;
+        }
+        if (frameCount % 10 === 0) {
+          console.log(
+            `[PCMRecorder] Fired AudioWorklet chunk. frame: ${frameCount}, samples: ${chunk.length}, maxAmp: ${maxVal.toFixed(
+              4,
+            )}`,
+          );
+        }
+        onPcm(float32ToPcm16(chunk, this.inputRate));
       }
-      onPcm(float32ToPcm16(channel, this.inputRate));
     };
 
-    this.source.connect(this.processor);
-    this.processor.connect(this.silentGain);
-    this.silentGain.connect(this.ctx.destination);
+    this.source.connect(this.workletNode);
+    this.workletNode.connect(this.ctx.destination);
   }
 
   stop() {
-    this.processor?.disconnect();
+    this.workletNode?.disconnect();
     this.source?.disconnect();
-    this.silentGain?.disconnect();
-    this.processor = null;
+    this.workletNode = null;
     this.source = null;
-    this.silentGain = null;
   }
 }
 
@@ -427,15 +498,27 @@ export function VoiceCallWidget({
 
         ws.onmessage = (event) => {
           if (event.data instanceof ArrayBuffer) {
-            playerRef.current?.play(new Int16Array(event.data));
+            try {
+              const byteLen = event.data.byteLength;
+              if (byteLen % 2 !== 0) {
+                console.warn(`[Voice] Received odd byte length: ${byteLen}`);
+              }
+              const pcm16 = new Int16Array(event.data, 0, Math.floor(byteLen / 2));
+              if (Math.random() < 0.05) {
+                console.log(`[Voice] Received binary audio packet from backend: ${byteLen} bytes, decoded to ${pcm16.length} samples.`);
+              }
+              playerRef.current?.play(pcm16);
+            } catch (err) {
+              console.error("[Voice] Failed to decode binary audio packet:", err);
+            }
             return;
           }
           if (typeof event.data !== "string") return;
           console.log("[Voice] Received websocket text message from backend:", event.data);
           try {
             handleServerMessage(JSON.parse(event.data) as VoiceMsg, ws);
-          } catch {
-            // ignore malformed message
+          } catch (err) {
+            console.error("[Voice] Failed to parse websocket text message:", err);
           }
         };
 
