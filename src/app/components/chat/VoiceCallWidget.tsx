@@ -291,6 +291,7 @@ export function VoiceCallWidget({
   const [assistantTranscript, setAssistantTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
+  const isAssistantSpeakingRef = useRef(false);
   const [micBytesReceived, setMicBytesReceived] = useState(0);
   const [heardYou, setHeardYou] = useState(false);
 
@@ -343,7 +344,7 @@ export function VoiceCallWidget({
         console.warn("[Voice] WebSocket not open. State:", ws.readyState);
         return;
       }
-      if (isMutedRef.current) return;
+      if (isMutedRef.current || isAssistantSpeakingRef.current) return;
       if (Math.random() < 0.05) {
         console.log(`[Voice] Sending PCM chunk to backend: ${pcm.length} samples, bytes: ${pcm.byteLength}`);
       }
@@ -370,14 +371,17 @@ export function VoiceCallWidget({
           setStatus("active");
           setIsListening(false);
           setIsAssistantSpeaking(false);
+          isAssistantSpeakingRef.current = false;
           break;
         case "listening":
           setIsListening(true);
           setIsAssistantSpeaking(false);
+          isAssistantSpeakingRef.current = false;
           if (typeof data.bytesReceived === "number") setMicBytesReceived(data.bytesReceived);
           break;
         case "speaking":
           setIsAssistantSpeaking(true);
+          isAssistantSpeakingRef.current = true;
           setIsListening(false);
           break;
         case "caption":
@@ -405,6 +409,7 @@ export function VoiceCallWidget({
           break;
         case "turnComplete":
           setIsAssistantSpeaking(false);
+          isAssistantSpeakingRef.current = false;
           setIsListening(true);
           playerRef.current?.flush();
           break;
@@ -415,6 +420,7 @@ export function VoiceCallWidget({
             void playerRef.current.start();
           }
           setIsAssistantSpeaking(false);
+          isAssistantSpeakingRef.current = false;
           setIsListening(true);
           break;
         case "error":
