@@ -320,8 +320,6 @@ export function VoiceCallWidget({
     if (audioCtxRef.current) {
       if (!sharedAudioCtx) {
         void audioCtxRef.current.close();
-      } else {
-        void audioCtxRef.current.suspend();
       }
       audioCtxRef.current = null;
     }
