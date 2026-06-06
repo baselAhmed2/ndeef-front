@@ -80,13 +80,19 @@ export default function MapPicker({
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reverseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const reverseAbortRef = useRef<AbortController | null>(null);
+  const onLocationSelectRef = useRef(onLocationSelect);
+  const lastResolvedCoordsRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    onLocationSelectRef.current = onLocationSelect;
+  }, [onLocationSelect]);
 
   const buildCoordinateFallback = useCallback(
-    (latitude: number, longitude: number) => {
+    () => {
       if (address.trim()) {
         return address.trim();
       }
-      return `${latitude.toFixed(4)}, ${longitude.toFixed(4)}`;
+      return "Selected location";
     },
     [address],
   );
@@ -139,7 +145,7 @@ export default function MapPicker({
   // Handle address input change with debounce
   const handleAddressChange = (value: string) => {
     setAddress(value);
-    onLocationSelect({
+    onLocationSelectRef.current({
       address: value,
       latitude: lat,
       longitude: lng,
@@ -173,7 +179,7 @@ export default function MapPicker({
     setShowResults(false);
     setSearchResults([]);
 
-    onLocationSelect({
+    onLocationSelectRef.current({
       address: newAddress,
       latitude: newLat,
       longitude: newLng,
@@ -224,8 +230,8 @@ export default function MapPicker({
         setIsLocating(false);
 
         // Update parent with new coordinates
-        onLocationSelect({
-          address: address || `${newLat.toFixed(4)}, ${newLng.toFixed(4)}`,
+        onLocationSelectRef.current({
+          address: address || "Selected location",
           latitude: newLat,
           longitude: newLng,
         });
@@ -254,6 +260,11 @@ export default function MapPicker({
   // Reverse geocode to human readable address (short form)
   const reverseGeocode = useCallback(
     async (latitude: number, longitude: number) => {
+      const resolutionKey = `${latitude.toFixed(5)}:${longitude.toFixed(5)}`;
+      if (lastResolvedCoordsRef.current === resolutionKey) {
+        return;
+      }
+
       let timeoutId: number | null = null;
       try {
         reverseAbortRef.current?.abort();
@@ -273,6 +284,7 @@ export default function MapPicker({
         if (!resp.ok) throw new Error("Reverse geocode failed");
         const data: NominatimReverse = await resp.json();
         setReverseResult(data);
+        lastResolvedCoordsRef.current = resolutionKey;
 
         // Build a short address for parent callback
         const addr = data?.address ?? {};
@@ -287,17 +299,26 @@ export default function MapPicker({
         const short = [primary, secondary].filter(Boolean).join(", ");
 
         if (short) {
-          setAddress(short);
-          onLocationSelect({ address: short, latitude, longitude });
+          setAddress((current) => (current === short ? current : short));
+          onLocationSelectRef.current({ address: short, latitude, longitude });
         } else if (data.display_name) {
-          setAddress(data.display_name);
-          onLocationSelect({ address: data.display_name, latitude, longitude });
+          setAddress((current) =>
+            current === data.display_name ? current : (data.display_name ?? ""),
+          );
+          onLocationSelectRef.current({
+            address: data.display_name ?? "",
+            latitude,
+            longitude,
+          });
         }
       } catch {
         setReverseResult(null);
-        const fallbackAddress = buildCoordinateFallback(latitude, longitude);
-        setAddress(fallbackAddress);
-        onLocationSelect({
+        const fallbackAddress = buildCoordinateFallback();
+        lastResolvedCoordsRef.current = resolutionKey;
+        setAddress((current) =>
+          current === fallbackAddress ? current : fallbackAddress,
+        );
+        onLocationSelectRef.current({
           address: fallbackAddress,
           latitude,
           longitude,
@@ -310,7 +331,7 @@ export default function MapPicker({
         setIsReverseLoading(false);
       }
     },
-    [buildCoordinateFallback, onLocationSelect],
+    [buildCoordinateFallback],
   );
 
   // Trigger reverse geocode when coordinates change (debounced)

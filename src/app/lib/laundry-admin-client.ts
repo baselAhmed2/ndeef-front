@@ -805,14 +805,33 @@ async function updateLaundryAvailabilityStatus(
 }
 
 export async function getSchedule(): Promise<WeeklySchedule> {
-  const payload = await withLaundryRecovery(() =>
-    apiRequest<{
-      days: Array<{
-        dayOfWeek: number;
-        isOpen: boolean;
-      }>;
-    }>("/laundry-admin/availability/schedule"),
-  );
+  let payload: {
+    days: Array<{
+      dayOfWeek: number;
+      isOpen: boolean;
+    }>;
+  };
+
+  try {
+    payload = await withLaundryRecovery(() =>
+      apiRequest<{
+        days: Array<{
+          dayOfWeek: number;
+          isOpen: boolean;
+        }>;
+      }>("/laundry-admin/availability/schedule"),
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status >= 500) {
+      console.warn("Falling back to default schedule after backend failure", {
+        status: error.status,
+        message: error.message,
+      });
+      payload = { days: [] };
+    } else {
+      throw error;
+    }
+  }
 
   const schedule = {} as WeeklySchedule;
   for (const dayName of DAY_NAMES.slice(1).concat(DAY_NAMES[0])) {
@@ -865,13 +884,32 @@ export async function updateSchedule(data: WeeklySchedule): Promise<void> {
 }
 
 export async function getCapacity(): Promise<any> {
-  const payload = await withLaundryRecovery(() =>
-    apiRequest<{
-      maxOrdersPerDay?: number;
-      leadTimeHours?: number;
-      data?: { maxOrdersPerDay?: number; leadTimeHours?: number } | null;
-    }>("/laundry-admin/availability/capacity"),
-  );
+  let payload: {
+    maxOrdersPerDay?: number;
+    leadTimeHours?: number;
+    data?: { maxOrdersPerDay?: number; leadTimeHours?: number } | null;
+  };
+
+  try {
+    payload = await withLaundryRecovery(() =>
+      apiRequest<{
+        maxOrdersPerDay?: number;
+        leadTimeHours?: number;
+        data?: { maxOrdersPerDay?: number; leadTimeHours?: number } | null;
+      }>("/laundry-admin/availability/capacity"),
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status >= 500) {
+      console.warn("Falling back to default capacity after backend failure", {
+        status: error.status,
+        message: error.message,
+      });
+      payload = { maxOrdersPerDay: 30, leadTimeHours: 2 };
+    } else {
+      throw error;
+    }
+  }
+
   const capacity = payload.data ?? payload;
   return {
     maxOrders: capacity?.maxOrdersPerDay ?? 0,
@@ -880,15 +918,27 @@ export async function getCapacity(): Promise<any> {
 }
 
 export async function updateCapacity(data: any): Promise<void> {
-  await withLaundryRecovery(() =>
-    apiRequest("/laundry-admin/availability/capacity", {
-      method: "PUT",
-      body: JSON.stringify({
-        maxOrdersPerDay: data.maxOrders,
-        leadTimeHours: data.leadTime,
+  try {
+    await withLaundryRecovery(() =>
+      apiRequest("/laundry-admin/availability/capacity", {
+        method: "PUT",
+        body: JSON.stringify({
+          maxOrdersPerDay: data.maxOrders,
+          leadTimeHours: data.leadTime,
+        }),
       }),
-    }),
-  );
+    );
+  } catch (error) {
+    if (error instanceof ApiError && error.status >= 500) {
+      console.warn("Skipping capacity update after backend failure", {
+        status: error.status,
+        message: error.message,
+      });
+      return;
+    }
+
+    throw error;
+  }
 }
 
 export async function getClosedDates(): Promise<any[]> {

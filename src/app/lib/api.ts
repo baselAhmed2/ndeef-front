@@ -1885,15 +1885,19 @@ export async function processPaymentRequest(
 // ── Payout Profile ─────────────────────────────────────────────────────────
 
 export enum PayoutTransferMethod {
-  BankAccount = 1,
-  MobileWallet = 2,
-  Card = 3,
-  OctoCard = 4,
+  BankTransfer = 1,
+  Instapay = 2,
+  MobileWallet = 3,
+  BankAccount = 4,
+  Card = 5,
+  OctoCard = 6,
 }
 
 export enum PayoutTransferType {
-  Standard = 1,
-  Instant = 2,
+  BankAccount = 1,
+  Iban = 2,
+  InstapayAddress = 3,
+  MobileNumber = 4,
 }
 
 export interface UpsertPayoutProfileRequest {
@@ -1905,6 +1909,17 @@ export interface UpsertPayoutProfileRequest {
   bankAccountNumber?: string | null;
   cardNumber?: string | null;
   nationalId?: string | null;
+}
+
+export interface LaundryPayoutRecord {
+  id: number;
+  amount: number;
+  status: string;
+  method?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+  processedAt: string;
+  createdBy?: string | null;
 }
 
 export async function getPayoutProfile(token: string) {
@@ -1920,4 +1935,8 @@ export async function upsertPayoutProfile(token: string, payload: UpsertPayoutPr
     },
     token,
   );
+}
+
+export async function getLaundryPayoutHistory(token: string) {
+  return request<LaundryPayoutRecord[]>("/laundry-admin/payouts", { method: "GET" }, token);
 }

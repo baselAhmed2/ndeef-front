@@ -264,25 +264,53 @@ export async function getLaundryCommissionDetails(laundryId: string): Promise<{
   };
 }
 
-// Super Admin: Record manual commission payment (cash/bank transfer)
-export async function recordCommissionPayment(_laundryId: string, _payment: {
+export interface LaundryPayoutRecord {
+  id: number;
+  amount: number;
+  status: string;
+  method?: string | null;
+  reference?: string | null;
+  notes?: string | null;
+  processedAt: string;
+  createdBy?: string | null;
+}
+
+// Super Admin: Process payout to laundry
+export async function recordCommissionPayment(laundryId: string, payment: {
   amount: number;
   method: "cash" | "bank_transfer";
   reference?: string;
   notes?: string;
-}): Promise<{ success: boolean; message: string; paymentId: string }> {
-  throw new ApiError(
-    "Manual commission payments are not available yet.",
-    501,
-  );
+}): Promise<{
+  success: boolean;
+  payoutId: string;
+  processedAmount: number;
+  remainingAvailableBalance: number;
+  processedAt: string;
+  message: string;
+}> {
+  return await apiRequest<{
+    success: boolean;
+    payoutId: string;
+    processedAmount: number;
+    remainingAvailableBalance: number;
+    processedAt: string;
+    message: string;
+  }>(`/admin/laundries/${laundryId}/payouts/process`, {
+    method: "POST",
+    body: JSON.stringify(payment),
+  });
 }
 
-// Super Admin: Send payment reminder to laundry admin
+// Super Admin: Send payout reminder to laundry admin
 export async function sendPaymentReminder(laundryId: string): Promise<{ success: boolean; message: string }> {
-  throw new ApiError(
-    `Payment reminders are not available yet for laundry ${laundryId}.`,
-    501,
-  );
+  return await apiRequest<{ success: boolean; message: string }>(`/admin/laundries/${laundryId}/payouts/reminder`, {
+    method: "POST",
+  });
+}
+
+export async function getLaundryPayouts(laundryId: number | string): Promise<LaundryPayoutRecord[]> {
+  return await apiRequest<LaundryPayoutRecord[]>(`/admin/laundries/${laundryId}/payouts`);
 }
 
 export interface LaundryBillingInfo {

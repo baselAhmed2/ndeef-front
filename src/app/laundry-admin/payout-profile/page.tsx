@@ -3,12 +3,22 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/app/context/AuthContext";
 import { 
+  getLaundryPayoutHistory,
   getPayoutProfile, 
+  LaundryPayoutRecord,
   upsertPayoutProfile, 
   PayoutTransferMethod, 
-  PayoutTransferType, 
+  PayoutTransferType,
   UpsertPayoutProfileRequest 
 } from "@/app/lib/api";
+import {
+  buildPayoutPayload,
+  getDefaultTransferType,
+  needsTransferType,
+  parseTransferMethod,
+  parseTransferType,
+  payoutMethodOptions,
+} from "@/app/lib/payout-profile";
 import { toast } from "sonner";
 import { Save, Loader2, Building2, Smartphone, CreditCard, Wallet } from "lucide-react";
 import { motion } from "motion/react";
@@ -17,10 +27,11 @@ export default function PayoutProfilePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [payoutHistory, setPayoutHistory] = useState<LaundryPayoutRecord[]>([]);
 
   const [formData, setFormData] = useState<UpsertPayoutProfileRequest>({
     transferMethod: PayoutTransferMethod.BankAccount,
-    transferType: null,
+    transferType: getDefaultTransferType(PayoutTransferMethod.BankAccount),
     recipientFullName: "",
     recipientMobileNumber: "",
     bankName: "",
@@ -34,12 +45,10 @@ export default function PayoutProfilePage() {
       if (!user?.token) return;
       try {
         const data = await getPayoutProfile(user.token);
+        const payouts = await getLaundryPayoutHistory(user.token).catch(() => []);
         setFormData({
-          transferMethod: data.transferMethod || PayoutTransferMethod.BankAccount,
-          transferType:
-            (data.transferMethod || PayoutTransferMethod.BankAccount) === PayoutTransferMethod.MobileWallet
-              ? data.transferType || PayoutTransferType.Standard
-              : null,
+          transferMethod: parseTransferMethod(data.transferMethod),
+          transferType: parseTransferType(data.transferType) ?? getDefaultTransferType(parseTransferMethod(data.transferMethod)),
           recipientFullName: data.recipientFullName || "",
           recipientMobileNumber: data.recipientMobileNumber || "",
           bankName: data.bankName || "",
@@ -47,6 +56,7 @@ export default function PayoutProfilePage() {
           cardNumber: data.cardNumber || "",
           nationalId: data.nationalId || "",
         });
+        setPayoutHistory(payouts);
       } catch (err: any) {
         toast.error(err.message || "Failed to load payout profile");
       } finally {
@@ -64,22 +74,7 @@ export default function PayoutProfilePage() {
         return {
           ...prev,
           transferMethod: nextMethod,
-          transferType:
-            nextMethod === PayoutTransferMethod.MobileWallet
-              ? prev.transferType || PayoutTransferType.Standard
-              : null,
-          recipientMobileNumber:
-            nextMethod === PayoutTransferMethod.MobileWallet ? prev.recipientMobileNumber : "",
-          bankName:
-            nextMethod === PayoutTransferMethod.BankAccount || nextMethod === PayoutTransferMethod.Card
-              ? prev.bankName
-              : "",
-          bankAccountNumber:
-            nextMethod === PayoutTransferMethod.BankAccount ? prev.bankAccountNumber : "",
-          cardNumber:
-            nextMethod === PayoutTransferMethod.Card || nextMethod === PayoutTransferMethod.OctoCard
-              ? prev.cardNumber
-              : "",
+          transferType: getDefaultTransferType(nextMethod),
         };
       }
 
@@ -101,7 +96,7 @@ export default function PayoutProfilePage() {
       return false;
     }
 
-    if (formData.transferMethod === PayoutTransferMethod.BankAccount) {
+      if (formData.transferMethod === PayoutTransferMethod.BankAccount) {
       if (!formData.bankName?.trim()) {
         toast.error("Please enter the Bank Name.");
         return false;
@@ -116,7 +111,21 @@ export default function PayoutProfilePage() {
         return false;
       }
       if (!formData.transferType) {
-        toast.error("Please select the wallet transfer type.");
+        toast.error("Please select the transfer type.");
+        return false;
+      }
+    } else if (formData.transferMethod === PayoutTransferMethod.BankTransfer) {
+      if (!formData.bankAccountNumber?.trim()) {
+        toast.error("Please enter the bank transfer destination.");
+        return false;
+      }
+    } else if (formData.transferMethod === PayoutTransferMethod.Instapay) {
+      if (formData.transferType === PayoutTransferType.MobileNumber && !formData.recipientMobileNumber?.trim()) {
+        toast.error("Please enter the Instapay mobile number.");
+        return false;
+      }
+      if (formData.transferType === PayoutTransferType.InstapayAddress && !formData.bankAccountNumber?.trim()) {
+        toast.error("Please enter the Instapay address.");
         return false;
       }
     } else if (formData.transferMethod === PayoutTransferMethod.Card) {
@@ -145,7 +154,8 @@ export default function PayoutProfilePage() {
 
     setSaving(true);
     try {
-      await upsertPayoutProfile(user.token, formData);
+      await upsertPayoutProfile(user.token, buildPayoutPayload(formData));
+      setPayoutHistory(await getLaundryPayoutHistory(user.token).catch(() => payoutHistory));
       toast.success("Payout profile saved successfully!");
     } catch (err: any) {
       toast.error(err.message || "Failed to save payout profile.");
@@ -188,10 +198,9 @@ export default function PayoutProfilePage() {
                   onChange={handleChange}
                   className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all appearance-none text-sm"
                 >
-                  <option value={PayoutTransferMethod.BankAccount}>Bank Account</option>
-                  <option value={PayoutTransferMethod.MobileWallet}>Mobile Wallet</option>
-                  <option value={PayoutTransferMethod.Card}>Bank Card</option>
-                  <option value={PayoutTransferMethod.OctoCard}>Octo Card</option>
+                  {payoutMethodOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
                 </select>
                 <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                   {formData.transferMethod === PayoutTransferMethod.BankAccount && <Building2 className="w-5 h-5" />}
@@ -201,18 +210,29 @@ export default function PayoutProfilePage() {
               </div>
             </div>
 
-            {formData.transferMethod === PayoutTransferMethod.MobileWallet && (
+            {needsTransferType(formData.transferMethod) && (
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-gray-700">Transfer Type</label>
                 <div className="relative">
                   <select
                     name="transferType"
-                    value={formData.transferType || PayoutTransferType.Standard}
+                    value={formData.transferType || ""}
                     onChange={handleChange}
                     className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all appearance-none text-sm"
                   >
-                    <option value={PayoutTransferType.Standard}>Standard Transfer</option>
-                    <option value={PayoutTransferType.Instant}>Instant Transfer</option>
+                    {formData.transferMethod === PayoutTransferMethod.MobileWallet && <option value={PayoutTransferType.MobileNumber}>Mobile Number</option>}
+                    {(formData.transferMethod === PayoutTransferMethod.BankTransfer || formData.transferMethod === PayoutTransferMethod.BankAccount) && (
+                      <>
+                        <option value={PayoutTransferType.BankAccount}>Bank Account Number</option>
+                        <option value={PayoutTransferType.Iban}>IBAN</option>
+                      </>
+                    )}
+                    {formData.transferMethod === PayoutTransferMethod.Instapay && (
+                      <>
+                        <option value={PayoutTransferType.InstapayAddress}>Instapay Address</option>
+                        <option value={PayoutTransferType.MobileNumber}>Mobile Number</option>
+                      </>
+                    )}
                   </select>
                   <Wallet className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 </div>
@@ -258,11 +278,11 @@ export default function PayoutProfilePage() {
               initial={false}
               animate={{ opacity: 1 }}
             >
-              {formData.transferMethod === PayoutTransferMethod.BankAccount && (
+              {(formData.transferMethod === PayoutTransferMethod.BankAccount || formData.transferMethod === PayoutTransferMethod.BankTransfer) && (
                 <>
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Bank Name <span className="text-red-500">*</span>
+                      Bank Name {formData.transferMethod === PayoutTransferMethod.BankAccount && <span className="text-red-500">*</span>}
                     </label>
                     <input
                       type="text"
@@ -275,24 +295,24 @@ export default function PayoutProfilePage() {
                   </div>
                   <div className="space-y-2">
                     <label className="block text-sm font-medium text-gray-700">
-                      Bank Account Number / IBAN <span className="text-red-500">*</span>
+                      {formData.transferType === PayoutTransferType.Iban ? "IBAN" : "Bank Account Number"} <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       name="bankAccountNumber"
                       value={formData.bankAccountNumber || ""}
                       onChange={handleChange}
-                      placeholder="EG12000..."
+                      placeholder={formData.transferType === PayoutTransferType.Iban ? "EG800002000156789012345180002" : "1234567890"}
                       className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
                     />
                   </div>
                 </>
               )}
 
-              {formData.transferMethod === PayoutTransferMethod.MobileWallet && (
+              {(formData.transferMethod === PayoutTransferMethod.MobileWallet || (formData.transferMethod === PayoutTransferMethod.Instapay && formData.transferType === PayoutTransferType.MobileNumber)) && (
                 <div className="space-y-2">
                   <label className="block text-sm font-medium text-gray-700">
-                    Mobile Wallet Number <span className="text-red-500">*</span>
+                    {formData.transferMethod === PayoutTransferMethod.MobileWallet ? "Mobile Wallet Number" : "Instapay Mobile Number"} <span className="text-red-500">*</span>
                   </label>
                   <input
                   type="text"
@@ -301,6 +321,22 @@ export default function PayoutProfilePage() {
                   onChange={handleChange}
                   placeholder="010..."
                   className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
+                  />
+                </div>
+              )}
+
+              {formData.transferMethod === PayoutTransferMethod.Instapay && formData.transferType === PayoutTransferType.InstapayAddress && (
+                <div className="space-y-2">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Instapay Address <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="bankAccountNumber"
+                    value={formData.bankAccountNumber || ""}
+                    onChange={handleChange}
+                    placeholder="name@instapay"
+                    className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#1D6076] focus:border-[#1D6076] transition-all text-sm"
                   />
                 </div>
               )}
@@ -355,6 +391,63 @@ export default function PayoutProfilePage() {
             </button>
           </div>
         </form>
+      </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6"
+      >
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold uppercase tracking-wide text-gray-900">Payout History</h2>
+            <p className="text-sm text-gray-500 mt-1">Recent transfers sent to your payout destination.</p>
+          </div>
+          <span className="rounded-full bg-gray-100 px-3 py-1 text-xs font-semibold text-gray-600">
+            {payoutHistory.length} records
+          </span>
+        </div>
+
+        <div className="mt-4 overflow-x-auto">
+          {payoutHistory.length ? (
+            <table className="w-full min-w-[720px] text-left">
+              <thead>
+                <tr className="border-b border-gray-200 text-xs uppercase tracking-wide text-gray-500">
+                  <th className="px-3 py-3 font-semibold">Date</th>
+                  <th className="px-3 py-3 font-semibold">Amount</th>
+                  <th className="px-3 py-3 font-semibold">Method</th>
+                  <th className="px-3 py-3 font-semibold">Status</th>
+                  <th className="px-3 py-3 font-semibold">Reference</th>
+                  <th className="px-3 py-3 font-semibold">Created By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payoutHistory.map((item) => (
+                  <tr key={item.id} className="border-b border-gray-100 text-sm text-gray-700 last:border-0">
+                    <td className="px-3 py-3">
+                      {new Intl.DateTimeFormat("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      }).format(new Date(item.processedAt))}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-gray-900">EGP {Number(item.amount || 0).toFixed(2)}</td>
+                    <td className="px-3 py-3">{item.method || "-"}</td>
+                    <td className="px-3 py-3">{item.status || "-"}</td>
+                    <td className="px-3 py-3 font-mono text-xs">{item.reference || "-"}</td>
+                    <td className="px-3 py-3">{item.createdBy || "-"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-gray-50 px-4 py-8 text-center text-sm text-gray-500">
+              No payout history has been recorded yet.
+            </div>
+          )}
+        </div>
       </motion.div>
     </div>
   );
