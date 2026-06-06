@@ -41,36 +41,75 @@ class PCMPlayer {
   }
 
   async start() {
-    if (this.ctx.state === "suspended") await this.ctx.resume();
+    console.log(`[PCMPlayer] Starting player. Context state: ${this.ctx.state}, currentTime: ${this.ctx.currentTime}`);
+    if (this.ctx.state === "suspended") {
+      try {
+        await this.ctx.resume();
+        console.log(`[PCMPlayer] Context resumed successfully. State: ${this.ctx.state}`);
+      } catch (err) {
+        console.error("[PCMPlayer] Failed to resume AudioContext during start:", err);
+      }
+    }
     this.nextTime = this.ctx.currentTime;
   }
 
-  async play(pcm16: Int16Array) {
+  play(pcm16: Int16Array) {
     if (!this.ctx || pcm16.length === 0) return;
-    if (this.ctx.state === "suspended") await this.ctx.resume();
 
-    const floats = new Float32Array(pcm16.length);
-    for (let i = 0; i < pcm16.length; i++) floats[i] = pcm16[i] / 32768;
+    // Trigger resume in background to avoid blocking the synchronous audio scheduling queue calculation
+    if (this.ctx.state === "suspended") {
+      this.ctx.resume()
+        .then(() => console.log(`[PCMPlayer] Background resume completed. State: ${this.ctx.state}`))
+        .catch((err) => console.error("[PCMPlayer] Background resume failed:", err));
+    }
 
-    const buffer = this.ctx.createBuffer(1, floats.length, OUTPUT_RATE);
-    buffer.getChannelData(0).set(floats);
+    try {
+      const floats = new Float32Array(pcm16.length);
+      let maxAmp = 0;
+      for (let i = 0; i < pcm16.length; i++) {
+        floats[i] = pcm16[i] / 32768;
+        const absVal = Math.abs(floats[i]);
+        if (absVal > maxAmp) maxAmp = absVal;
+      }
 
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    source.connect(this.ctx.destination);
+      if (Math.random() < 0.05) {
+        console.log(
+          `[PCMPlayer] Scheduling audio chunk. Samples: ${pcm16.length}, maxAmp: ${maxAmp.toFixed(
+            4,
+          )}, nextTime: ${this.nextTime.toFixed(4)}, currentTime: ${this.ctx.currentTime.toFixed(4)}, state: ${
+            this.ctx.state
+          }`,
+        );
+      }
 
-    const now = this.ctx.currentTime;
-    if (this.nextTime < now) this.nextTime = now + 0.02;
-    source.start(this.nextTime);
-    this.nextTime += buffer.duration;
+      const buffer = this.ctx.createBuffer(1, floats.length, OUTPUT_RATE);
+      buffer.getChannelData(0).set(floats);
+
+      const source = this.ctx.createBufferSource();
+      source.buffer = buffer;
+      source.connect(this.ctx.destination);
+
+      const now = this.ctx.currentTime;
+      if (this.nextTime < now) {
+        this.nextTime = now + 0.02;
+      }
+      source.start(this.nextTime);
+      this.nextTime += buffer.duration;
+    } catch (err) {
+      console.error("[PCMPlayer] Error playing audio chunk:", err);
+    }
   }
 
   flush() {
-    if (this.ctx) this.nextTime = this.ctx.currentTime;
+    if (this.ctx) {
+      this.nextTime = this.ctx.currentTime;
+      console.log(`[PCMPlayer] Flushed. nextTime reset to: ${this.nextTime}`);
+    }
   }
 
   stop() {
     this.nextTime = 0;
+    console.log("[PCMPlayer] Stopped.");
   }
 }
 
@@ -459,15 +498,27 @@ export function VoiceCallWidget({
 
         ws.onmessage = (event) => {
           if (event.data instanceof ArrayBuffer) {
-            playerRef.current?.play(new Int16Array(event.data));
+            try {
+              const byteLen = event.data.byteLength;
+              if (byteLen % 2 !== 0) {
+                console.warn(`[Voice] Received odd byte length: ${byteLen}`);
+              }
+              const pcm16 = new Int16Array(event.data, 0, Math.floor(byteLen / 2));
+              if (Math.random() < 0.05) {
+                console.log(`[Voice] Received binary audio packet from backend: ${byteLen} bytes, decoded to ${pcm16.length} samples.`);
+              }
+              playerRef.current?.play(pcm16);
+            } catch (err) {
+              console.error("[Voice] Failed to decode binary audio packet:", err);
+            }
             return;
           }
           if (typeof event.data !== "string") return;
           console.log("[Voice] Received websocket text message from backend:", event.data);
           try {
             handleServerMessage(JSON.parse(event.data) as VoiceMsg, ws);
-          } catch {
-            // ignore malformed message
+          } catch (err) {
+            console.error("[Voice] Failed to parse websocket text message:", err);
           }
         };
 
