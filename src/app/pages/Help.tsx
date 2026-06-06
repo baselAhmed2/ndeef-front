@@ -76,15 +76,16 @@ export default function Help() {
       if (AudioContextClass) {
         const ctx = new AudioContextClass();
         
-        // Play a quick silent buffer to activate the context within the user gesture
+        // Start a continuous silent oscillator to prevent the browser from suspending the context during async mic permission prompts
         try {
-          const buffer = ctx.createBuffer(1, 1, 22050);
-          const source = ctx.createBufferSource();
-          source.buffer = buffer;
-          source.connect(ctx.destination);
-          source.start(0);
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          gain.gain.value = 0;
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start(0);
         } catch (e) {
-          console.warn("Failed to play silent buffer:", e);
+          console.warn("Failed to start silent oscillator:", e);
         }
 
         if (ctx.state === "suspended") {
