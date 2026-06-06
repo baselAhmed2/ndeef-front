@@ -7,6 +7,7 @@ import { useAuth } from "../../context/AuthContext";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { apiRequest } from "../../lib/admin-api";
+import { isAdminVisibleNotification } from "../../lib/admin-notifications";
 
 function formatTimeAgo(isoString: string) {
   const date = new Date(isoString);
@@ -27,7 +28,6 @@ const pageTitles: Record<string, { title: string; subtitle: string }> = {
   "/admin/analytics": { title: "Analytics", subtitle: "Understand growth, usage, and performance" },
   "/admin/notifications": { title: "Notifications", subtitle: "Stay on top of platform-wide alerts" },
   "/admin/settings": { title: "Settings", subtitle: "Configure admin preferences and controls" },
-  "/admin/help": { title: "Help Center", subtitle: "Access support and operational guidance" },
 };
 
 export function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => void }) {
@@ -44,7 +44,9 @@ export function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => voi
     async function fetchNotes() {
       try {
         const res = await apiRequest<any>("/notifications?pageSize=5");
-        const list = Array.isArray(res) ? res : res.data || [];
+        const list = (Array.isArray(res) ? res : res.data || []).filter((note: any) =>
+          isAdminVisibleNotification(note),
+        );
         setNotes(list);
         setUnreadCount(list.filter((n: any) => !n.isRead).length);
       } catch (err) {
@@ -214,12 +216,13 @@ export function Header({ setSidebarOpen }: { setSidebarOpen: (v: boolean) => voi
                     <p className="text-xs text-gray-400">{user?.role || "Super Admin"}</p>
                   </div>
                   <div className="p-1.5">
-                    <button
+                    <Link
+                      href="/admin/profile"
                       onClick={() => setShowUserMenu(false)}
                       className="w-full flex items-center gap-2.5 px-3 py-2 text-sm text-gray-600 hover:bg-gray-50 rounded-xl transition-all"
                     >
                       <User className="w-4 h-4" /> Profile
-                    </button>
+                    </Link>
                     <Link
                       href="/admin/settings"
                       onClick={() => setShowUserMenu(false)}

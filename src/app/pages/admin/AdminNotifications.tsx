@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { apiRequest, ApiError } from "../../lib/admin-api";
+import { isAdminVisibleNotification } from "../../lib/admin-notifications";
 import type { NotificationRecord, PaginatedResult } from "../../types/admin";
 
 // Map backend NotificationType enum to UI config
@@ -87,10 +88,11 @@ export function AdminNotifications() {
       }
 
       const res = await apiRequest<PaginatedResult<NotificationRecord>>(`/notifications?${query.toString()}`);
-      setItems((current) => (append ? [...current, ...res.data] : res.data));
+      const filteredData = res.data.filter((notification) => isAdminVisibleNotification(notification));
+      setItems((current) => (append ? [...current, ...filteredData] : filteredData));
       setPageIndex(res.pageIndex);
       setTotalPages(res.totalPages);
-      setTotalCount(res.totalCount);
+      setTotalCount((current) => (append ? current + filteredData.length : filteredData.length));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to load notifications.");
     } finally {

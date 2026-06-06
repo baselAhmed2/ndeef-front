@@ -15,11 +15,11 @@ import {
   X,
   LogOut,
   Settings,
-  HelpCircle,
   WashingMachine,
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { apiRequest } from "../../lib/admin-api";
+import { isAdminVisibleNotification } from "../../lib/admin-notifications";
 import { BASE_URL, getAuthHeaders } from "../../services/api";
 import type { LaundryRecord } from "../../types/admin";
 
@@ -59,7 +59,6 @@ const mainNav: NavItemConfig[] = [
 
 const bottomNav: NavItemConfig[] = [
   { icon: Settings, label: "Settings", path: "/admin/settings" },
-  { icon: HelpCircle, label: "Help Center", path: "/admin/help" },
 ];
 
 export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boolean) => void }) {
@@ -103,7 +102,7 @@ export function Sidebar({ open, setOpen }: { open: boolean; setOpen: (val: boole
 
         setBadges({
           verifications: laundriesResponse.filter((laundry) => laundry.status === "Inactive").length,
-          notifications: notifications.filter((notification) => !notification.isRead).length,
+          notifications: notifications.filter((notification) => !notification.isRead && isAdminVisibleNotification(notification)).length,
           fraud: fraudAlerts.length,
         });
       } catch (error) {

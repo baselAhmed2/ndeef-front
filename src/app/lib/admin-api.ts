@@ -310,7 +310,16 @@ export async function sendPaymentReminder(laundryId: string): Promise<{ success:
 }
 
 export async function getLaundryPayouts(laundryId: number | string): Promise<LaundryPayoutRecord[]> {
-  return await apiRequest<LaundryPayoutRecord[]>(`/admin/laundries/${laundryId}/payouts`);
+  try {
+    return await apiRequest<LaundryPayoutRecord[]>(`/admin/laundries/${laundryId}/payouts`, {
+      suppressErrorLog: true,
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) {
+      return [];
+    }
+    throw error;
+  }
 }
 
 export interface LaundryBillingInfo {
@@ -332,6 +341,7 @@ export interface LaundryBillingInfo {
   // Wallet details
   totalEarnings: number;
   availableBalance: number;
+  payoutableAmount?: number;
   pendingCommission: number;
   debtCeiling: number;
   walletStatus: string;
