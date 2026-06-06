@@ -75,19 +75,6 @@ export default function Help() {
       const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
       if (AudioContextClass) {
         const ctx = new AudioContextClass();
-        
-        // Start a continuous silent oscillator to prevent the browser from suspending the context during async mic permission prompts
-        try {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          gain.gain.value = 0;
-          osc.connect(gain);
-          gain.connect(ctx.destination);
-          osc.start(0);
-        } catch (e) {
-          console.warn("Failed to start silent oscillator:", e);
-        }
-
         if (ctx.state === "suspended") {
           void ctx.resume();
         }

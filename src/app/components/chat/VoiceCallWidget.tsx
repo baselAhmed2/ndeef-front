@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, PhoneOff, Mic, MicOff, Loader2, Sparkles, Volume2, VolumeX } from "lucide-react";
+import { X, PhoneOff, Mic, MicOff, Loader2, Sparkles, Volume2 } from "lucide-react";
 import { useAuth } from "@/app/context/AuthContext";
 import { Monogram } from "@/app/components/brand/Monogram";
 import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
@@ -98,6 +98,10 @@ class PCMPlayer {
     } catch (err) {
       console.error("[PCMPlayer] Error playing audio chunk:", err);
     }
+  }
+
+  getNextTime() {
+    return this.nextTime;
   }
 
   flush() {
@@ -291,9 +295,9 @@ export function VoiceCallWidget({
   const [assistantTranscript, setAssistantTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isAssistantSpeaking, setIsAssistantSpeaking] = useState(false);
+  const isAssistantSpeakingRef = useRef(false);
   const [micBytesReceived, setMicBytesReceived] = useState(0);
   const [heardYou, setHeardYou] = useState(false);
-  const [isAudioSuspended, setIsAudioSuspended] = useState(false);
 
   const wsRef = useRef<WebSocket | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
@@ -301,6 +305,7 @@ export function VoiceCallWidget({
   const playerRef = useRef<PCMPlayer | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const pingIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const checkIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const transcriptEndRef = useRef<HTMLDivElement | null>(null);
   const micStartedRef = useRef(false);
   const audioCtxRef = useRef<AudioContext | null>(null);
@@ -314,14 +319,12 @@ export function VoiceCallWidget({
   const cleanup = useCallback(() => {
     if (timerRef.current) clearInterval(timerRef.current);
     if (pingIntervalRef.current) clearInterval(pingIntervalRef.current);
+    if (checkIntervalRef.current) clearInterval(checkIntervalRef.current);
     recorderRef.current?.stop();
     playerRef.current?.stop();
     if (audioCtxRef.current) {
-      audioCtxRef.current.onstatechange = null;
       if (!sharedAudioCtx) {
         void audioCtxRef.current.close();
-      } else {
-        void audioCtxRef.current.suspend();
       }
       audioCtxRef.current = null;
     }
@@ -330,7 +333,6 @@ export function VoiceCallWidget({
     if (wsRef.current?.readyState === WebSocket.OPEN) wsRef.current.close();
     wsRef.current = null;
     micStartedRef.current = false;
-    setIsAudioSuspended(false);
   }, [sharedAudioCtx]);
 
   const startMicStreaming = useCallback((ws: WebSocket, stream: MediaStream, audioContext: AudioContext) => {
@@ -346,7 +348,7 @@ export function VoiceCallWidget({
         console.warn("[Voice] WebSocket not open. State:", ws.readyState);
         return;
       }
-      if (isMutedRef.current) return;
+      if (isMutedRef.current || isAssistantSpeakingRef.current) return;
       if (Math.random() < 0.05) {
         console.log(`[Voice] Sending PCM chunk to backend: ${pcm.length} samples, bytes: ${pcm.byteLength}`);
       }
@@ -373,14 +375,17 @@ export function VoiceCallWidget({
           setStatus("active");
           setIsListening(false);
           setIsAssistantSpeaking(false);
+          isAssistantSpeakingRef.current = false;
           break;
         case "listening":
           setIsListening(true);
           setIsAssistantSpeaking(false);
+          isAssistantSpeakingRef.current = false;
           if (typeof data.bytesReceived === "number") setMicBytesReceived(data.bytesReceived);
           break;
         case "speaking":
           setIsAssistantSpeaking(true);
+          isAssistantSpeakingRef.current = true;
           setIsListening(false);
           break;
         case "caption":
@@ -407,9 +412,24 @@ export function VoiceCallWidget({
           }
           break;
         case "turnComplete":
-          setIsAssistantSpeaking(false);
-          setIsListening(true);
-          playerRef.current?.flush();
+          {
+            const audioCtx = audioCtxRef.current;
+            const player = playerRef.current;
+            const delayMs = audioCtx && player
+              ? Math.max(0, (player.getNextTime() - audioCtx.currentTime) * 1000) + 150
+              : 150;
+
+            console.log(`[Voice] Turn complete. Delaying mic unmute by ${delayMs.toFixed(0)}ms to let final audio play out.`);
+
+            setTimeout(() => {
+              if (statusRef.current === "active") {
+                setIsAssistantSpeaking(false);
+                isAssistantSpeakingRef.current = false;
+                setIsListening(true);
+                playerRef.current?.flush();
+              }
+            }, delayMs);
+          }
           break;
         case "interrupted":
           playerRef.current?.stop();
@@ -418,6 +438,7 @@ export function VoiceCallWidget({
             void playerRef.current.start();
           }
           setIsAssistantSpeaking(false);
+          isAssistantSpeakingRef.current = false;
           setIsListening(true);
           break;
         case "error":
@@ -443,10 +464,6 @@ export function VoiceCallWidget({
         if (!checkActive()) return;
 
         audioCtxRef.current = audioCtx;
-        setIsAudioSuspended(audioCtx.state === "suspended");
-        audioCtx.onstatechange = () => {
-          setIsAudioSuspended(audioCtx.state === "suspended");
-        };
         if (audioCtx.state === "suspended") {
           await audioCtx.resume();
         }
@@ -588,8 +605,29 @@ export function VoiceCallWidget({
 
     void startCall(token, () => isEffectActive);
     timerRef.current = setInterval(() => setCallDuration((previous) => previous + 1), 1000);
+
+    // Periodic checker to auto-resume AudioContext if it gets suspended
+    checkIntervalRef.current = setInterval(() => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        console.log("[Voice] AudioContext is suspended. Attempting periodic auto-resume...");
+        audioCtxRef.current.resume().catch((err) => console.warn("[Voice] Periodic auto-resume failed:", err));
+      }
+    }, 5000);
+
+    // Gesture auto-resumer on user click or touch
+    const handleGesture = () => {
+      if (audioCtxRef.current && audioCtxRef.current.state === "suspended") {
+        console.log("[Voice] Resuming AudioContext on user gesture (click/touch)");
+        audioCtxRef.current.resume().catch((err) => console.error("[Voice] Gesture auto-resume failed:", err));
+      }
+    };
+    window.addEventListener("click", handleGesture, { passive: true });
+    window.addEventListener("touchstart", handleGesture, { passive: true });
+
     return () => {
       isEffectActive = false;
+      window.removeEventListener("click", handleGesture);
+      window.removeEventListener("touchstart", handleGesture);
       cleanup();
     };
   }, [isAuthReady, isLoggedIn, token, startCall, cleanup]);
@@ -613,15 +651,7 @@ export function VoiceCallWidget({
     `${Math.floor(seconds / 60).toString().padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
 
   return (
-    <div
-      onClick={() => {
-        if (audioCtxRef.current?.state === "suspended") {
-          console.log("[Voice] Resuming AudioContext on backdrop click.");
-          audioCtxRef.current.resume().catch(err => console.error(err));
-        }
-      }}
-      className="ndeef-voice-widget fixed inset-0 z-[70] flex items-center justify-center bg-white/82 p-4 backdrop-blur-md"
-    >
+    <div className="ndeef-voice-widget fixed inset-0 z-[70] flex items-center justify-center bg-white/82 p-4 backdrop-blur-md">
       <div className="ndeef-voice-card relative flex w-full max-w-md flex-col items-center overflow-hidden rounded-[2.5rem] border border-slate-200 bg-[linear-gradient(180deg,#ffffff,#f8fbfd)] p-6 text-center shadow-[0_30px_90px_rgba(15,23,42,0.16)]">
         <div className="ndeef-voice-glow pointer-events-none absolute inset-x-0 top-0 h-32 bg-[radial-gradient(circle_at_top,rgba(64,165,194,0.16),transparent_70%)]" />
 
@@ -670,21 +700,6 @@ export function VoiceCallWidget({
           )}
           {status === "error" && <p className="px-2 text-xs text-red-400">{errorMsg}</p>}
         </div>
-
-        {status === "active" && isAudioSuspended && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              console.log("[Voice] Resuming AudioContext via click button.");
-              audioCtxRef.current?.resume().catch(err => console.error(err));
-            }}
-            className="mb-4 flex items-center justify-center gap-2 rounded-full bg-amber-500/10 border border-amber-500/20 px-4 py-2 text-xs font-bold text-amber-600 transition-all hover:bg-amber-500/15 animate-pulse mx-auto"
-          >
-            <VolumeX className="h-4 w-4 text-amber-500" />
-            اضغط هنا لتفعيل الصوت
-          </button>
-        )}
 
         <div className="mb-5 w-full">
           <div className="mb-2 flex items-center justify-between px-1">
