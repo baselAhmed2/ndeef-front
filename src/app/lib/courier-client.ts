@@ -54,9 +54,11 @@ export interface CourierOrderDto {
   isPaid?: boolean;
   itemsCount?: number;
   serviceName?: string;
+  isAssignedToCurrentCourier?: boolean;
   IsPaid?: boolean;
   ItemsCount?: number;
   ServiceName?: string;
+  IsAssignedToCurrentCourier?: boolean;
 }
 
 export interface CourierOrderResponseDto {
@@ -225,6 +227,7 @@ export interface CourierDashboardOrder {
   notes: string;
   laundryName: string;
   laundryAddress: string;
+  assignedToCurrentCourier: boolean;
   createdAt?: string;
   pickupTime?: string;
   pickedUpAt?: string | null;
@@ -249,7 +252,7 @@ export interface CourierDeliveryHistoryDto {
 const COURIER_PROFILE_UPDATED_EVENT = "nadeef:courier-profile-updated";
 const COURIER_NOTIFICATION_COUNT_UPDATED_EVENT = "nadeef:courier-notification-count-updated";
 
-export const COURIER_EARNING_RATE = 0.1;
+export const COURIER_EARNING_PER_ORDER = 20;
 
 function parseNumber(value: unknown) {
   return typeof value === "number" ? value : Number(value ?? 0);
@@ -534,7 +537,7 @@ export function formatEtaTime(value?: string | null) {
 }
 
 export function calculateCourierEarning(amount: number) {
-  return Number((amount * COURIER_EARNING_RATE).toFixed(2));
+  return amount > 0 ? COURIER_EARNING_PER_ORDER : 0;
 }
 
 export function announceCourierProfileUpdated(profile: CourierProfileResponseDto) {
@@ -608,6 +611,7 @@ function normalizeCourierHistoryOrder(order: CourierDeliveryHistoryDto): Courier
     notes: "",
     laundryName: "",
     laundryAddress: "",
+    assignedToCurrentCourier: true,
     createdAt: undefined,
     pickupTime: undefined,
     pickedUpAt: null,
@@ -648,6 +652,7 @@ export function normalizeCourierOrder(order: CourierOrderDto | CourierOrderRespo
       notes: "",
       laundryName: "",
       laundryAddress: "",
+      assignedToCurrentCourier: true,
       createdAt: order.createdAt,
       pickupTime: undefined,
       pickedUpAt: null,
@@ -657,6 +662,12 @@ export function normalizeCourierOrder(order: CourierOrderDto | CourierOrderRespo
 
   const status = mapCourierOrderStatus(order.status);
   const amount = parseNumber(order.totalPrice);
+  const raw = order as unknown as Record<string, unknown>;
+  const hasAssignedFlag =
+    "isAssignedToCurrentCourier" in raw || "IsAssignedToCurrentCourier" in raw;
+  const assignedToCurrentCourier = hasAssignedFlag
+    ? pickBoolean(raw, "isAssignedToCurrentCourier", "IsAssignedToCurrentCourier")
+    : true;
   const displayTimeSource =
     order.status.toLowerCase().includes("deliver")
       ? order.deliveredAt || order.pickedUpAt || order.pickupTime
@@ -678,12 +689,13 @@ export function normalizeCourierOrder(order: CourierOrderDto | CourierOrderRespo
     status,
     urgent: false,
     time: formatRelativeTime(displayTimeSource),
-    paid: false,
-    service: "Laundry Order",
-    items: 0,
+    paid: pickBoolean(raw, "isPaid", "IsPaid"),
+    service: pickString(raw, "serviceName", "ServiceName") || "Laundry Order",
+    items: pickNumber(raw, "itemsCount", "ItemsCount"),
     notes: order.notes || "",
     laundryName: order.laundryName || "",
     laundryAddress: order.laundryAddress || "",
+    assignedToCurrentCourier,
     createdAt: undefined,
     pickupTime: order.pickupTime,
     pickedUpAt: order.pickedUpAt ?? null,

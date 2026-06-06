@@ -56,11 +56,18 @@ type SignalRModuleLike = {
   HubConnectionBuilder: new () => {
     withUrl: (
       url: string,
-      options: { accessTokenFactory: () => string },
+      options: {
+        accessTokenFactory: () => string;
+        transport?: unknown;
+        skipNegotiation?: boolean;
+      },
     ) => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
     withAutomaticReconnect: () => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
     configureLogging: (level: unknown) => SignalRModuleLike["HubConnectionBuilder"]["prototype"];
     build: () => HubConnectionLike;
+  };
+  HttpTransportType: {
+    WebSockets: unknown;
   };
   LogLevel: {
     None: unknown;
@@ -181,6 +188,9 @@ export default function CourierLayout({ children }: { children: ReactNode }) {
         const builtConnection = new signalR.HubConnectionBuilder()
           .withUrl(hubUrl, {
             accessTokenFactory: () => user.token ?? "",
+            // Skip negotiate so the websocket connects to a single backend instance.
+            transport: signalR.HttpTransportType.WebSockets,
+            skipNegotiation: true,
           })
           .withAutomaticReconnect()
           .configureLogging(signalR.LogLevel.None)

@@ -116,7 +116,9 @@ function isMissingActiveRunError(error: unknown) {
     message.includes("no active run") ||
     message.includes("not found") ||
     message.includes("status 400") ||
-    message.includes("status 404")
+    message.includes("status 404") ||
+    message.includes("request could not be completed") ||
+    message.includes("requested data could not be found")
   );
 }
 
@@ -612,7 +614,7 @@ export default function CourierActivePage() {
           ...run,
           stopsDone: Math.min(run.totalStops, run.stopsDone + 1),
           earnedSoFar: Number((run.earnedSoFar + calculateCourierEarning(stop.amount)).toFixed(2)),
-          remainingAmount: Math.max(0, run.remainingAmount - stop.amount),
+          remainingAmount: Math.max(0, run.remainingAmount - calculateCourierEarning(stop.amount)),
         },
       });
     } catch (deliverError) {
@@ -623,7 +625,7 @@ export default function CourierActivePage() {
             ...run,
             stopsDone: Math.min(run.totalStops, run.stopsDone + 1),
             earnedSoFar: Number((run.earnedSoFar + calculateCourierEarning(stop.amount)).toFixed(2)),
-            remainingAmount: Math.max(0, run.remainingAmount - stop.amount),
+            remainingAmount: Math.max(0, run.remainingAmount - calculateCourierEarning(stop.amount)),
           },
         });
         return;

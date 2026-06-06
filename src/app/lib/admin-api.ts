@@ -127,13 +127,21 @@ export async function apiRequest<T>(path: string, init: ApiRequestInit = {}): Pr
       errorBody = await clonedResponse.text();
 
       // Try to parse as JSON
-      const payload = JSON.parse(errorBody) as { message?: string; Message?: string; title?: string; detail?: string; stackTrace?: string };
+      const payload = JSON.parse(errorBody) as
+        | string
+        | { message?: string; Message?: string; title?: string; detail?: string; stackTrace?: string };
+      message =
+        typeof payload === "string"
+          ? sanitizeUserMessage(payload, response.status)
+          : sanitizeUserMessage(
+              payload.Message || payload.message || payload.title,
+              response.status,
+            );
+    } catch {
       message = sanitizeUserMessage(
-        payload.Message || payload.message || payload.title,
+        typeof errorBody === "string" ? errorBody.trim() : undefined,
         response.status,
       );
-    } catch {
-      // Keep the user-facing message generic even when the backend returns raw text.
     }
 
     if (!suppressErrorLog) {

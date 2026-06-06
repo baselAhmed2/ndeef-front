@@ -42,7 +42,7 @@ type OrderStatus = "pending" | "accepted" | "ready_for_pickup" | "picked_up" | "
 
 const STEPS: { key: OrderStatus; label: string; desc: string }[] = [
   { key: "pending", label: "New", desc: "Waiting for you" },
-  { key: "accepted", label: "Assigned", desc: "Laundry admin assigned you" },
+  { key: "accepted", label: "Accepted", desc: "Waiting for laundry" },
   { key: "ready_for_pickup", label: "Ready", desc: "Pickup is unlocked" },
   { key: "picked_up", label: "Picked Up", desc: "On your way" },
   { key: "delivered", label: "Delivered", desc: "Done!" },
@@ -338,7 +338,7 @@ export default function CourierOrderDetail() {
   const delivered = status === "delivered";
   const cancelled = status === "cancelled";
   const done = delivered || cancelled;
-  const canCancel = status === "pending" || status === "accepted";
+  const canCancel = order.assignedToCurrentCourier && (status === "accepted" || status === "ready_for_pickup");
   const summaryCardClass = isDark
     ? "rounded-2xl border border-white/10 bg-[#102231] shadow-sm overflow-hidden"
     : "bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden";
@@ -464,9 +464,20 @@ export default function CourierOrderDetail() {
               <div className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3 bg-sky-50 border border-sky-100">
                 <Clock className="w-5 h-5 text-sky-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-bold text-sky-700">Order assigned to you by laundry admin</p>
+                  <p className="text-sm font-bold text-sky-700">Order accepted and waiting for pickup</p>
                   <p className="text-xs text-sky-600">
-                    This order is already assigned to you. Head to the laundry and wait until it becomes ready for pickup.
+                    This order is on your queue. Once the laundry marks it ready, you can confirm pickup from here.
+                  </p>
+                </div>
+              </div>
+            )}
+            {status === "pending" && (
+              <div className="mt-4 rounded-xl px-4 py-3 flex items-center gap-3 bg-amber-50 border border-amber-100">
+                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <p className="text-sm font-bold text-amber-800">This order is available for you to accept</p>
+                  <p className="text-xs text-amber-700">
+                    Accept it to lock it to your run, then head to the laundry when pickup is ready.
                   </p>
                 </div>
               </div>
