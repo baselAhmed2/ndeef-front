@@ -1643,6 +1643,9 @@ export async function getLaundryRequest(id: string | number) {
 export async function getLaundryBundlesRequest(laundryId: string | number) {
   const response = await request<CollectionResponse<BackendBundleDto>>(
     `/Bundles/laundry/${laundryId}`,
+    undefined,
+    undefined,
+    { suppressErrorLog: true },
   );
   return unwrapCollection(response).map(mapBundleDtoToUiBundle);
 }
@@ -1673,12 +1676,20 @@ export async function getLaundryServicesRequest(id: string | number) {
 export async function getLaundryReviewsRequest(id: string | number) {
   const response = await request<CollectionResponse<BackendReviewDto>>(
     `/Laundries/${id}/reviews`,
+    undefined,
+    undefined,
+    { suppressErrorLog: true },
   );
   return unwrapCollection(response);
 }
 
 export async function getLaundryRatingSummaryRequest(id: string | number) {
-  return request<BackendRatingSummaryDto>(`/Laundries/${id}/rating-summary`);
+  return request<BackendRatingSummaryDto>(
+    `/Laundries/${id}/rating-summary`,
+    undefined,
+    undefined,
+    { suppressErrorLog: true },
+  );
 }
 
 export async function placeBundleOrderRequest(
