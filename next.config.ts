@@ -3,7 +3,7 @@ import type { NextConfig } from 'next'
 const BACKEND_ORIGIN = (
   process.env.NEXT_PUBLIC_NDEEF_BACKEND_URL ??
   process.env.NDEEF_BACKEND_URL ??
-  'https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io'
+  'https://basel-ahmed-nazeef.hf.space'
 ).replace(/\/+$/, '')
 
 const nextConfig: NextConfig = {
