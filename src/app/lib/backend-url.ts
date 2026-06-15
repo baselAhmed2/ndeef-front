@@ -1,5 +1,5 @@
 const DEFAULT_BACKEND_ORIGIN =
-  "https://ndeefapp-api.icydune-2fcf3dd1.germanywestcentral.azurecontainerapps.io";
+  "https://basel-ahmed-nazeef.hf.space";
 
 function normalizeOrigin(value: string | undefined) {
   return (value?.trim() || DEFAULT_BACKEND_ORIGIN).replace(/\/+$/, "");

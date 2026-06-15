@@ -9,7 +9,7 @@ import { BACKEND_ORIGIN } from "@/app/lib/backend-url";
 const INPUT_RATE = 16000;
 const OUTPUT_RATE = 24000;
 const CHUNK_SAMPLES = 2048;
-const LEGACY_VOICE_WS_ORIGIN = "wss://ndeefapp.runasp.net";
+const LEGACY_VOICE_WS_ORIGIN = "wss://basel-ahmed-nazeef.hf.space";
 
 function float32ToPcm16(input: Float32Array, inputRate: number): Int16Array {
   if (inputRate === INPUT_RATE) {
